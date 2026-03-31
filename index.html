@@ -198,6 +198,10 @@ td.mono { font-family:'JetBrains Mono',monospace; font-size:12.5px; }
 tr.row-crit td { background:rgba(192,32,32,.055) !important; }
 tr.row-crit:hover td { background:rgba(192,32,32,.09) !important; }
 
+/* Baris kuning = gramasi di bawah standar HST */
+tr.row-gramasi-warn td { background:rgba(160,96,0,.055) !important; }
+tr.row-gramasi-warn:hover td { background:rgba(160,96,0,.10) !important; }
+
 /* pills */
 .pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
 .pill-ok   { background:var(--green-lt);  color:var(--green-txt); border:1px solid #b8dfc4; }
@@ -311,8 +315,8 @@ tr.row-crit:hover td { background:rgba(192,32,32,.09) !important; }
     <div class="error-banner" id="errBanner">
       <span style="font-size:20px">⚠️</span>
       <div>
-        <b>Gagal memuat data dari GAS</b><br>
-        <span id="errMsg">Pastikan GAS URL sudah benar dan di-deploy sebagai Web App.</span>
+        <b>Gagal memuat data dari Google Sheets</b><br>
+        <span id="errMsg">Pastikan GAS sudah di-deploy sebagai Web App dan GAS_URL sudah diisi.</span>
       </div>
     </div>
 
@@ -436,11 +440,10 @@ tr.row-crit:hover td { background:rgba(192,32,32,.09) !important; }
 
 <script>
 // ═══════════════════════════════════════════
-// KONFIGURASI — ganti URL GAS kamu di sini
+// KONFIGURASI — ganti dengan URL GAS kamu
+// Deploy GAS → copy URL → tempel di sini
 // ═══════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
-// contoh:
-// const GAS_URL = 'https://script.google.com/macros/s/AKfycbxXXXXXX/exec';
+const GAS_URL = 'GANTI_DENGAN_URL_GAS_KAMU';
 
 // Interval auto-refresh (ms) — default 5 menit
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -463,30 +466,33 @@ const CLUSTER_COLOR = {
 };
 
 // ─── STATUS HELPERS ───
-const isAktif       = r => r.hst < 69;
-const hasGramasi    = r => r.targetGramasi > 0;
-const isGramasiOk   = r => !hasGramasi(r) || r.avgGramasi >= r.targetGramasi;
-const isGramasiWarn = r => hasGramasi(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
-const isGramasiKrit = r => hasGramasi(r) && r.avgGramasi === 0;
-const isPopOk       = r => r.pctTarget >= 100;
-const isPopWarn     = r => r.pctTarget >= 90 && r.pctTarget < 100;
-const isPopBad      = r => r.pctTarget < 90;
-const isCrit        = r => isGramasiKrit(r) || (isPopBad(r) && r.pctTarget < 75);
+const isAktif        = r => r.hst < 69;
+const hasGramasi     = r => r.targetGramasi > 0;
+const isGramasiOk    = r => !hasGramasi(r) || r.avgGramasi >= r.targetGramasi;
+const isGramasiWarn  = r => hasGramasi(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
+const isGramasiKrit  = r => hasGramasi(r) && r.avgGramasi === 0;
+const isPopOk        = r => r.pctTarget >= 100;
+const isPopWarn      = r => r.pctTarget >= 90 && r.pctTarget < 100;
+const isPopBad       = r => r.pctTarget < 90;
+const isCrit         = r => isGramasiKrit(r) || (isPopBad(r) && r.pctTarget < 75);
+
+// Gramasi di bawah standar HST = row merah di tabel
+const isGramasiDiBawahStandar = r => hasGramasi(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
 
 const fmt = n => Number(n).toLocaleString('id-ID');
 
 // ─── FETCH DATA DARI GAS ───
 async function fetchData(manual = false) {
   if (!GAS_URL || GAS_URL.includes('GANTI')) {
-    showError('GAS_URL belum dikonfigurasi. Edit variabel GAS_URL di dalam script HTML.');
+    showError('GAS_URL belum dikonfigurasi. Tempel URL deployment GAS kamu di variabel GAS_URL.');
     return;
   }
 
   setLoadingState(true);
 
   try {
-    // GAS butuh no-cors workaround → pakai URL dengan ?menu=overview
-    const url = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'menu=overview&_t=' + Date.now();
+    // ?format=json → data JSON lengkap dengan summary
+    const url = GAS_URL + (GAS_URL.includes('?') ? '&' : '?') + 'format=json&_t=' + Date.now();
     const resp = await fetch(url);
 
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -494,29 +500,32 @@ async function fetchData(manual = false) {
     const json = await resp.json();
 
     if (json.error) throw new Error(json.error);
-    if (!json.data || !Array.isArray(json.data)) throw new Error('Format data tidak sesuai');
+    if (!json.data || !Array.isArray(json.data)) throw new Error('Format data tidak sesuai. Cek GAS sudah di-deploy dengan benar.');
 
-    // Transformasi data dari GAS → format internal
+    // Map data dari GAS → format internal
     RAW = json.data.map(r => ({
-      gh           : String(r.gh || '').trim(),
-      periode      : String(r.periode || '').trim(),
-      hst          : Number(r.hst) || 0,
-      tgl          : String(r.tgl || '').trim(),
-      popAwal      : Number(r.popAwal) || 0,
-      popAkhir     : Number(r.popAkhir) || 0,
-      targetPop    : Number(r.targetPop) || 0,
-      pctTarget    : Number(r.pctTarget) || 0,
-      avgGramasi   : Number(r.avgGramasi) || 0,
-      targetGramasi: Number(r.targetGramasi) || 0,
-      pctGramasi   : Number(r.pctGramasi) || 0,
-      stdRatio     : Number(r.stdRatio) || 0.9,
+      gh            : String(r.gh            || '').trim(),
+      periode       : String(r.periode       || '').trim(),
+      tgl           : String(r.tgl           || '').trim(),
+      tglAwalTanam  : String(r.tglAwalTanam  || '').trim(),
+      hst           : Number(r.hst)           || 0,
+      popAwal       : Number(r.popAwal)       || 0,
+      popAkhir      : Number(r.popAkhir)      || 0,
+      targetPop     : Number(r.targetPop)     || 0,
+      pctTarget     : Number(r.pctTarget)     || 0,
+      avgGramasi    : Number(r.avgGramasi)    || 0,   // = GRAMASI VARIAN terakhir
+      targetGramasi : Number(r.targetGramasi) || 0,   // = kolom Standar
+      pctGramasi    : Number(r.pctGramasi)    || 0,
+      sanitasi      : Number(r.sanitasi)      || 0,
+      stdRatio      : Number(r.stdRatio)      || 0.9,
     })).filter(r => r.gh !== '');
 
-    // Tampilkan info last updated
+    // Update badge Sanitasi & HPT di sidebar
+    const totalSan = RAW.reduce((s, r) => s + r.sanitasi, 0);
+    document.getElementById('sanBadge').textContent = totalSan;
+
     hideError();
     showUpdatedStrip(json.lastUpdated, RAW.length);
-
-    // Rebuild UI
     rebuild();
     setLoadingState(false, true);
     scheduleNextRefresh();
@@ -608,7 +617,7 @@ function renderStats(data) {
     ? `<b class="up">${withGr.length - grasBad} ✓ Ok</b> · <b class="down">${grasBad} di bawah target</b>`
     : 'Belum ada GH yang diukur';
 
-  document.getElementById('sanBadge').textContent = data.filter(isPopBad).length;
+  document.getElementById('sanBadge').textContent = RAW.reduce((s,r) => s + (r.sanitasi||0), 0);
   document.getElementById('hptBadge').textContent = data.filter(isCrit).length;
 }
 
@@ -654,15 +663,17 @@ function renderTable(data) {
     return;
   }
   document.getElementById('tBody').innerHTML = data.map((r, i) => {
-    const crit = isCrit(r);
-    const dot  = CLUSTER_COLOR[clusterOf(r.gh)] || '#999';
-    return `<tr class="${crit ? 'row-crit' : ''}">
+    const crit        = isCrit(r);
+    const grasBawah   = isGramasiDiBawahStandar(r);  // gramasi < standar → baris merah
+    const rowClass    = crit ? 'row-crit' : grasBawah ? 'row-gramasi-warn' : '';
+    const dot         = CLUSTER_COLOR[clusterOf(r.gh)] || '#999';
+    return `<tr class="${rowClass}">
       <td class="no-col">${i + 1}</td>
       <td>
         <div class="gh-name">
           <span class="gh-dot" style="background:${dot}"></span>${r.gh}
         </div>
-        <div class="cluster-tag">${clusterOf(r.gh)} · ${r.tgl || '—'}</div>
+        <div class="cluster-tag">${clusterOf(r.gh)} · ${r.tglAwalTanam || r.tgl || '—'}</div>
       </td>
       <td class="center mono" style="color:var(--text3)">${r.periode}</td>
       <td class="center"><span class="hst-badge">HST ${r.hst}</span></td>
