@@ -296,7 +296,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     <!-- UPDATED STRIP -->
     <div class="up-strip" id="upStrip">
-      <span>📡 Data dari Google Sheets · Diperbarui: <b id="upAt">—</b></span>
+      <span>📡 Data dari Google Sheets · Diperbarui: <b id="upAt">—</b> · <span id="dataDateInfo" style="font-weight:600">—</span></span>
       <span id="ghCnt" style="color:var(--text2);font-weight:600">—</span>
     </div>
 
@@ -504,7 +504,7 @@ function applyData(json) {
     sanitasi     : +r.sanitasi     || 0,
   })).filter(r => r.gh);
 
-  showUpStrip(json.lastUpdated, RAW.length);
+  showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
   rebuild();
 }
 
@@ -690,7 +690,7 @@ function showErr(msg) {
   document.getElementById('errBanner').classList.add('show');
 }
 function hideErr() { document.getElementById('errBanner').classList.remove('show'); }
-function showUpStrip(iso, cnt) {
+function showUpStrip(iso, cnt, dataDate, isFallback) {
   const s = document.getElementById('upStrip');
   s.classList.add('show');
   if (iso) {
@@ -700,6 +700,23 @@ function showUpStrip(iso, cnt) {
       d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   }
   document.getElementById('ghCnt').textContent = cnt + ' GH tercatat';
+
+  // Tampilkan info tanggal data + warning fallback
+  const dateEl = document.getElementById('dataDateInfo');
+  if (dateEl) {
+    if (isFallback && dataDate) {
+      // Format dataDate yyyy-MM-dd → dd/MM/yyyy
+      const parts = dataDate.split('-');
+      const fmt = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dataDate;
+      dateEl.innerHTML = `⚠️ Data hari ini belum tersedia · Menampilkan data terakhir: <b>${fmt}</b>`;
+      dateEl.style.color = 'var(--yellow)';
+    } else if (dataDate) {
+      const parts = dataDate.split('-');
+      const fmt = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : dataDate;
+      dateEl.innerHTML = `✅ Data hari ini: <b>${fmt}</b>`;
+      dateEl.style.color = 'var(--green)';
+    }
+  }
 }
 
 // ── CLOCK ──
