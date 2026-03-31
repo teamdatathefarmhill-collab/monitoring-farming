@@ -415,10 +415,11 @@ const clOf = gh => String(gh).split(' ')[0].toUpperCase();
 const CC = { TOHUDAN:'#1a5fa0', SAWAHAN:'#1a7a3a', COLOMADU:'#a06000', BERGAS:'#8b1515' };
 
 // ── STATUS HELPERS ──
-const hasGr   = r => r.targetGramasi > 0;
+const hasGr   = r => r.targetGramasi > 0 && r.avgGramasi !== -1;  // -1 = belum saatnya
 const grOk    = r => !hasGr(r) || r.avgGramasi >= r.targetGramasi;
 const grWarn  = r => hasGr(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
-const grKrit  = r => hasGr(r) && r.avgGramasi === 0;
+const grKrit  = r => hasGr(r) && r.avgGramasi === 0;  // sudah HST>=35 tapi belum ada gramasi
+const belumGr = r => r.avgGramasi === -1;              // HST < 35, belum saatnya
 const popOk   = r => r.pctTarget >= 100;
 const popWarn = r => r.pctTarget >= 90 && r.pctTarget < 100;
 const popBad  = r => r.pctTarget < 90;
@@ -553,18 +554,18 @@ function progBar(p) {
 }
 
 function avgCell(r) {
-  if (!hasGr(r))   return `<td class="av av-none r">—</td>`;
+  if (belumGr(r) || !hasGr(r)) return `<td class="av av-none r">—</td>`;
   if (grKrit(r))   return `<td class="av av-bad r">0 <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
   if (grWarn(r))   return `<td class="av av-w r">${Math.round(r.avgGramasi)}g <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
   return `<td class="av av-ok r">${Math.round(r.avgGramasi)}g</td>`;
 }
 
 function statusPill(r) {
-  if (grKrit(r))             return '<span class="pill p-b">⚠ Gramasi Kritis</span>';
-  if (r.pctTarget < 75)      return '<span class="pill p-b">⚠ Pop Kritis</span>';
-  if (grWarn(r))             return '<span class="pill p-w">Gramasi ↓</span>';
-  if (popWarn(r))            return '<span class="pill p-w">Pop Monitor</span>';
-  if (popBad(r))             return '<span class="pill p-w">Pop ↓</span>';
+  if (grKrit(r))        return '<span class="pill p-b">⚠ Gramasi Kritis</span>';
+  if (r.pctTarget < 75) return '<span class="pill p-b">⚠ Pop Kritis</span>';
+  if (grWarn(r))        return '<span class="pill p-w">Gramasi ↓</span>';
+  if (popWarn(r))       return '<span class="pill p-w">Pop Monitor</span>';
+  if (popBad(r))        return '<span class="pill p-w">Pop ↓</span>';
   return '<span class="pill p-ok">✓ On Track</span>';
 }
 
