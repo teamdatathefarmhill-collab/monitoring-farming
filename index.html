@@ -443,7 +443,7 @@ tr.row-gramasi-warn:hover td { background:rgba(160,96,0,.10) !important; }
 // KONFIGURASI — ganti dengan URL GAS kamu
 // Deploy GAS → copy URL → tempel di sini
 // ═══════════════════════════════════════════
-const GAS_URL = 'GANTI_DENGAN_URL_GAS_KAMU';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
 
 // Interval auto-refresh (ms) — default 5 menit
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -506,18 +506,23 @@ async function fetchData(manual = false) {
     RAW = json.data.map(r => ({
       gh            : String(r.gh            || '').trim(),
       periode       : String(r.periode       || '').trim(),
+      varian        : String(r.varian        || '').trim(),
       tgl           : String(r.tgl           || '').trim(),
       tglAwalTanam  : String(r.tglAwalTanam  || '').trim(),
       hst           : Number(r.hst)           || 0,
+      klasifikasi   : String(r.klasifikasi   || '—').trim(),
+      popAwalTanam  : Number(r.popAwalTanam) || 0,
       popAwal       : Number(r.popAwal)       || 0,
       popAkhir      : Number(r.popAkhir)      || 0,
       targetPop     : Number(r.targetPop)     || 0,
       pctTarget     : Number(r.pctTarget)     || 0,
-      avgGramasi    : Number(r.avgGramasi)    || 0,   // = GRAMASI VARIAN terakhir
-      targetGramasi : Number(r.targetGramasi) || 0,   // = kolom Standar
+      popRatio      : Number(r.popRatio)      || 0,
+      avgGramasi    : Number(r.avgGramasi)    || 0,
+      targetGramasi : Number(r.targetGramasi) || 0,
       pctGramasi    : Number(r.pctGramasi)    || 0,
       sanitasi      : Number(r.sanitasi)      || 0,
-      stdRatio      : Number(r.stdRatio)      || 0.9,
+      estPanen      : String(r.estPanen      || '').trim(),
+      musim         : String(r.musim         || '').trim(),
     })).filter(r => r.gh !== '');
 
     // Update badge Sanitasi & HPT di sidebar
@@ -673,7 +678,7 @@ function renderTable(data) {
         <div class="gh-name">
           <span class="gh-dot" style="background:${dot}"></span>${r.gh}
         </div>
-        <div class="cluster-tag">${clusterOf(r.gh)} · ${r.tglAwalTanam || r.tgl || '—'}</div>
+        <div class="cluster-tag">${r.klasifikasi} · ${r.varian || clusterOf(r.gh)} · ${r.tglAwalTanam || r.tgl || '—'}</div>
       </td>
       <td class="center mono" style="color:var(--text3)">${r.periode}</td>
       <td class="center"><span class="hst-badge">HST ${r.hst}</span></td>
