@@ -640,16 +640,23 @@ function applyData(json) {
   RAW.forEach(r => { rawByGH[r.gh] = r; });
   RAW_VARIAN = RAW_VARIAN.map(r => {
     const base = rawByGH[r.gh] || {};
+    // Simpan nilai varian dulu sebelum spread
+    const _avgGramasi     = r.avgGramasi;
+    const _kenaikanHarian = +r.kenaikanHarian || 0;
+    const _gramasiPrev    = +r.gramasiPrev    || 0;
+    const _lastUpdateGr   = r.lastUpdateGr;
+    const _varian         = r.varian;
     return {
-      ...base,          // inherit field GH (klasifikasi, popAkhir, targetGramasi dari GH, dll)
-      ...r,             // override: varian, avgGramasi, kenaikanHarian, lastUpdateGr, gramasiPrev
-      // pastikan field kritis dari varian tidak tertimpa
-      avgGramasi    : r.avgGramasi,
-      kenaikanHarian: r.kenaikanHarian,
-      gramasiPrev   : r.gramasiPrev || 0,
-      lastUpdateGr  : r.lastUpdateGr,
-      varian        : r.varian,
-      targetGramasi : 0,   // tidak ada target per varian
+      ...base,               // inherit field GH (klasifikasi, hst, periode, dll)
+      gh            : r.gh,
+      varian        : _varian,
+      hst           : r.hst || base.hst || 0,
+      periode       : r.periode || base.periode || '',
+      avgGramasi    : _avgGramasi,
+      kenaikanHarian: _kenaikanHarian,
+      gramasiPrev   : _gramasiPrev,
+      lastUpdateGr  : _lastUpdateGr,
+      targetGramasi : 0,     // tidak ada target per varian
     };
   });
 
@@ -959,8 +966,10 @@ function rebuildGramasi() {
           ? `<td class="c" style="font-size:11px;color:var(--text3)">${r.varian || '—'}</td>`
           : '';
 
-        // Gramasi
-        const grDisp = `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>`;
+        // Gramasi — jangan tampilkan target jika 0 (mode per varian)
+        const grDisp = r.targetGramasi > 0
+          ? `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>`
+          : `<td class="r mono" style="font-weight:700">${r.avgGramasi} g</td>`;
 
         // Kenaikan harian — dari GAS (selisih aktual antar hari, skip hari kosong)
         const ken     = r.kenaikanHarian || 0;
@@ -996,7 +1005,8 @@ function rebuildGramasi() {
       }).join('')
     : `<tr><td colspan="${colCount}" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
 
-  renderVarianChart(RAW.filter(hasGr));
+  // Kirim set GH aktif (sudah ter-filter oleh global filter On Track/Kritis/dll)
+  renderVarianChart(curGHs);
 }
 
 // helper round1 di sisi client (untuk avg kenaikan Per GH)
@@ -1084,42 +1094,41 @@ function setGrView(mode, el) {
 }
 
 // ── RENDER VARIAN BAR CHART ──
-function renderVarianChart(rows) {
+function renderVarianChart(activeGHs) {
   const el = document.getElementById('grVarianChart');
   if (!el) return;
 
-  // Always use ALL gramasi data regardless of current filter
-  const allRows = RAW.filter(hasGr);
+  // Filter RAW_VARIAN berdasarkan GH yang sedang aktif di view (respek filter GH)
+  const ghVal = document.getElementById('grFilterGH')?.value || '';
+  let source = RAW_VARIAN.filter(r => activeGHs.has(r.gh) && r.avgGramasi > 0);
+  if (ghVal) source = source.filter(r => r.gh === ghVal);
 
+  if (!source.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
+
+  // Group per varian, avg gramasi dari semua GH yang masuk filter
   const map = {};
-  allRows.forEach(r => {
+  source.forEach(r => {
     const v = r.varian || 'Tidak diketahui';
-    if (!map[v]) map[v] = { totalAvg: 0, totalTarget: 0, count: 0 };
-    map[v].totalAvg    += r.avgGramasi;
-    map[v].totalTarget += r.targetGramasi;
-    map[v].count++;
+    if (!map[v]) map[v] = { totalAvg: 0, ghSet: new Set() };
+    map[v].totalAvg += r.avgGramasi;
+    map[v].ghSet.add(r.gh);
   });
 
   const variants = Object.entries(map).map(([v, d]) => ({
-    varian: v,
-    avg   : Math.round(d.totalAvg / d.count),
-    target: Math.round(d.totalTarget / d.count),
-    count : d.count
+    varian : v,
+    avg    : Math.round(d.totalAvg / d.ghSet.size),
+    ghCount: d.ghSet.size,
   })).sort((a, b) => b.avg - a.avg);
 
-  if (!variants.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
-
-  const maxVal = Math.max(...variants.map(v => Math.max(v.avg, v.target))) * 1.08;
+  const maxVal = Math.max(...variants.map(v => v.avg)) * 1.08;
 
   el.innerHTML = variants.map(v => {
-    const avgPct = (v.avg    / maxVal * 100).toFixed(1);
-    const tgtPct = (v.target / maxVal * 100).toFixed(1);
-    const devPct = v.target ? ((v.avg - v.target) / v.target * 100) : 0;
-    const devStr = devPct >= 0 ? `+${devPct.toFixed(1)}%` : `${devPct.toFixed(1)}%`;
-    const devCol = devPct >= 0 ? 'var(--green)' : 'var(--red)';
-    const barCol = devPct >= 0
+    const avgPct = (v.avg / maxVal * 100).toFixed(1);
+    // Warna bar berdasarkan ukuran relatif: bar terbesar = hijau/kuning, terkecil = merah
+    const rank   = variants.indexOf(v);
+    const barCol = rank === 0
       ? 'linear-gradient(90deg,var(--green),var(--green-mid))'
-      : devPct > -25
+      : rank < variants.length - 1
         ? 'linear-gradient(90deg,#7a4800,#c87800)'
         : 'linear-gradient(90deg,#7a1010,var(--red))';
 
@@ -1127,32 +1136,26 @@ function renderVarianChart(rows) {
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
         <div style="font-size:12.5px;font-weight:700;color:var(--text)">
           ${v.varian}
-          <span style="font-size:10px;font-weight:400;color:var(--text4);margin-left:4px">${v.count} GH</span>
+          <span style="font-size:10px;font-weight:400;color:var(--text4);margin-left:4px">${v.ghCount} GH</span>
         </div>
-        <div style="font-size:11.5px;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;gap:10px">
-          <span style="color:var(--text2);font-weight:700">${v.avg} g</span>
-          <span style="color:var(--text4)">vs target ${v.target} g</span>
-          <span style="font-weight:700;color:${devCol}">${devStr}</span>
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
-        <div style="font-size:9px;font-weight:600;color:var(--text4);width:38px;text-align:right;letter-spacing:.5px">AVG</div>
-        <div style="flex:1;height:20px;background:var(--bg);border-radius:5px;position:relative">
-          <div style="height:100%;width:${avgPct}%;background:${barCol};border-radius:5px;transition:width .9s cubic-bezier(.22,1,.36,1)"></div>
-          <div style="position:absolute;top:-3px;bottom:-3px;left:${tgtPct}%;width:2px;background:rgba(0,0,0,.35);border-radius:1px;z-index:2" title="Target: ${v.target}g"></div>
+        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text2)">
+          ${v.avg} g
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <div style="font-size:9px;font-weight:600;color:var(--text4);width:38px;text-align:right;letter-spacing:.5px">TARGET</div>
-        <div style="flex:1;height:7px;background:var(--bg);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${tgtPct}%;background:var(--border2);border-radius:4px"></div>
+        <div style="font-size:9px;font-weight:600;color:var(--text4);width:38px;text-align:right;letter-spacing:.5px">AVG</div>
+        <div style="flex:1;height:20px;background:var(--bg);border-radius:5px;position:relative">
+          <div style="height:100%;width:${avgPct}%;background:${barCol};border-radius:5px;transition:width .9s cubic-bezier(.22,1,.36,1)"></div>
         </div>
       </div>
     </div>`;
   }).join('');
 
   const sub = document.getElementById('grVarianChartSub');
-  if (sub) sub.textContent = `${variants.length} varian · data dari ${allRows.length} GH yang diukur`;
+  if (sub) {
+    const totalGH = new Set(source.map(r => r.gh)).size;
+    sub.textContent = `${variants.length} varian · data dari ${totalGH} GH yang diukur`;
+  }
 }
 
 // ── FILTER & SEARCH ──
