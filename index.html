@@ -258,7 +258,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item soon"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag">soon</span></div>
-    <div class="nav-item soon"><span class="nav-icon">🐛</span> HPT <span class="soon-tag">soon</span></div>
+    <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
 
     <div class="nav-section">Laporan</div>
     <div class="nav-item soon"><span class="nav-icon">🌾</span> Semai <span class="soon-tag">soon</span></div>
@@ -502,6 +502,115 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div style="padding:16px 20px" id="grVarianChart"><div class="es">Memuat…</div></div>
       </div>
     </div>
+
+    <!-- ═══════════ VIEW: HPT ═══════════ -->
+    <div id="view-hpt" style="display:none;">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🐛 Monitoring HPT</div>
+          <div class="ph-sub" id="pgSubHpt">Menghubungkan ke Google Sheets…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="si" id="hptGHFilter" onchange="rebuildHpt()" style="width:170px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+          <select class="si" id="hptDateFilter" onchange="rebuildHpt()" style="width:145px;padding-left:10px;background-image:none"><option value="">Semua Tanggal</option></select>
+          <button class="fbtn" onclick="fetchHpt(true)">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="up-strip" id="hptUpStrip">
+        <span>📡 Data HPT dari Google Sheets · Diperbarui: <b id="hptUpAt">—</b></span>
+        <span id="hptCnt" style="color:var(--text2);font-weight:600">— entri</span>
+      </div>
+      <!-- STAT CARDS -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px">
+        <div class="sc g">
+          <div class="sc-lbl">Entri Terbaru</div>
+          <div class="sc-val g" id="hptSc1" style="font-size:20px;line-height:1.2">—</div>
+          <div class="sc-note" id="hptSc1n">Tanggal input terakhir</div>
+        </div>
+        <div class="sc b">
+          <div class="sc-lbl">GH Terpantau</div>
+          <div class="sc-val b" id="hptSc2">—</div>
+          <div class="sc-note" id="hptSc2n">GH dengan data HPT</div>
+        </div>
+        <div class="sc">
+          <div class="sc-lbl">Avg PM Intensitas</div>
+          <div class="sc-val" id="hptSc3" style="color:#7b2d8b">—</div>
+          <div class="sc-note" id="hptSc3n">Rata-rata semua GH</div>
+        </div>
+        <div class="sc">
+          <div class="sc-lbl">Avg DM Intensitas</div>
+          <div class="sc-val" id="hptSc4" style="color:#1a6a8a">—</div>
+          <div class="sc-note" id="hptSc4n">Rata-rata semua GH</div>
+        </div>
+      </div>
+      <!-- TABEL -->
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📋 Rekap HPT per GH</div>
+            <div class="card-sub" id="hptTblSub">Data input terbaru per greenhouse</div>
+          </div>
+          <div class="sw" style="gap:8px">
+            <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+              <button class="fbtn active" id="hptTabHama"     onclick="setHptTab('hama',this)"     style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🦟 Hama</button>
+              <button class="fbtn"        id="hptTabPenyakit" onclick="setHptTab('penyakit',this)" style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🍂 Penyakit</button>
+            </div>
+            <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:150px">
+          </div>
+        </div>
+        <div id="hptViewHama" class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th><th>Greenhouse</th>
+              <th class="c">Tgl Input</th><th class="c">Oleh</th>
+              <th class="r">Kutu Kebul</th><th class="r">Thrips</th>
+              <th class="r">Ulat/Kupu²</th><th class="r">Tungau/Daun</th>
+              <th class="r">Tikus</th><th class="r">Aphids</th>
+              <th class="r">Ulat Kompos</th><th class="r">Kutu Putih</th>
+              <th class="c">Risiko</th>
+            </tr></thead>
+            <tbody id="hptBodyHama"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+        <div id="hptViewPenyakit" class="tw" style="display:none">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th><th>Greenhouse</th>
+              <th class="c">Tgl Input</th><th class="c">Oleh</th>
+              <th class="r">PM Insidensi (%)</th><th class="r">PM Intensitas (%)</th>
+              <th class="r">DM Insidensi (%)</th><th class="r">DM Intensitas (%)</th>
+              <th class="r">GSB</th><th class="c">Risiko</th>
+            </tr></thead>
+            <tbody id="hptBodyPenyakit"><tr><td colspan="10" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <!-- BOTTOM GRID: CARDS + ALERTS -->
+      <div class="bg2">
+        <div class="card">
+          <div class="card-hd">
+            <div><div class="card-title">🌿 Greenhouse Health Cards</div>
+            <div class="card-sub" id="hptCardSub">Status serangan per GH · data terbaru</div></div>
+            <div style="display:flex;gap:5px">
+              <span class="pill p-ok" style="font-size:9.5px">Low Risk</span>
+              <span class="pill p-w"  style="font-size:9.5px">Medium</span>
+              <span class="pill p-b"  style="font-size:9.5px">High Risk</span>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px" id="hptCards">
+            <div class="es" style="grid-column:1/-1">Memuat…</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <div><div class="card-title">🚨 Alert HPT</div>
+            <div class="card-sub">GH dengan serangan tinggi — perlu penanganan segera</div></div>
+            <span class="pill p-b" id="hptAlertBadge">—</span>
+          </div>
+          <div id="hptAlertList"><div class="es">Memuat…</div></div>
+        </div>
+      </div>
+    </div><!-- /view-hpt -->
 
   </main>
 </div>
@@ -1247,6 +1356,437 @@ function tick() {
   const wk = n.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   document.getElementById('clk').textContent = `${hr}, ${tg} · ${wk}`;
 }
+
+// ══════════════════════════════════════════════════════════════
+//  HPT MODULE
+//  Fetch dari Google Sheet "Form Responses 1" via Google Apps Script
+//  URL GAS HPT — ganti dengan URL deployment GAS sheet HPT kamu
+// ══════════════════════════════════════════════════════════════
+const HPT_SHEET_ID  = '1xDLyY6ZtXabQ0TiVfoEeIBG3kYO1zoL7G-AKU2oa24U';
+const HPT_GID       = '26691770';
+const HPT_CSV_URL   = `https://docs.google.com/spreadsheets/d/${HPT_SHEET_ID}/export?format=csv&gid=${HPT_GID}`;
+
+let RAW_HPT = []; // parsed & computed rows
+let HPT_TAB = 'hama'; // aktif tab
+
+// ── FETCH HPT ──
+async function fetchHpt(manual = false) {
+  if (!manual) {
+    const cached   = localStorage.getItem('ft_hpt_cache');
+    const cachedAt = parseInt(localStorage.getItem('ft_hpt_cache_ts') || '0');
+    if (cached && Date.now() - cachedAt < REFRESH_MS) {
+      try { applyHpt(JSON.parse(cached)); return; } catch(_) {}
+    }
+  }
+  try {
+    const resp = await fetch(HPT_CSV_URL + '&_t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const rows = parseCSV(text);
+    const data = computeHpt(rows);
+    localStorage.setItem('ft_hpt_cache',    JSON.stringify(data));
+    localStorage.setItem('ft_hpt_cache_ts', Date.now().toString());
+    applyHpt(data);
+  } catch(e) {
+    document.getElementById('pgSubHpt').textContent = '⚠ Gagal memuat data HPT: ' + e.message;
+    console.error('[HPT]', e);
+  }
+}
+
+// ── PARSE CSV ──
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const header = splitCSVRow(lines[0]);
+  return lines.slice(1).map(l => {
+    const cells = splitCSVRow(l);
+    const o = {};
+    header.forEach((h, i) => { o[h.trim()] = (cells[i] || '').trim(); });
+    return o;
+  });
+}
+
+function splitCSVRow(row) {
+  const r = []; let cur = '', inQ = false;
+  for (let i = 0; i < row.length; i++) {
+    const c = row[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { r.push(cur); cur = ''; }
+    else { cur += c; }
+  }
+  r.push(cur);
+  return r;
+}
+
+// ── HITUNG PM/DM INTENSITAS (R formula) ──
+function hitungIntensitas(s1, s2, s3, s4) {
+  const scores = [+s1||0, +s2||0, +s3||0, +s4||0];
+  // Cari idx (1-based) dari skor max — sama dengan which.max di R
+  let idxMax = 0;
+  scores.forEach((v, i) => { if (v > scores[idxMax]) idxMax = i; });
+  const pembagi = 25 * (idxMax + 1); // 25 * idx (1-based)
+  if (!pembagi) return 0;
+  const intensitas = ((1*scores[0]) + (2*scores[1]) + (3*scores[2]) + (4*scores[3])) / pembagi * 100;
+  return Math.round(intensitas * 100) / 100;
+}
+
+function hitungInsidensi(val, total = 1300) {
+  const n = +val || 0;
+  return Math.round((n / total * 100) * 100) / 100;
+}
+
+// ── COMPUTE: normalise kolom & hitung intensitas ──
+// Kolom sheet (dari Google Form):
+// Timestamp, Email Address, GH,
+// Kutu kebul, Thrips, Ulat/Kupu-kupu, Tungau (per daun), Tikus, Aphids, Ulat Kompos, Kutu Putih,
+// PM (Insidensi), Skor 1 [PM], Skor 2 [PM], Skor 3 [PM], Skor 4 [PM],
+// DM (Insidensi), Skor 1 [DM], Skor 2 [DM], Skor 3 [DM], Skor 4 [DM], GSB
+
+function computeHpt(rows) {
+  return rows.map(r => {
+    // Cari kolom secara fleksibel (case insensitive, partial match)
+    const get = (...keys) => {
+      for (const key of keys) {
+        const k = Object.keys(r).find(col => col.toLowerCase().includes(key.toLowerCase()));
+        if (k) return r[k] || '0';
+      }
+      return '0';
+    };
+    const getExact = key => r[key] || '0';
+
+    // Kolom Skor — Google Form menghasilkan header "Skor 1", "Skor 2" dst
+    // Karena ada dua blok (PM & DM), Google Sheets biasanya memberi suffix ".1"
+    // Kita handle dengan mencari urutan kolom berdasarkan index
+    const keys    = Object.keys(r);
+    const tsPM    = keys.findIndex(k => k.toLowerCase().includes('pm (insidensi)'));
+    const tsDM    = keys.findIndex(k => k.toLowerCase().includes('dm (insidensi)'));
+
+    // PM Skor: 4 kolom setelah "PM (Insidensi)"
+    const pmS1 = tsPM >= 0 ? (+r[keys[tsPM+1]]||0) : 0;
+    const pmS2 = tsPM >= 0 ? (+r[keys[tsPM+2]]||0) : 0;
+    const pmS3 = tsPM >= 0 ? (+r[keys[tsPM+3]]||0) : 0;
+    const pmS4 = tsPM >= 0 ? (+r[keys[tsPM+4]]||0) : 0;
+
+    // DM Skor: 4 kolom setelah "DM (Insidensi)"
+    const dmS1 = tsDM >= 0 ? (+r[keys[tsDM+1]]||0) : 0;
+    const dmS2 = tsDM >= 0 ? (+r[keys[tsDM+2]]||0) : 0;
+    const dmS3 = tsDM >= 0 ? (+r[keys[tsDM+3]]||0) : 0;
+    const dmS4 = tsDM >= 0 ? (+r[keys[tsDM+4]]||0) : 0;
+
+    const pmInsidensiRaw = tsPM >= 0 ? (+r[keys[tsPM]]||0) : 0;
+    const dmInsidensiRaw = tsDM >= 0 ? (+r[keys[tsDM]]||0) : 0;
+
+    const pmIntensitas = hitungIntensitas(pmS1, pmS2, pmS3, pmS4);
+    const dmIntensitas = hitungIntensitas(dmS1, dmS2, dmS3, dmS4);
+    const pmInsidensi  = hitungInsidensi(pmInsidensiRaw);
+    const dmInsidensi  = hitungInsidensi(dmInsidensiRaw);
+
+    const gh = get('gh','greenhouse','nama gh') || '—';
+    let tgl  = get('timestamp','waktu');
+    // Ambil tanggal saja dari timestamp
+    if (tgl) {
+      const d = new Date(tgl);
+      if (!isNaN(d)) tgl = d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
+      else tgl = tgl.slice(0,10);
+    }
+
+    const email = get('email') || '—';
+    const alias = email.split('@')[0];
+
+    return {
+      gh, tgl, email, alias,
+      kutukebul  : +get('kutu kebul','kutukebul') || 0,
+      thrips     : +get('thrips')                 || 0,
+      ulat       : +get('ulat/kupu','ulat')       || 0,
+      tungau     : +get('tungau')                 || 0,
+      tikus      : +get('tikus')                  || 0,
+      aphids     : +get('aphids')                 || 0,
+      ulatkompos : +get('ulat kompos')            || 0,
+      kutukukih  : +get('kutu putih')             || 0,
+      pmInsidensi, pmIntensitas,
+      dmInsidensi, dmIntensitas,
+      gsb        : +get('gsb')                    || 0,
+    };
+  }).filter(r => r.gh && r.gh !== '—');
+}
+
+// ── APPLY HPT DATA ──
+function applyHpt(data) {
+  RAW_HPT = data;
+
+  // Update header strip
+  const now = new Date();
+  document.getElementById('hptUpAt').textContent =
+    now.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+    now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+  const strip = document.getElementById('hptUpStrip');
+  if (strip) strip.classList.add('show');
+  document.getElementById('hptCnt').textContent = data.length + ' entri';
+
+  // Populate GH filter
+  const ghSel = document.getElementById('hptGHFilter');
+  const ghList = [...new Set(data.map(r => r.gh))].sort();
+  const prevGH = ghSel.value;
+  ghSel.innerHTML = '<option value="">Semua GH</option>' +
+    ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
+
+  // Populate date filter
+  const dateSel = document.getElementById('hptDateFilter');
+  const dateList = [...new Set(data.map(r => r.tgl))].filter(Boolean).sort().reverse();
+  const prevDate = dateSel.value;
+  dateSel.innerHTML = '<option value="">Semua Tanggal</option>' +
+    dateList.map(d => `<option value="${d}" ${d===prevDate?'selected':''}>${d}</option>`).join('');
+
+  rebuildHpt();
+}
+
+// ── REBUILD HPT VIEW ──
+function rebuildHpt() {
+  const ghVal   = document.getElementById('hptGHFilter')?.value   || '';
+  const dateVal = document.getElementById('hptDateFilter')?.value || '';
+  const qHpt    = (document.getElementById('hptSearch')?.value || '').toLowerCase().trim();
+
+  let rows = [...RAW_HPT];
+  if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
+  if (dateVal) rows = rows.filter(r => r.tgl === dateVal);
+  if (qHpt)    rows = rows.filter(r => r.gh.toLowerCase().includes(qHpt));
+
+  // KPI Stats
+  const ghUniq = new Set(rows.map(r => r.gh)).size;
+  const avgPM  = rows.length ? rows.reduce((s,r)=>s+r.pmIntensitas,0)/rows.length : 0;
+  const avgDM  = rows.length ? rows.reduce((s,r)=>s+r.dmIntensitas,0)/rows.length : 0;
+  const lastTgl = rows.length ? [...rows].sort((a,b)=>b.tgl.localeCompare(a.tgl))[0].tgl : '—';
+
+  document.getElementById('hptSc1').textContent = lastTgl;
+  document.getElementById('hptSc1n').textContent = rows.length + ' entri';
+  document.getElementById('hptSc2').textContent = ghUniq;
+  document.getElementById('hptSc2n').textContent = 'dari ' + RAW_HPT.length + ' entri total';
+  document.getElementById('hptSc3').textContent = avgPM.toFixed(1) + '%';
+  document.getElementById('hptSc3n').textContent = 'PM · ' + rows.length + ' entri';
+  document.getElementById('hptSc4').textContent = avgDM.toFixed(1) + '%';
+  document.getElementById('hptSc4n').textContent = 'DM · ' + rows.length + ' entri';
+
+  // Page sub
+  const n = new Date();
+  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const pgEl = document.getElementById('pgSubHpt');
+  if (pgEl) pgEl.textContent = `Data HPT · ${hr}, ${tg} · ${rows.length} entri ditampilkan`;
+
+  renderHptTables(rows);
+  renderHptCards(rows);
+  renderHptAlerts(rows);
+
+  const subEl = document.getElementById('hptTblSub');
+  if (subEl) subEl.textContent = rows.length + ' entri ditampilkan · data terbaru per GH disorot';
+}
+
+// ── RISIKO HAMA ──
+function risikoHama(r) {
+  const max = Math.max(r.kutukebul, r.thrips, r.ulat, r.tungau, r.tikus, r.aphids, r.ulatkompos, r.kutukukih);
+  if (max >= 10) return 'high';
+  if (max >= 5)  return 'medium';
+  return 'low';
+}
+
+function risikoPenyakit(r) {
+  const maxI = Math.max(r.pmIntensitas, r.dmIntensitas);
+  const maxIn = Math.max(r.pmInsidensi, r.dmInsidensi);
+  if (maxI >= 25 || maxIn >= 25) return 'high';
+  if (maxI >= 10 || maxIn >= 10) return 'medium';
+  return 'low';
+}
+
+function risikoGlobal(r) {
+  const h = risikoHama(r), p = risikoPenyakit(r);
+  if (h === 'high' || p === 'high') return 'high';
+  if (h === 'medium' || p === 'medium') return 'medium';
+  return 'low';
+}
+
+const riskPill = lvl =>
+  lvl === 'high'   ? '<span class="pill p-b">⚠ High Risk</span>' :
+  lvl === 'medium' ? '<span class="pill p-w">Medium Risk</span>' :
+                     '<span class="pill p-ok">Low Risk</span>';
+
+// Warna angka hama berdasarkan ambang
+function hamaNum(val, warn=5, crit=10) {
+  if (!val) return `<span style="color:var(--text4)">0</span>`;
+  const c = val >= crit ? 'var(--red)' : val >= warn ? '#c87800' : 'var(--green)';
+  return `<span style="color:${c};font-weight:700">${val}</span>`;
+}
+
+function penyakitNum(val, warn=10, crit=25) {
+  if (!val) return `<span style="color:var(--text4)">0</span>`;
+  const c = val >= crit ? 'var(--red)' : val >= warn ? '#c87800' : 'var(--text)';
+  return `<span style="color:${c};font-weight:700">${val.toFixed(1)}%</span>`;
+}
+
+// ── RENDER TABEL ──
+function renderHptTables(rows) {
+  // Hama
+  const hamaBody = document.getElementById('hptBodyHama');
+  if (hamaBody) {
+    hamaBody.innerHTML = rows.length
+      ? rows.map((r,i) => {
+          const dot = CC[clOf(r.gh)] || '#999';
+          return `<tr>
+            <td class="no-col">${i+1}</td>
+            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
+            <td class="c" style="font-size:11px;color:var(--text3)">${r.alias}</td>
+            <td class="r">${hamaNum(r.kutukebul)}</td>
+            <td class="r">${hamaNum(r.thrips)}</td>
+            <td class="r">${hamaNum(r.ulat)}</td>
+            <td class="r">${hamaNum(r.tungau)}</td>
+            <td class="r">${hamaNum(r.tikus,2,5)}</td>
+            <td class="r">${hamaNum(r.aphids)}</td>
+            <td class="r">${hamaNum(r.ulatkompos)}</td>
+            <td class="r">${hamaNum(r.kutukukih)}</td>
+            <td class="c">${riskPill(risikoHama(r))}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="13" class="es">Tidak ada data hama sesuai filter</td></tr>';
+  }
+
+  // Penyakit
+  const penyakitBody = document.getElementById('hptBodyPenyakit');
+  if (penyakitBody) {
+    penyakitBody.innerHTML = rows.length
+      ? rows.map((r,i) => {
+          const dot = CC[clOf(r.gh)] || '#999';
+          return `<tr>
+            <td class="no-col">${i+1}</td>
+            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
+            <td class="c" style="font-size:11px;color:var(--text3)">${r.alias}</td>
+            <td class="r">${penyakitNum(r.pmInsidensi)}</td>
+            <td class="r">${penyakitNum(r.pmIntensitas)}</td>
+            <td class="r">${penyakitNum(r.dmInsidensi)}</td>
+            <td class="r">${penyakitNum(r.dmIntensitas)}</td>
+            <td class="r">${hamaNum(r.gsb,2,5)}</td>
+            <td class="c">${riskPill(risikoPenyakit(r))}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="10" class="es">Tidak ada data penyakit sesuai filter</td></tr>';
+  }
+}
+
+// ── RENDER HEALTH CARDS ──
+function renderHptCards(rows) {
+  const cardsEl = document.getElementById('hptCards');
+  if (!cardsEl) return;
+  if (!rows.length) { cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data</div>'; return; }
+
+  // Ambil entri terbaru per GH
+  const latestByGH = {};
+  rows.forEach(r => {
+    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+  });
+
+  // Hama icons
+  const hamaIcons = [
+    { key:'kutukebul', label:'Kutu Kebul', icon:'🦟' },
+    { key:'thrips',    label:'Thrips',     icon:'🐜' },
+    { key:'ulat',      label:'Ulat',       icon:'🐛' },
+    { key:'tungau',    label:'Tungau',     icon:'🕷' },
+    { key:'aphids',    label:'Aphids',     icon:'🦗' },
+  ];
+
+  cardsEl.innerHTML = Object.values(latestByGH).sort((a,b)=>a.gh.localeCompare(b.gh)).map(r => {
+    const lvl = risikoGlobal(r);
+    const borderColor = lvl==='high' ? 'var(--red)' : lvl==='medium' ? '#c87800' : 'var(--green-mid)';
+    const bgColor     = lvl==='high' ? 'rgba(192,32,32,.04)' : lvl==='medium' ? 'rgba(160,96,0,.04)' : 'rgba(26,122,58,.04)';
+    const dot = CC[clOf(r.gh)] || '#999';
+    const activeHama = hamaIcons.filter(h => r[h.key] > 0);
+    return `<div style="border:1.5px solid ${borderColor};border-radius:11px;padding:13px;background:${bgColor}">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <span style="font-size:12.5px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.gh}</span>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-family:'JetBrains Mono',monospace">${r.tgl||'—'}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
+        ${activeHama.length
+          ? activeHama.map(h => `<span title="${h.label}: ${r[h.key]}" style="font-size:13px;cursor:default">${h.icon}</span>`).join('')
+          : '<span style="font-size:10px;color:var(--text4)">Tidak ada hama</span>'}
+      </div>
+      <div style="display:flex;gap:5px;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:10px;color:#7b2d8b;font-weight:700">PM: ${r.pmIntensitas.toFixed(1)}%</span>
+        <span style="font-size:10px;color:#1a6a8a;font-weight:700">DM: ${r.dmIntensitas.toFixed(1)}%</span>
+      </div>
+      ${riskPill(lvl)}
+    </div>`;
+  }).join('');
+
+  const sub = document.getElementById('hptCardSub');
+  if (sub) sub.textContent = Object.keys(latestByGH).length + ' GH · data terbaru per GH';
+}
+
+// ── RENDER ALERTS ──
+function renderHptAlerts(rows) {
+  const alertEl    = document.getElementById('hptAlertList');
+  const alertBadge = document.getElementById('hptAlertBadge');
+  if (!alertEl) return;
+
+  // Ambil terbaru per GH
+  const latestByGH = {};
+  rows.forEach(r => {
+    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+  });
+
+  const alerts = [];
+  Object.values(latestByGH).forEach(r => {
+    const lvl = risikoGlobal(r);
+    if (lvl === 'high') {
+      const hamaCrit = [];
+      if (r.kutukebul>=10) hamaCrit.push(`Kutu Kebul (${r.kutukebul})`);
+      if (r.thrips>=10)    hamaCrit.push(`Thrips (${r.thrips})`);
+      if (r.ulat>=10)      hamaCrit.push(`Ulat (${r.ulat})`);
+      if (r.aphids>=10)    hamaCrit.push(`Aphids (${r.aphids})`);
+      if (r.pmIntensitas>=25) hamaCrit.push(`PM Intensitas ${r.pmIntensitas.toFixed(1)}%`);
+      if (r.dmIntensitas>=25) hamaCrit.push(`DM Intensitas ${r.dmIntensitas.toFixed(1)}%`);
+      alerts.push({ ico:'🔴', title:`${r.gh} — Serangan Tinggi`, desc: hamaCrit.join(' · ') || 'Serangan di atas ambang batas', tgl: r.tgl });
+    } else if (lvl === 'medium') {
+      alerts.push({ ico:'🟡', title:`${r.gh} — Perlu Monitoring`, desc:`Beberapa indikator HPT mendekati ambang batas · ${r.tgl}`, tgl: r.tgl });
+    }
+  });
+
+  alertBadge.textContent = alerts.length + ' aktif';
+  alertEl.innerHTML = alerts.length
+    ? alerts.map(a => `<div class="ai">
+        <span class="ai-ico">${a.ico}</span>
+        <div class="ai-body">
+          <div class="ai-title">${a.title}</div>
+          <div class="ai-desc">${a.desc}</div>
+        </div>
+      </div>`).join('')
+    : '<div class="es">✅ Tidak ada alert HPT aktif saat ini</div>';
+}
+
+// ── TAB SWITCH ──
+function setHptTab(tab, el) {
+  HPT_TAB = tab;
+  document.getElementById('hptViewHama').style.display    = tab === 'hama'     ? '' : 'none';
+  document.getElementById('hptViewPenyakit').style.display = tab === 'penyakit' ? '' : 'none';
+  document.querySelectorAll('#hptTabHama,#hptTabPenyakit').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+// Extend switchPage untuk HPT
+// ══════════════════════════════════════════════
+const _origSwitchPage = switchPage;
+switchPage = function(page) {
+  document.getElementById('view-hpt').style.display = page === 'hpt' ? 'block' : 'none';
+  if (page === 'hpt') {
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    const navHpt = document.getElementById('nav-hpt');
+    if (navHpt) navHpt.classList.add('active');
+    if (!RAW_HPT.length) fetchHpt(false);
+    return;
+  }
+  _origSwitchPage(page);
+};
 
 // ── INIT ──
 tick();
