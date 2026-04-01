@@ -427,7 +427,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
         <div class="sc y">
           <div class="sc-lbl">GH Performa Terbaik</div>
-          <div class="sc-val y" id="scGr2" style="font-size:22px"><span class="sk" style="width:100px;height:32px;display:inline-block"></span></div>
+          <div class="sc-val y" id="scGr2" style="font-size:18px;word-break:break-word"><span class="sk" style="width:100px;height:32px;display:inline-block"></span></div>
           <div class="sc-note" id="scGr2n"><span class="sk" style="width:130px;height:12px;display:inline-block;margin-top:4px"></span></div>
         </div>
       </div>
@@ -440,20 +440,32 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             <div class="card-sub" id="tblSubGr">Memuat data…</div>
           </div>
           <div class="sw" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <!-- View Mode Toggle -->
+            <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+              <button class="fbtn active" id="vmAll" onclick="setGrView('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Semua GH</button>
+              <button class="fbtn" id="vmGH"  onclick="setGrView('gh',this)"  style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per GH</button>
+              <button class="fbtn" id="vmVar" onclick="setGrView('varian',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per Varian</button>
+            </div>
             <!-- Tanggal update gramasi -->
             <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:5px 11px;font-size:11px;color:var(--text3)">
               🕐 Update: <b id="grLastUpdate" style="color:var(--text2)">—</b>
             </div>
             <!-- Filter Varian -->
-            <select class="si" id="grFilterVarian" onchange="rebuildGramasi()" style="width:130px;padding-left:10px;background-image:none">
-              <option value="">Semua Varian</option>
-            </select>
+            <div id="wrapFilterVarian">
+              <select class="si" id="grFilterVarian" onchange="rebuildGramasi()" style="width:130px;padding-left:10px;background-image:none">
+                <option value="">Semua Varian</option>
+              </select>
+            </div>
             <!-- Filter GH -->
-            <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
-              <option value="">Semua GH</option>
-            </select>
+            <div id="wrapFilterGH">
+              <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
+                <option value="">Semua GH</option>
+              </select>
+            </div>
             <!-- Search -->
-            <input class="si" type="text" id="srchGr" placeholder="Cari nama GH…" oninput="rebuildGramasi()" style="width:160px">
+            <div id="wrapSrchGr">
+              <input class="si" type="text" id="srchGr" placeholder="Cari nama GH…" oninput="rebuildGramasi()" style="width:160px">
+            </div>
           </div>
         </div>
         <div class="tw">
@@ -468,15 +480,27 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <th class="r">Avg Gramasi</th>
                 <th class="r">Target</th>
                 <th class="r">Kenaikan Harian</th>
+                <th class="c">Last Update</th>
                 <th class="r">Deviasi (%)</th>
                 <th class="c">Status</th>
               </tr>
             </thead>
             <tbody id="tBodyGr">
-              <tr><td colspan="10" class="es">Memuat…</td></tr>
+              <tr><td colspan="11" class="es">Memuat…</td></tr>
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- BAR CHART AVG GRAMASI PER VARIAN -->
+      <div class="card" id="grVarianChartCard">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📊 Rata-rata Gramasi per Varian</div>
+            <div class="card-sub" id="grVarianChartSub">Perbandingan avg gramasi vs target per varian</div>
+          </div>
+        </div>
+        <div style="padding:16px 20px" id="grVarianChart"><div class="es">Memuat…</div></div>
       </div>
     </div>
 
@@ -591,9 +615,11 @@ function applyData(json) {
     targetGramasi: +r.targetGramasi|| 0,
     pctGramasi   : +r.pctGramasi   || 0,
     sanitasi     : +r.sanitasi     || 0,
+    lastUpdateGr : String(r.lastUpdateGr || r.tglGramasi || '').trim(),
   })).filter(r => r.gh);
 
   showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
+  window._grDataDate = json.dataDate || '';
 
   // Update tanggal gramasi (gunakan lastUpdated atau dataDate)
   const grUpEl = document.getElementById('grLastUpdate');
@@ -757,7 +783,7 @@ function renderGramasi(d) {
   });
   document.getElementById('scGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
   document.getElementById('scGr4').textContent = wGr.length ? Math.round(avgPeriode) + ' g' : '—';
-  document.getElementById('scGr2').textContent = bestGH !== '—' ? shortName(bestGH) : '—';
+  document.getElementById('scGr2').textContent = bestGH !== '—' ? bestGH : '—';
   document.getElementById('scGr2n').innerHTML = wGr.length && bestDev > -999
     ? (bestDev >= 0 ? `Deviasi <b class="up">+${bestDev.toFixed(1)}%</b>` : `Deviasi <b class="dn">${bestDev.toFixed(1)}%</b>`)
     : '—';
@@ -821,11 +847,25 @@ function rebuildGramasi() {
           <td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>
           <td class="r mono" style="color:var(--text3)">${r.targetGramasi} g</td>
           <td class="r">${kenaikStr}</td>
+          <td class="c">${(() => {
+            let lu = r.lastUpdateGr;
+            if (!lu && window._grDataDate) lu = window._grDataDate;
+            if (!lu) return '<span style="color:var(--text4);font-size:11px">—</span>';
+            const p = lu.split('-');
+            const fmt2 = p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : lu;
+            return `<span class="mono" style="font-size:11px;color:var(--text3)">${fmt2}</span>`;
+          })()}</td>
           <td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>
           <td class="c">${statPill}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="10" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
+    : `<tr><td colspan="11" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
+
+  // Render varian bar chart always from full wGr (not filtered by single GH)
+  const wGrAll = (cur.length ? cur : RAW).filter(hasGr);
+  const varVal2 = document.getElementById('grFilterVarian')?.value || '';
+  const chartRows = varVal2 ? wGrAll.filter(r => r.varian === varVal2) : wGrAll;
+  renderVarianChart(chartRows);
 }
 
 function doSortGr(col) {
@@ -875,6 +915,108 @@ function switchPage(page) {
   if(document.getElementById('srchGr')) document.getElementById('srchGr').value = '';
   
   rebuild();
+}
+
+// ── GR VIEW MODE ──
+let grViewMode = 'all'; // 'all' | 'gh' | 'varian'
+
+function setGrView(mode, el) {
+  grViewMode = mode;
+  document.querySelectorAll('#vmAll,#vmGH,#vmVar').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+
+  const wGH  = document.getElementById('wrapFilterGH');
+  const wVar = document.getElementById('wrapFilterVarian');
+  const wSrch= document.getElementById('wrapSrchGr');
+  const ghSel  = document.getElementById('grFilterGH');
+  const varSel = document.getElementById('grFilterVarian');
+
+  if (mode === 'gh') {
+    wGH.style.display  = '';
+    wVar.style.display = 'none';
+    wSrch.style.display= 'none';
+    varSel.value = '';
+  } else if (mode === 'varian') {
+    wGH.style.display  = 'none';
+    wVar.style.display = '';
+    wSrch.style.display= 'none';
+    ghSel.value = '';
+  } else {
+    wGH.style.display  = '';
+    wVar.style.display = '';
+    wSrch.style.display= '';
+    ghSel.value  = '';
+    varSel.value = '';
+  }
+
+  rebuildGramasi();
+}
+
+// ── RENDER VARIAN BAR CHART ──
+function renderVarianChart(rows) {
+  const el = document.getElementById('grVarianChart');
+  if (!el) return;
+
+  // Group by varian
+  const map = {};
+  rows.forEach(r => {
+    const v = r.varian || 'Tidak diketahui';
+    if (!map[v]) map[v] = { totalAvg: 0, totalTarget: 0, count: 0 };
+    map[v].totalAvg    += r.avgGramasi;
+    map[v].totalTarget += r.targetGramasi;
+    map[v].count++;
+  });
+
+  const variants = Object.entries(map).map(([v, d]) => ({
+    varian: v,
+    avg: Math.round(d.totalAvg / d.count),
+    target: Math.round(d.totalTarget / d.count),
+    count: d.count
+  })).sort((a, b) => b.avg - a.avg);
+
+  if (!variants.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
+
+  const maxVal = Math.max(...variants.map(v => Math.max(v.avg, v.target))) * 1.1;
+
+  el.innerHTML = variants.map(v => {
+    const avgW = (v.avg / maxVal * 100).toFixed(1);
+    const tgtW = (v.target / maxVal * 100).toFixed(1);
+    const devPct = v.target ? ((v.avg - v.target) / v.target * 100) : 0;
+    const devStr = devPct >= 0 ? `+${devPct.toFixed(1)}%` : `${devPct.toFixed(1)}%`;
+    const devCol = devPct >= 0 ? 'var(--green)' : 'var(--red)';
+    const barCol = devPct >= 0 ? 'linear-gradient(90deg,var(--green),var(--green-mid))' : devPct > -20 ? 'linear-gradient(90deg,#7a4800,#c87800)' : 'linear-gradient(90deg,#7a1010,var(--red))';
+
+    return `<div style="margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px">
+        <div style="font-size:12px;font-weight:700;color:var(--text2)">${v.varian} <span style="font-size:10px;font-weight:400;color:var(--text4)">(${v.count} GH)</span></div>
+        <div style="font-size:11px;font-family:'JetBrains Mono',monospace">
+          <span style="font-weight:700;color:var(--text2)">${v.avg} g</span>
+          <span style="color:var(--text4)"> / target ${v.target} g</span>
+          <span style="font-weight:700;color:${devCol};margin-left:8px">${devStr}</span>
+        </div>
+      </div>
+      <!-- Avg bar -->
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <div style="font-size:9px;color:var(--text4);width:44px;text-align:right">Avg</div>
+        <div style="flex:1;height:18px;background:var(--bg);border-radius:5px;overflow:hidden;position:relative">
+          <div style="height:100%;width:${avgW}%;background:${barCol};border-radius:5px;transition:width .9s cubic-bezier(.22,1,.36,1)"></div>
+          <!-- Target marker -->
+          <div style="position:absolute;top:0;bottom:0;left:${tgtW}%;width:2px;background:rgba(0,0,0,.3)"></div>
+        </div>
+      </div>
+      <!-- Target bar -->
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="font-size:9px;color:var(--text4);width:44px;text-align:right">Target</div>
+        <div style="flex:1;height:8px;background:var(--bg);border-radius:5px;overflow:hidden">
+          <div style="height:100%;width:${tgtW}%;background:var(--border2);border-radius:5px"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Update subtitle
+  const sub = document.getElementById('grVarianChartSub');
+  if (sub) sub.textContent = `${variants.length} varian · data dari ${rows.length} GH yang diukur`;
 }
 
 // ── FILTER & SEARCH ──
