@@ -1419,20 +1419,38 @@ function rebuild() {
 // ── TAB SWITCHER ──
 function switchPage(page) {
   activePage = page;
-  document.getElementById('view-dashboard').style.display = page === 'dashboard' ? 'block' : 'none';
-  document.getElementById('view-gramasi').style.display = page === 'gramasi' ? 'block' : 'none';
-  
+
+  // Sembunyikan semua view dulu
+  ['view-dashboard','view-gramasi','view-hpt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  // Tampilkan view yang sesuai
+  const target = document.getElementById('view-' + page);
+  if (target) target.style.display = 'block';
+
+  // Update nav active state
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + page).classList.add('active');
-  
-  // reset filters
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+
+  // Reset filter & search saat pindah halaman
   document.querySelectorAll('.filter-row .fbtn').forEach(b => b.classList.remove('active'));
   document.querySelectorAll('.filter-row .fbtn:first-child').forEach(b => b.classList.add('active'));
   filt = 'semua'; q = '';
-  if(document.getElementById('srch')) document.getElementById('srch').value = '';
+  if(document.getElementById('srch'))   document.getElementById('srch').value = '';
   if(document.getElementById('srchGr')) document.getElementById('srchGr').value = '';
-  
-  rebuild();
+
+  if (page === 'dashboard' || page === 'gramasi') rebuild();
+  if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
+
+  if(document.getElementById('pgSub'))  {
+    const n = new Date();
+    const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+    const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    document.getElementById('pgSub').textContent = `Kondisi harian · ${hr}, ${tg} · ${RAW.length} GH tercatat`;
+  }
 }
 
 // ── GR VIEW MODE ──
@@ -2092,22 +2110,6 @@ function setHptTab(tab, el) {
   document.querySelectorAll('#hptTabHama,#hptTabPenyakit').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 }
-
-// ══════════════════════════════════════════════
-// Extend switchPage untuk HPT
-// ══════════════════════════════════════════════
-const _origSwitchPage = switchPage;
-switchPage = function(page) {
-  document.getElementById('view-hpt').style.display = page === 'hpt' ? 'block' : 'none';
-  if (page === 'hpt') {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const navHpt = document.getElementById('nav-hpt');
-    if (navHpt) navHpt.classList.add('active');
-    if (!RAW_HPT.length) fetchHpt(false);
-    return;
-  }
-  _origSwitchPage(page);
-};
 
 // ── INIT ──
 tick();
