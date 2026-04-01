@@ -256,7 +256,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
 
     <div class="nav-section">Menu</div>
-    <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item soon"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag">soon</span></div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
 
@@ -397,111 +396,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     </div>
     </div>
 
-    <!-- VIEW: GRAMASI -->
-    <div id="view-gramasi" style="display:none;">
-      <!-- PAGE HEADER -->
-      <div class="ph">
-        <div>
-          <div class="ph-title">Monitoring Gramasi</div>
-          <div class="ph-sub" id="pgSubGr">Menghubungkan ke Google Sheets…</div>
-        </div>
-        <div class="filter-row">
-          <button class="fbtn active" onclick="setFilter('semua',this)">Semua GH</button>
-          <button class="fbtn" onclick="setFilter('ontrack',this)">On Track</button>
-          <button class="fbtn" onclick="setFilter('bawah',this)">Di Bawah Std</button>
-          <button class="fbtn" onclick="setFilter('kritis',this)">Kritis</button>
-        </div>
-      </div>
-
-      <!-- STAT CARDS -->
-      <div class="stat-grid">
-        <div class="sc g">
-          <div class="sc-lbl">Avg Gramasi Keseluruhan</div>
-          <div class="sc-val g" id="scGr1"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr1n">Rata-rata dari GH aktif (diukur)</div>
-        </div>
-        <div class="sc b">
-          <div class="sc-lbl">Avg Gramasi per Periode</div>
-          <div class="sc-val b" id="scGr4"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr4n">Rata-rata target gramasi periode aktif</div>
-        </div>
-        <div class="sc y">
-          <div class="sc-lbl">GH Performa Terbaik</div>
-          <div class="sc-val y" id="scGr2" style="font-size:18px;word-break:break-word"><span class="sk" style="width:100px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr2n"><span class="sk" style="width:130px;height:12px;display:inline-block;margin-top:4px"></span></div>
-        </div>
-      </div>
-
-      <!-- TABEL UTAMA GRAMASI -->
-      <div class="card">
-        <div class="card-hd">
-          <div>
-            <div class="card-title">⚖️ Overview Gramasi per GH</div>
-            <div class="card-sub" id="tblSubGr">Memuat data…</div>
-          </div>
-          <div class="sw" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
-            <!-- View Mode Toggle -->
-            <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
-              <button class="fbtn active" id="vmAll" onclick="setGrView('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Semua GH</button>
-              <button class="fbtn" id="vmGH"  onclick="setGrView('gh',this)"  style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per GH</button>
-            </div>
-            <!-- Tanggal update gramasi -->
-            <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:5px 11px;font-size:11px;color:var(--text3)">
-              🕐 Update: <b id="grLastUpdate" style="color:var(--text2)">—</b>
-            </div>
-            <!-- Filter Varian -->
-            <div id="wrapFilterVarian">
-              <select class="si" id="grFilterVarian" onchange="rebuildGramasi()" style="width:130px;padding-left:10px;background-image:none">
-                <option value="">Semua Varian</option>
-              </select>
-            </div>
-            <!-- Filter GH -->
-            <div id="wrapFilterGH">
-              <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
-                <option value="">Semua GH</option>
-              </select>
-            </div>
-            <!-- Search -->
-            <div id="wrapSrchGr">
-              <input class="si" type="text" id="srchGr" placeholder="Cari nama GH…" oninput="rebuildGramasi()" style="width:160px">
-            </div>
-          </div>
-        </div>
-        <div class="tw">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:32px">#</th>
-                <th>Greenhouse</th>
-                <th class="c" id="th-varian">Varian</th>
-                <th class="c">Periode</th>
-                <th class="c" onclick="doSortGr('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
-                <th class="r">Avg Gramasi</th>
-                <th class="r" id="th-target">Target</th>
-                <th class="r">Kenaikan Harian</th>
-                <th class="c">Last Update</th>
-                <th class="r" id="th-deviasi">Deviasi (%)</th>
-                <th class="c" id="th-status">Status</th>
-              </tr>
-            </thead>
-            <tbody id="tBodyGr">
-              <tr><td colspan="11" class="es">Memuat…</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- BAR CHART AVG GRAMASI PER VARIAN -->
-      <div class="card" id="grVarianChartCard">
-        <div class="card-hd">
-          <div>
-            <div class="card-title">📊 Rata-rata Gramasi per Varian</div>
-            <div class="card-sub" id="grVarianChartSub">Perbandingan avg gramasi vs target per varian</div>
-          </div>
-        </div>
-        <div style="padding:16px 20px" id="grVarianChart"><div class="es">Memuat…</div></div>
-      </div>
-    </div>
 
     <!-- ═══════════ VIEW: HPT ═══════════ -->
     <div id="view-hpt" style="display:none;">
@@ -739,9 +633,6 @@ function fetchBackground() {
     }).catch(() => {});
 }
 
-// RAW_VARIAN: flat rows per GH × Varian (dari json.gramasiDetail)
-let RAW_VARIAN = [];
-
 function applyData(json) {
   RAW = json.data.map(r => ({
     gh           : String(r.gh           || '').trim(),
@@ -760,66 +651,9 @@ function applyData(json) {
     targetGramasi: +r.targetGramasi|| 0,
     pctGramasi   : +r.pctGramasi   || 0,
     sanitasi     : +r.sanitasi     || 0,
-    lastUpdateGr : String(r.lastUpdateGr || '').trim(),  // max tgl gramasi per GH dari GAS
   })).filter(r => r.gh);
 
-  // ── RAW_VARIAN: langsung dari json.gramasiDetail ──
-  RAW_VARIAN = Array.isArray(json.gramasiDetail)
-    ? json.gramasiDetail.map(r => ({
-        gh            : String(r.gh      || '').trim(),
-        periode       : String(r.periode || '').trim(),
-        hst           : +r.hst  || 0,
-        varian        : String(r.varian  || '').trim(),
-        avgGramasi    : +r.gramasi     || 0,
-        gramasiPrev   : +r.gramasiPrev || 0,
-        // null = belum ada data sebelumnya, angka = selisih aktual (bisa negatif/0/positif)
-        kenaikanHarian: (r.kenaikanHarian === null || r.kenaikanHarian === undefined) ? null : +r.kenaikanHarian,
-        lastUpdateGr  : String(r.tgl || '').trim(),
-        targetGramasi : 0,
-      })).filter(r => r.gh && r.avgGramasi > 0)
-    : [];
-
-  // Enrich RAW_VARIAN dengan field dari RAW induknya, pastikan field varian tidak tertimpa
-  const rawByGH = {};
-  RAW.forEach(r => { rawByGH[r.gh] = r; });
-  RAW_VARIAN = RAW_VARIAN.map(r => {
-    const base = rawByGH[r.gh] || {};
-    // Simpan nilai varian dulu sebelum spread
-    const _avgGramasi     = r.avgGramasi;
-    const _kenaikanHarian = (r.kenaikanHarian === null || r.kenaikanHarian === undefined) ? null : +r.kenaikanHarian;
-    const _gramasiPrev    = +r.gramasiPrev    || 0;
-    const _lastUpdateGr   = r.lastUpdateGr;
-    const _varian         = r.varian;
-    return {
-      ...base,               // inherit field GH (klasifikasi, hst, periode, dll)
-      gh            : r.gh,
-      varian        : _varian,
-      hst           : r.hst || base.hst || 0,
-      periode       : r.periode || base.periode || '',
-      avgGramasi    : _avgGramasi,
-      kenaikanHarian: _kenaikanHarian,
-      gramasiPrev   : _gramasiPrev,
-      lastUpdateGr  : _lastUpdateGr,
-      targetGramasi : 0,     // tidak ada target per varian
-    };
-  });
-
   showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
-  window._grDataDate = json.dataDate || '';
-
-  const grUpEl = document.getElementById('grLastUpdate');
-  if (grUpEl) {
-    if (json.dataDate) {
-      const p = json.dataDate.split('-');
-      grUpEl.textContent = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : json.dataDate;
-    } else if (json.lastUpdated) {
-      const d = new Date(json.lastUpdated);
-      grUpEl.textContent = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-    } else {
-      grUpEl.textContent = '—';
-    }
-  }
-
   rebuild();
 }
 
@@ -951,239 +785,17 @@ function renderBar(d) {
     : '<div class="es">Tidak ada data</div>';
 }
 
-// ── RENDER GRAMASI PAGE ──
-let grSortCol = 'hst', grSortAsc = true;
-
+// ── fmtTgl helper (dipakai juga oleh HPT) ──
 function fmtTgl(tgl) {
   if (!tgl) return '—';
   const p = String(tgl).trim().split('-');
   return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(tgl);
 }
 
-// Max tanggal gramasi aktual untuk satu GH
-// GAS v8 sudah kirim lastUpdateGr per GH di json.data → pakai langsung
-// RAW_VARIAN dipakai sebagai fallback jika field kosong
-function maxTglGH(gh) {
-  // Cek dari RAW dulu (sudah di-set oleh GAS v8)
-  const raw = RAW.find(r => r.gh === gh);
-  if (raw && raw.lastUpdateGr) return raw.lastUpdateGr;
-  // Fallback: cari max tgl dari RAW_VARIAN
-  const rows = RAW_VARIAN.filter(r => r.gh === gh && r.lastUpdateGr);
-  if (!rows.length) return '';
-  return rows.reduce((max, r) => r.lastUpdateGr > max ? r.lastUpdateGr : max, '');
-}
-
-function renderGramasi(d) {
-  const wGr = d.filter(hasGr);
-
-  // ── KPI CARDS ──
-  const avgGes     = wGr.length ? wGr.reduce((s,r) => s + r.avgGramasi, 0) / wGr.length : 0;
-  const avgPeriode = wGr.length ? wGr.reduce((s,r) => s + r.targetGramasi, 0) / wGr.length : 0;
-  let bestGH = '—', bestDev = -999;
-  wGr.forEach(r => {
-    const dev = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : -999;
-    if (dev > bestDev) { bestDev = dev; bestGH = r.gh; }
-  });
-  document.getElementById('scGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
-  document.getElementById('scGr4').textContent = wGr.length ? Math.round(avgPeriode) + ' g' : '—';
-  document.getElementById('scGr2').textContent = bestGH !== '—' ? bestGH : '—';
-  document.getElementById('scGr2n').innerHTML  = wGr.length && bestDev > -999
-    ? (bestDev >= 0 ? `Deviasi <b class="up">+${bestDev.toFixed(1)}%</b>` : `Deviasi <b class="dn">${bestDev.toFixed(1)}%</b>`)
-    : '—';
-
-  // ── POPULATE DROPDOWNS ──
-  const ghSel  = document.getElementById('grFilterGH');
-  const varSel = document.getElementById('grFilterVarian');
-  const prevGH = ghSel.value, prevVar = varSel.value;
-  const ghList  = [...new Set(wGr.map(r => r.gh))].sort();
-  const varList = [...new Set(
-    (RAW_VARIAN.length ? RAW_VARIAN : wGr).map(r => r.varian).filter(Boolean)
-  )].sort();
-  ghSel.innerHTML  = '<option value="">Semua GH</option>'     + ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
-  varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v => `<option value="${v}" ${v===prevVar?'selected':''}>${v}</option>`).join('');
-
-  rebuildGramasi();
-}
-
-function rebuildGramasi() {
-  const mode   = grViewMode; // 'all' | 'gh'
-  const ghVal  = document.getElementById('grFilterGH')?.value  || '';
-  const varVal = document.getElementById('grFilterVarian')?.value || '';
-  const qGr    = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
-
-  // ── Column visibility ──
-  // 'all' (Semua GH) : Varian✓  Target✓  Deviasi✓  Status✓
-  // 'gh'  (Per GH)   : Varian✗  Target✓  Deviasi✓  Status✓
-  const showVarian = (mode === 'all');
-
-  const thV = document.getElementById('th-varian');
-  const thT = document.getElementById('th-target');
-  const thD = document.getElementById('th-deviasi');
-  const thS = document.getElementById('th-status');
-  if (thV) thV.style.display = showVarian ? '' : 'none';
-  if (thT) thT.style.display = '';
-  if (thD) thD.style.display = '';
-  if (thS) thS.style.display = '';
-
-  // Set aktif GH list dari cur (untuk filter global On Track / Kritis dll)
-  const curGHs = new Set((cur.length ? cur : RAW).map(r => r.gh));
-
-  let rows;
-
-  if (mode === 'all') {
-    // ── Semua GH: satu baris per GH × Varian dari RAW_VARIAN ──
-    rows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
-    if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
-    if (varVal) rows = rows.filter(r => r.varian === varVal);
-    if (qGr)    rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
-    rows.sort((a, b) => grSortAsc ? a.hst - b.hst : b.hst - a.hst);
-
-  } else {
-    // ── Per GH: akumulasi/avg dari semua varian di GH tersebut ──
-    // Sumber: RAW_VARIAN di-group per GH, avg gramasi, sum kenaikan
-    const ghMap = {};
-    RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0).forEach(r => {
-      const key = r.gh;
-      if (!ghMap[key]) {
-        ghMap[key] = {
-          ...r,
-          _grSum: 0, _tgtSum: 0, _kenaikanSum: 0, _prevSum: 0,
-          _cnt: 0, _kenCnt: 0, _maxTgl: '',  // _kenCnt: hanya hitung varian yang punya data prev
-        };
-      }
-      ghMap[key]._grSum   += r.avgGramasi;
-      ghMap[key]._tgtSum  += (r.targetGramasi || 0);
-      ghMap[key]._prevSum += (r.gramasiPrev   || 0);
-      ghMap[key]._cnt++;
-      // Hanya akumulasi kenaikan jika ada data (bukan null)
-      if (r.kenaikanHarian !== null && r.kenaikanHarian !== undefined) {
-        ghMap[key]._kenaikanSum += r.kenaikanHarian;
-        ghMap[key]._kenCnt++;
-      }
-      if (r.lastUpdateGr && r.lastUpdateGr > ghMap[key]._maxTgl) {
-        ghMap[key]._maxTgl = r.lastUpdateGr;
-      }
-    });
-
-    // Fallback: jika RAW_VARIAN kosong untuk GH ini, pakai RAW langsung
-    (cur.length ? cur : RAW).filter(r => curGHs.has(r.gh) && hasGr(r)).forEach(r => {
-      if (ghMap[r.gh]) return;
-      ghMap[r.gh] = {
-        ...r,
-        _grSum: r.avgGramasi, _tgtSum: r.targetGramasi,
-        _kenaikanSum: r.kenaikanHarian || 0, _prevSum: r.gramasiPrev || 0, _cnt: 1,
-        _maxTgl: r.lastUpdateGr || '',
-      };
-    });
-
-    rows = Object.values(ghMap).map(r => ({
-      ...r,
-      varian        : '',
-      avgGramasi    : r._cnt > 0 ? Math.round(r._grSum / r._cnt) : 0,
-      targetGramasi : r._cnt > 0 ? Math.round(r._tgtSum / r._cnt) : 0,
-      kenaikanHarian: r._kenCnt > 0 ? round1(r._kenaikanSum / r._kenCnt) : null,
-      gramasiPrev   : r._cnt > 0 ? Math.round(r._prevSum / r._cnt) : 0,
-      lastUpdateGr  : r._maxTgl || maxTglGH(r.gh),
-    }));
-    if (ghVal) rows = rows.filter(r => r.gh === ghVal);
-    if (qGr)   rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
-    rows.sort((a, b) => grSortAsc ? a[grSortCol] - b[grSortCol] : b[grSortCol] - a[grSortCol]);
-  }
-
-  // ── Subtitle ──
-  const subEl = document.getElementById('tblSubGr');
-  if (subEl) {
-    const misleadingCount = rows.filter(r => r.gramasiPrev > 0 && r.avgGramasi < r.gramasiPrev).length;
-    const misleadingNote  = misleadingCount > 0
-      ? ` · <span style="color:#856404;font-weight:700">⚠ ${misleadingCount} perlu dicek input</span>`
-      : '';
-    subEl.innerHTML = (mode === 'all'
-      ? `${rows.length} baris (per GH × Varian) · diurutkan HST`
-      : `${rows.length} GH ditampilkan · diurutkan HST`) + misleadingNote;
-  }
-
-  const colCount = 9 + (showVarian ? 1 : 0);
-
-  document.getElementById('tBodyGr').innerHTML = rows.length
-    ? rows.map((r, i) => {
-        const dot = CC[clOf(r.gh)] || '#999';
-
-        // Last update dari field GAS (bukan today)
-        const lu     = r.lastUpdateGr || '';
-        const luDisp = lu
-          ? `<span class="mono" style="font-size:11px;color:var(--text2);font-weight:600">${fmtTgl(lu)}</span>`
-          : `<span style="color:var(--text4);font-size:11px">—</span>`;
-
-        // Varian cell (hanya mode all)
-        const varCell = showVarian
-          ? `<td class="c" style="font-size:11px;color:var(--text3)">${r.varian || '—'}</td>`
-          : '';
-
-        // Gramasi — jangan tampilkan target jika 0 (mode per varian)
-        // Flag ⚠ jika avgGramasi < gramasiPrev (kemungkinan salah input)
-        const misleading = r.gramasiPrev > 0 && r.avgGramasi < r.gramasiPrev;
-        const misleadingBadge = misleading
-          ? `<span title="Avg gramasi lebih rendah dari hari sebelumnya (${r.gramasiPrev}g → ${r.avgGramasi}g). Kemungkinan salah input." style="display:inline-flex;align-items:center;gap:3px;background:#fff3cd;border:1px solid #ffc107;color:#856404;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;cursor:help">⚠ Cek Input</span>`
-          : '';
-        const grDisp = r.targetGramasi > 0
-          ? `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span>${misleadingBadge}</td>`
-          : `<td class="r mono" style="font-weight:700">${r.avgGramasi} g${misleadingBadge}</td>`;
-
-        // Kenaikan harian — null = belum ada data prev, 0/negatif = tidak valid → tampil —
-        // Gramasi buah tidak mungkin turun; diff negatif = kemungkinan salah input
-        const ken     = r.kenaikanHarian;
-        const kenPrev = r.gramasiPrev || 0;
-        let kenaikStr;
-        if (ken === null || ken === undefined || ken <= 0) {
-          kenaikStr = `<span style="color:var(--text4);font-size:11px">—</span>`;
-        } else {
-          const kenPct = kenPrev > 0 ? (ken / kenPrev * 100) : 0;
-          kenaikStr = `<span class="mono" style="font-size:12px;color:var(--text2)">+${ken.toFixed(1)} g/hari</span><br><span style="font-size:10px;color:var(--green)">+${kenPct.toFixed(1)}%</span>`;
-        }
-
-        // Deviasi vs target
-        const devVal  = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
-        const devStr  = devVal > 0 ? `+${devVal.toFixed(1)}%` : `${devVal.toFixed(1)}%`;
-        const devCol  = devVal >= 0 ? 'var(--green)' : 'var(--red)';
-
-        // Status
-        const statPill = devVal >= 0
-          ? '<span class="pill p-ok">✓ On Track</span>'
-          : '<span class="pill p-b">⚠ Di Bawah Std</span>';
-
-        return `<tr${misleading ? ' style="background:rgba(255,193,7,.07)!important"' : ''}>
-          <td class="no-col">${i+1}</td>
-          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-          ${varCell}
-          <td class="c mono" style="color:var(--text3)">${r.periode}</td>
-          <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
-          ${grDisp}
-          <td class="r mono" style="color:var(--text3)">${r.targetGramasi > 0 ? r.targetGramasi + ' g' : '—'}</td>
-          <td class="r">${kenaikStr}</td>
-          <td class="c">${luDisp}</td>
-          <td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>
-          <td class="c">${statPill}</td>
-        </tr>`;
-      }).join('')
-    : `<tr><td colspan="${colCount}" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
-
-  // Kirim set GH aktif (sudah ter-filter oleh global filter On Track/Kritis/dll)
-  renderVarianChart(curGHs);
-}
-
-// helper round1 di sisi client (untuk avg kenaikan Per GH)
-function round1(n) { return Math.round(n * 10) / 10; }
-
-function doSortGr(col) {
-  grSortAsc = grSortCol === col ? !grSortAsc : true;
-  grSortCol = col;
-  rebuildGramasi();
-}
-
-// ── REBUILD (filter + render all) ──
+// ── REBUILD (dashboard only) ──
 function rebuild() {
   let d = [...RAW];
-  if (q)              d = d.filter(r => r.gh.toLowerCase().includes(q));
+  if (q)                d = d.filter(r => r.gh.toLowerCase().includes(q));
   if (filt==='ontrack') d = d.filter(r => popOk(r) && grOk(r));
   if (filt==='bawah')   d = d.filter(r => popWarn(r)||popBad(r)||grWarn(r));
   if (filt==='kritis')  d = d.filter(isCrit);
@@ -1193,131 +805,12 @@ function rebuild() {
   renderTable(d);
   renderAlerts(d);
   renderBar(d);
-  renderGramasi(d);
 
   const n = new Date();
   const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
   const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-  if(document.getElementById('pgSub')) document.getElementById('pgSub').textContent = `Kondisi harian · ${hr}, ${tg} · ${RAW.length} GH tercatat`;
-  if(document.getElementById('pgSubGr')) document.getElementById('pgSubGr').textContent = `Kondisi harian · ${hr}, ${tg} · ${RAW.length} GH tercatat`;
+  if(document.getElementById('pgSub'))  document.getElementById('pgSub').textContent  = `Kondisi harian · ${hr}, ${tg} · ${RAW.length} GH tercatat`;
   if(document.getElementById('tblSub')) document.getElementById('tblSub').textContent = `${d.length} GH ditampilkan`;
-  if(document.getElementById('tblSubGr')) document.getElementById('tblSubGr').textContent = `${d.length} GH ditampilkan`;
-}
-
-// ── TAB SWITCHER ──
-function switchPage(page) {
-  activePage = page;
-  document.getElementById('view-dashboard').style.display = page === 'dashboard' ? 'block' : 'none';
-  document.getElementById('view-gramasi').style.display = page === 'gramasi' ? 'block' : 'none';
-  
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + page).classList.add('active');
-  
-  // reset filters
-  document.querySelectorAll('.filter-row .fbtn').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.filter-row .fbtn:first-child').forEach(b => b.classList.add('active'));
-  filt = 'semua'; q = '';
-  if(document.getElementById('srch')) document.getElementById('srch').value = '';
-  if(document.getElementById('srchGr')) document.getElementById('srchGr').value = '';
-  
-  rebuild();
-}
-
-// ── GR VIEW MODE ──
-let grViewMode = 'all'; // 'all' | 'gh' | 'varian'
-
-function setGrView(mode, el) {
-  grViewMode = mode;
-  document.querySelectorAll('#vmAll,#vmGH').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-
-  const wGH   = document.getElementById('wrapFilterGH');
-  const wVar  = document.getElementById('wrapFilterVarian');
-  const wSrch = document.getElementById('wrapSrchGr');
-  const ghSel  = document.getElementById('grFilterGH');
-  const varSel = document.getElementById('grFilterVarian');
-
-  if (mode === 'gh') {
-    // Per GH: hanya dropdown GH, sembunyikan Varian & Search
-    wGH.style.display  = '';
-    wVar.style.display = 'none';
-    wSrch.style.display= 'none';
-    varSel.value = '';
-  } else {
-    // Semua GH: semua filter tampil
-    wGH.style.display  = '';
-    wVar.style.display = '';
-    wSrch.style.display= '';
-    ghSel.value  = '';
-    varSel.value = '';
-  }
-
-  rebuildGramasi();
-}
-
-// ── RENDER VARIAN BAR CHART ──
-function renderVarianChart(activeGHs) {
-  const el = document.getElementById('grVarianChart');
-  if (!el) return;
-
-  // Filter RAW_VARIAN berdasarkan GH yang sedang aktif di view (respek filter GH)
-  const ghVal = document.getElementById('grFilterGH')?.value || '';
-  let source = RAW_VARIAN.filter(r => activeGHs.has(r.gh) && r.avgGramasi > 0);
-  if (ghVal) source = source.filter(r => r.gh === ghVal);
-
-  if (!source.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
-
-  // Group per varian, avg gramasi dari semua GH yang masuk filter
-  const map = {};
-  source.forEach(r => {
-    const v = r.varian || 'Tidak diketahui';
-    if (!map[v]) map[v] = { totalAvg: 0, ghSet: new Set() };
-    map[v].totalAvg += r.avgGramasi;
-    map[v].ghSet.add(r.gh);
-  });
-
-  const variants = Object.entries(map).map(([v, d]) => ({
-    varian : v,
-    avg    : Math.round(d.totalAvg / d.ghSet.size),
-    ghCount: d.ghSet.size,
-  })).sort((a, b) => b.avg - a.avg);
-
-  const maxVal = Math.max(...variants.map(v => v.avg)) * 1.08;
-
-  el.innerHTML = variants.map(v => {
-    const avgPct = (v.avg / maxVal * 100).toFixed(1);
-    // Warna bar berdasarkan ukuran relatif: bar terbesar = hijau/kuning, terkecil = merah
-    const rank   = variants.indexOf(v);
-    const barCol = rank === 0
-      ? 'linear-gradient(90deg,var(--green),var(--green-mid))'
-      : rank < variants.length - 1
-        ? 'linear-gradient(90deg,#7a4800,#c87800)'
-        : 'linear-gradient(90deg,#7a1010,var(--red))';
-
-    return `<div style="margin-bottom:20px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
-        <div style="font-size:12.5px;font-weight:700;color:var(--text)">
-          ${v.varian}
-          <span style="font-size:10px;font-weight:400;color:var(--text4);margin-left:4px">${v.ghCount} GH</span>
-        </div>
-        <div style="font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text2)">
-          ${v.avg} g
-        </div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="font-size:9px;font-weight:600;color:var(--text4);width:38px;text-align:right;letter-spacing:.5px">AVG</div>
-        <div style="flex:1;height:20px;background:var(--bg);border-radius:5px;position:relative">
-          <div style="height:100%;width:${avgPct}%;background:${barCol};border-radius:5px;transition:width .9s cubic-bezier(.22,1,.36,1)"></div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-
-  const sub = document.getElementById('grVarianChartSub');
-  if (sub) {
-    const totalGH = new Set(source.map(r => r.gh)).size;
-    sub.textContent = `${variants.length} varian · data dari ${totalGH} GH yang diukur`;
-  }
 }
 
 // ── FILTER & SEARCH ──
@@ -1903,21 +1396,29 @@ function setHptTab(tab, el) {
   el.classList.add('active');
 }
 
-// ══════════════════════════════════════════════
-// Extend switchPage untuk HPT
-// ══════════════════════════════════════════════
-const _origSwitchPage = switchPage;
-switchPage = function(page) {
-  document.getElementById('view-hpt').style.display = page === 'hpt' ? 'block' : 'none';
-  if (page === 'hpt') {
-    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-    const navHpt = document.getElementById('nav-hpt');
-    if (navHpt) navHpt.classList.add('active');
-    if (!RAW_HPT.length) fetchHpt(false);
-    return;
+// ── PAGE SWITCHER ──
+function switchPage(page) {
+  activePage = page;
+  document.getElementById('view-dashboard').style.display = page === 'dashboard' ? 'block' : 'none';
+  document.getElementById('view-hpt').style.display       = page === 'hpt'       ? 'block' : 'none';
+
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById('nav-' + page);
+  if (navEl) navEl.classList.add('active');
+
+  // Reset filter dashboard saat switch
+  if (page === 'dashboard') {
+    document.querySelectorAll('.filter-row .fbtn').forEach(b => b.classList.remove('active'));
+    const firstBtn = document.querySelector('.filter-row .fbtn');
+    if (firstBtn) firstBtn.classList.add('active');
+    filt = 'semua'; q = '';
+    const srch = document.getElementById('srch');
+    if (srch) srch.value = '';
+    rebuild();
   }
-  _origSwitchPage(page);
-};
+
+  if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
+}
 
 // ── INIT ──
 tick();
