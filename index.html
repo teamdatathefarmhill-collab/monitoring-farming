@@ -478,11 +478,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <th class="c">Periode</th>
                 <th class="c" onclick="doSortGr('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
                 <th class="r">Avg Gramasi</th>
-                <th class="r">Target</th>
+                <th class="r" id="th-target">Target</th>
                 <th class="r">Kenaikan Harian</th>
                 <th class="c">Last Update</th>
-                <th class="r">Deviasi (%)</th>
-                <th class="c">Status</th>
+                <th class="r" id="th-deviasi">Deviasi (%)</th>
+                <th class="c" id="th-status">Status</th>
               </tr>
             </thead>
             <tbody id="tBodyGr">
@@ -597,6 +597,9 @@ function fetchBackground() {
     }).catch(() => {});
 }
 
+// RAW_VARIAN: flat rows per GH × Varian (dari json.gramasiDetail)
+let RAW_VARIAN = [];
+
 function applyData(json) {
   RAW = json.data.map(r => ({
     gh           : String(r.gh           || '').trim(),
@@ -615,13 +618,36 @@ function applyData(json) {
     targetGramasi: +r.targetGramasi|| 0,
     pctGramasi   : +r.pctGramasi   || 0,
     sanitasi     : +r.sanitasi     || 0,
-    lastUpdateGr : String(r.lastUpdateGr || r.tglGramasi || '').trim(),
+    lastUpdateGr : String(r.lastUpdateGr || '').trim(),  // max tgl gramasi per GH dari GAS
   })).filter(r => r.gh);
+
+  // ── RAW_VARIAN: langsung dari json.gramasiDetail (flat rows GAS) ──
+  // Format: { gh, periode, tgl, hst, varian, gramasi }
+  // Setiap row = GH × Varian dengan gramasi terbaru (max tgl per varian)
+  RAW_VARIAN = Array.isArray(json.gramasiDetail)
+    ? json.gramasiDetail.map(r => ({
+        gh           : String(r.gh      || '').trim(),
+        periode      : String(r.periode || '').trim(),
+        hst          : +r.hst  || 0,
+        varian       : String(r.varian  || '').trim(),
+        avgGramasi   : +r.gramasi || 0,
+        lastUpdateGr : String(r.tgl     || '').trim(),  // tgl terakhir gramasi varian ini
+        // inherit field lain dari RAW (untuk dot color, klasifikasi, dll)
+        targetGramasi: 0,
+      })).filter(r => r.gh && r.avgGramasi > 0)
+    : [];
+
+  // Enrich RAW_VARIAN dengan field dari RAW induknya (hst, klasifikasi, dll)
+  const rawByGH = {};
+  RAW.forEach(r => { rawByGH[r.gh] = r; });
+  RAW_VARIAN = RAW_VARIAN.map(r => ({
+    ...rawByGH[r.gh],   // inherit semua field GH (hst, klasifikasi, popAkhir, dst)
+    ...r,               // override dengan data varian (varian, avgGramasi, lastUpdateGr)
+  }));
 
   showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
   window._grDataDate = json.dataDate || '';
 
-  // Update tanggal gramasi (gunakan lastUpdated atau dataDate)
   const grUpEl = document.getElementById('grLastUpdate');
   if (grUpEl) {
     if (json.dataDate) {
@@ -769,6 +795,25 @@ function renderBar(d) {
 // ── RENDER GRAMASI PAGE ──
 let grSortCol = 'hst', grSortAsc = true;
 
+function fmtTgl(tgl) {
+  if (!tgl) return '—';
+  const p = String(tgl).trim().split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : String(tgl);
+}
+
+// Max tanggal gramasi aktual untuk satu GH
+// GAS v8 sudah kirim lastUpdateGr per GH di json.data → pakai langsung
+// RAW_VARIAN dipakai sebagai fallback jika field kosong
+function maxTglGH(gh) {
+  // Cek dari RAW dulu (sudah di-set oleh GAS v8)
+  const raw = RAW.find(r => r.gh === gh);
+  if (raw && raw.lastUpdateGr) return raw.lastUpdateGr;
+  // Fallback: cari max tgl dari RAW_VARIAN
+  const rows = RAW_VARIAN.filter(r => r.gh === gh && r.lastUpdateGr);
+  if (!rows.length) return '';
+  return rows.reduce((max, r) => r.lastUpdateGr > max ? r.lastUpdateGr : max, '');
+}
+
 function renderGramasi(d) {
   const wGr = d.filter(hasGr);
 
@@ -792,121 +837,163 @@ function renderGramasi(d) {
   const varSel = document.getElementById('grFilterVarian');
   const prevGH = ghSel.value, prevVar = varSel.value;
   const ghList  = [...new Set(wGr.map(r => r.gh))].sort();
-  const varList = [...new Set(wGr.map(r => r.varian).filter(Boolean))].sort();
-  ghSel.innerHTML  = '<option value="">Semua GH</option>'     + ghList.map(g  => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
-  varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v  => `<option value="${v}" ${v===prevVar?'selected':''}>${v}</option>`).join('');
+  const varList = [...new Set(
+    (RAW_VARIAN.length ? RAW_VARIAN : wGr).map(r => r.varian).filter(Boolean)
+  )].sort();
+  ghSel.innerHTML  = '<option value="">Semua GH</option>'     + ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
+  varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v => `<option value="${v}" ${v===prevVar?'selected':''}>${v}</option>`).join('');
 
   rebuildGramasi();
 }
 
 function rebuildGramasi() {
-  const allGr  = (cur.length ? cur : RAW).filter(hasGr);
+  const mode   = grViewMode;
   const ghVal  = document.getElementById('grFilterGH')?.value  || '';
   const varVal = document.getElementById('grFilterVarian')?.value || '';
   const qGr    = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
-  const mode   = grViewMode; // 'all' | 'gh' | 'varian'
 
-  // ── Decide which header columns to show based on mode ──
-  const showVarian = (mode === 'varian' || mode === 'all');
-  const thVarian   = document.getElementById('th-varian');
-  if (thVarian) thVarian.style.display = showVarian ? '' : 'none';
+  // Column visibility per mode:
+  // 'all'    : Varian✓  Target✓  Deviasi✓  Status✓
+  // 'gh'     : Varian✗  Target✓  Deviasi✓  Status✓
+  // 'varian' : Varian✓  Target✗  Deviasi✗  Status✗
+  const showVarian = (mode !== 'gh');
+  const showTgtDev = (mode !== 'varian');
+  const showStatus = (mode !== 'varian');
 
-  // ── Build row data ──
-  // In 'gh' mode: group by GH → aggregate per GH (avg of avg gramasi)
-  // In 'varian' / 'all' mode: one row per GH (each GH already has varian field from data)
-  let rows = [...allGr];
+  const thV = document.getElementById('th-varian');
+  const thT = document.getElementById('th-target');
+  const thD = document.getElementById('th-deviasi');
+  const thS = document.getElementById('th-status');
+  if (thV) thV.style.display = showVarian  ? '' : 'none';
+  if (thT) thT.style.display = showTgtDev  ? '' : 'none';
+  if (thD) thD.style.display = showTgtDev  ? '' : 'none';
+  if (thS) thS.style.display = showStatus  ? '' : 'none';
 
-  // Apply filters
-  if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
-  if (varVal) rows = rows.filter(r => r.varian === varVal);
-  if (qGr)    rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+  let rows;
 
-  // In 'gh' mode: collapse multiple varian rows of same GH into one GH row
-  if (mode === 'gh') {
+  if (mode === 'varian') {
+    // ── Per Varian: expand dari RAW_VARIAN (1 row per GH × Varian) ──
+    // Filter berdasarkan GH-GH yang ada di cur (supaya filter global masih berlaku)
+    const curGHs = new Set((cur.length ? cur : RAW).map(r => r.gh));
+    rows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
+    if (varVal) rows = rows.filter(r => r.varian === varVal);
+    if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
+    if (qGr)    rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+    // Sort by hst
+    rows.sort((a, b) => grSortAsc ? a.hst - b.hst : b.hst - a.hst);
+
+  } else if (mode === 'gh') {
+    // ── Per GH: 1 row per GH, kolom varian disembunyikan ──
+    const base = (cur.length ? cur : RAW).filter(hasGr);
     const ghMap = {};
-    rows.forEach(r => {
+    base.forEach(r => {
       const key = r.gh + '|' + r.periode;
-      if (!ghMap[key]) {
-        ghMap[key] = { ...r, _varianList: [], _grSum: 0, _grCount: 0, _tgtSum: 0 };
-      }
-      ghMap[key]._varianList.push(r.varian);
-      ghMap[key]._grSum   += r.avgGramasi;
-      ghMap[key]._tgtSum  += r.targetGramasi;
-      ghMap[key]._grCount += 1;
+      if (!ghMap[key]) ghMap[key] = { ...r, _grSum:0, _tgtSum:0, _cnt:0, _maxTgl:'' };
+      ghMap[key]._grSum  += r.avgGramasi;
+      ghMap[key]._tgtSum += r.targetGramasi;
+      ghMap[key]._cnt++;
+      // Max tgl dari RAW_VARIAN
+      const mt = maxTglGH(r.gh);
+      if (mt && mt > ghMap[key]._maxTgl) ghMap[key]._maxTgl = mt;
+      if (!ghMap[key]._maxTgl && r.lastUpdateGr) ghMap[key]._maxTgl = r.lastUpdateGr;
     });
     rows = Object.values(ghMap).map(r => ({
       ...r,
-      avgGramasi   : r._grCount > 0 ? Math.round(r._grSum / r._grCount) : 0,
-      targetGramasi: r._grCount > 0 ? Math.round(r._tgtSum / r._grCount) : 0,
+      avgGramasi   : r._cnt > 0 ? Math.round(r._grSum  / r._cnt) : 0,
+      targetGramasi: r._cnt > 0 ? Math.round(r._tgtSum / r._cnt) : 0,
+      lastUpdateGr : r._maxTgl,
     }));
-  }
+    if (ghVal) rows = rows.filter(r => r.gh === ghVal);
+    if (qGr)   rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+    rows.sort((a, b) => grSortAsc ? a[grSortCol] - b[grSortCol] : b[grSortCol] - a[grSortCol]);
 
-  // Sort
-  rows.sort((a, b) => grSortAsc ? a[grSortCol] - b[grSortCol] : b[grSortCol] - a[grSortCol]);
+  } else {
+    // ── Semua GH: 1 row per GH, semua kolom tampil ──
+    rows = (cur.length ? cur : RAW).filter(hasGr);
+    if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
+    if (varVal) rows = rows.filter(r => r.varian === varVal);
+    if (qGr)    rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+    // Attach max tgl from RAW_VARIAN
+    rows = rows.map(r => ({
+      ...r,
+      lastUpdateGr: maxTglGH(r.gh) || r.lastUpdateGr || '',
+    }));
+    rows.sort((a, b) => grSortAsc ? a[grSortCol] - b[grSortCol] : b[grSortCol] - a[grSortCol]);
+  }
 
   // ── Subtitle ──
   const subEl = document.getElementById('tblSubGr');
   if (subEl) {
-    if (mode === 'gh')     subEl.textContent = `${rows.length} GH ditampilkan · diurutkan HST`;
-    else if (mode === 'varian') subEl.textContent = `${rows.length} baris (per GH × Varian) · diurutkan HST`;
-    else                    subEl.textContent = `${rows.length} GH ditampilkan · diurutkan HST`;
+    if (mode === 'varian') subEl.textContent = `${rows.length} baris (per GH × Varian) · diurutkan HST`;
+    else subEl.textContent = `${rows.length} GH ditampilkan · diurutkan HST`;
   }
 
-  // ── Build table rows ──
-  const colCount = showVarian ? 11 : 10;
+  const colCount = 6 + (showVarian?1:0) + (showTgtDev?2:0) + (showStatus?1:0);
 
   document.getElementById('tBodyGr').innerHTML = rows.length
     ? rows.map((r, i) => {
-        const devVal   = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
-        const devStr   = devVal > 0 ? `+${devVal.toFixed(1)}%` : `${devVal.toFixed(1)}%`;
-        const devCol   = devVal >= 0 ? 'var(--green)' : 'var(--red)';
-        const statPill = devVal >= 0
-          ? '<span class="pill p-ok">✓ On Track</span>'
-          : '<span class="pill p-b">⚠ Di Bawah Std</span>';
+        const dot = CC[clOf(r.gh)] || '#999';
 
+        // Last update
+        const lu = r.lastUpdateGr || '';
+        const luDisp = lu
+          ? `<span class="mono" style="font-size:11px;color:var(--text2);font-weight:600">${fmtTgl(lu)}</span>`
+          : `<span style="color:var(--text4);font-size:11px">—</span>`;
+
+        // Varian cell
+        const varCell = showVarian
+          ? `<td class="c" style="font-size:11px;color:var(--text3)">${r.varian || '—'}</td>`
+          : '';
+
+        // Gramasi display
+        const grDisp = mode === 'varian'
+          ? `<td class="r mono" style="font-weight:700">${r.avgGramasi > 0 ? r.avgGramasi + ' g' : '<span style="color:var(--text4)">—</span>'}</td>`
+          : `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>`;
+
+        // Target col
+        const tgtCell = showTgtDev
+          ? `<td class="r mono" style="color:var(--text3)">${r.targetGramasi} g</td>`
+          : '';
+
+        // Kenaikan harian
         const kenaikGram   = r.hst > 0 ? r.avgGramasi / r.hst : 0;
         const targetKenaik = r.hst > 0 ? r.targetGramasi / r.hst : 0;
         const kenaikPct    = targetKenaik > 0 ? (kenaikGram - targetKenaik) / targetKenaik * 100 : 0;
         const kenaikStr    = kenaikGram > 0
-          ? `<span class="mono" style="font-size:12px;color:var(--text2)">${kenaikGram.toFixed(1)} g/hr</span><br><span style="font-size:10px;color:${kenaikPct>=0?'var(--green)':'var(--red)'}">${kenaikPct>=0?'+':''}${kenaikPct.toFixed(1)}%</span>`
+          ? `<span class="mono" style="font-size:12px;color:var(--text2)">${kenaikGram.toFixed(1)} g/hr</span>`
+            + (showTgtDev ? `<br><span style="font-size:10px;color:${kenaikPct>=0?'var(--green)':'var(--red)'}">${kenaikPct>=0?'+':''}${kenaikPct.toFixed(1)}%</span>` : '')
           : '<span style="color:var(--text4);font-size:11px">—</span>';
 
-        const dot = CC[clOf(r.gh)] || '#999';
-
-        // Last update: use lastUpdateGr field from data (max tgl gramasi), NOT today's date
-        const luRaw = r.lastUpdateGr || '';
-        let luDisp = '<span style="color:var(--text4);font-size:11px">—</span>';
-        if (luRaw) {
-          const p = luRaw.split('-');
-          luDisp = `<span class="mono" style="font-size:11px;color:var(--text3)">${p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : luRaw}</span>`;
-        }
-
-        // Varian cell — only rendered if mode shows varian column
-        const varianCell = showVarian
-          ? `<td class="c" style="font-size:11px;color:var(--text3)">${
-              mode === 'gh' && r._varianList
-                ? [...new Set(r._varianList)].join(', ')
-                : (r.varian || '—')
-            }</td>`
+        // Deviasi
+        const devVal  = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
+        const devStr  = devVal > 0 ? `+${devVal.toFixed(1)}%` : `${devVal.toFixed(1)}%`;
+        const devCol  = devVal >= 0 ? 'var(--green)' : 'var(--red)';
+        const devCell = showTgtDev
+          ? `<td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>`
           : '';
+
+        // Status
+        const statPill = devVal >= 0
+          ? '<span class="pill p-ok">✓ On Track</span>'
+          : '<span class="pill p-b">⚠ Di Bawah Std</span>';
+        const statCell = showStatus ? `<td class="c">${statPill}</td>` : '';
 
         return `<tr>
           <td class="no-col">${i+1}</td>
           <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-          ${varianCell}
+          ${varCell}
           <td class="c mono" style="color:var(--text3)">${r.periode}</td>
           <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
-          <td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>
-          <td class="r mono" style="color:var(--text3)">${r.targetGramasi} g</td>
+          ${grDisp}
+          ${tgtCell}
           <td class="r">${kenaikStr}</td>
           <td class="c">${luDisp}</td>
-          <td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>
-          <td class="c">${statPill}</td>
+          ${devCell}
+          ${statCell}
         </tr>`;
       }).join('')
     : `<tr><td colspan="${colCount}" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
 
-  // ── Bar chart: always use ALL gramasi data (all RAW), not filtered ──
   renderVarianChart(RAW.filter(hasGr));
 }
 
