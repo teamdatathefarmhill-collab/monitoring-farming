@@ -464,10 +464,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item soon"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag">soon</span></div>
-    <div class="nav-item" id="nav-hpt" onclick="showMaintenance()" style="opacity:.7;cursor:not-allowed">
-      <span class="nav-icon">🐛</span> HPT
-      <span style="margin-left:auto;background:#c87800;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;letter-spacing:.3px">🔧</span>
-    </div>
+    <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
 
     <div class="nav-section">Laporan</div>
     <div class="nav-item soon"><span class="nav-icon">🌾</span> Semai <span class="soon-tag">soon</span></div>
@@ -476,41 +473,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
   </nav>
-
-  <!-- MAINTENANCE MODAL -->
-  <div id="maintModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(10,25,15,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center" onclick="if(event.target===this)closeMaintenance()">
-    <div style="background:var(--surface);border-radius:18px;padding:36px 32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1.5px solid var(--border);text-align:center;animation:maintIn .25s cubic-bezier(.34,1.56,.64,1)">
-      <style>
-        @keyframes maintIn{from{opacity:0;transform:scale(.88) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
-        @keyframes wrenchSwing{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
-      </style>
-
-      <!-- Icon -->
-      <div style="width:72px;height:72px;border-radius:50%;background:var(--yellow-lt);border:2px solid #f5d08a;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:34px;animation:wrenchSwing 1.4s ease-in-out infinite">🔧</div>
-
-      <!-- Title -->
-      <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px">Under Maintenance</div>
-      <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:14px;letter-spacing:.3px">🐛 Menu HPT</div>
-
-      <!-- Description -->
-      <div style="font-size:12.5px;color:var(--text3);line-height:1.7;margin-bottom:24px">
-        Fitur <b style="color:var(--text2)">Monitoring HPT</b> sedang dalam perbaikan.<br>
-        Data source sedang diverifikasi dan dibenahi agar akurat.<br><br>
-        <span style="color:var(--yellow-txt);font-weight:600">Mohon ditunggu, akan segera tersedia! 🙏</span>
-      </div>
-
-      <!-- Progress bar dekoratif -->
-      <div style="background:var(--bg);border-radius:6px;height:6px;margin-bottom:22px;overflow:hidden">
-        <div style="height:100%;width:65%;background:linear-gradient(90deg,#a06000,#d4820a);border-radius:6px;animation:maintProg 2s ease-in-out infinite alternate">
-          <style>@keyframes maintProg{from{width:55%}to{width:75%}}</style>
-        </div>
-      </div>
-
-      <button onclick="closeMaintenance()" style="background:var(--hdr);color:var(--hdr-txt);border:none;border-radius:9px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
-        Mengerti
-      </button>
-    </div>
-  </div>
 
   <!-- MAIN -->
   <main class="main">
@@ -892,15 +854,13 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 // ══════════════════════════════════════════════
 // KONFIGURASI — ganti dengan URL GAS v5 kamu
 // ══════════════════════════════════════════════
-// ── GAS deployed dari sheet DATABASE SANITASI ──
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
 
 // Auto-refresh setiap 5 menit
-const REFRESH_MS = 60 * 60 * 1000; // 1 jam — sinkron dengan GAS cache TTL
+const REFRESH_MS = 5 * 60 * 1000;
 
 // ── STATE ──
 let RAW = [], cur = [], sortAsc = true, filt = 'semua', q = '';
-let RAW_VARIAN = [];
 let activePage = 'dashboard';
 let rTimer = null, cdTimer = null, nextAt = null;
 
@@ -928,38 +888,33 @@ const fmt = n => Number(n).toLocaleString('id-ID');
 async function fetchData(manual = false) {
   setPill('loading');
 
-  // ── Cek localStorage cache ──
-  // Strategi: tampilkan cache lama SEKETIKA (walaupun expired),
-  // lalu fetch background untuk update. User tidak pernah nunggu.
+  // Jika bukan manual, cek localStorage cache dulu (instant render)
   if (!manual) {
-    const cached   = localStorage.getItem('ft_cache');
+    const cached = localStorage.getItem('ft_cache');
     const cachedAt = parseInt(localStorage.getItem('ft_cache_ts') || '0');
-    if (cached) {
+    if (cached && Date.now() - cachedAt < REFRESH_MS) {
       try {
-        const json     = JSON.parse(cached);
-        const isStale  = Date.now() - cachedAt >= REFRESH_MS;
+        const json = JSON.parse(cached);
         applyData(json);
         setPill('ok');
         scheduleRefresh();
-        if (isStale) {
-          // Cache sudah lama — fetch background tanpa blok UI
-          fetchBackground();
-        }
+        // Tetap fetch background untuk update cache
+        fetchBackground();
         return;
       } catch(_) {}
     }
   }
 
-  // Tidak ada cache sama sekali — fetch langsung (pertama kali)
   try {
-    const url  = GAS_URL + '?_t=' + Date.now();
+    const url = GAS_URL + '?_t=' + Date.now();
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     if (!Array.isArray(json.data)) throw new Error('Format data tidak sesuai');
 
-    localStorage.setItem('ft_cache',    JSON.stringify(json));
+    // Simpan ke localStorage
+    localStorage.setItem('ft_cache', JSON.stringify(json));
     localStorage.setItem('ft_cache_ts', Date.now().toString());
 
     applyData(json);
@@ -970,6 +925,7 @@ async function fetchData(manual = false) {
     setPill('err');
     showErr(e.message);
     console.error('[FarmTrack]', e);
+    // Tutup splash meski error agar user tidak stuck
     if (typeof window._splashDone === 'function') {
       window._splashDone();
       window._splashDone = null;
@@ -2154,19 +2110,6 @@ function setHptTab(tab, el) {
   document.querySelectorAll('#hptTabHama,#hptTabPenyakit').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 }
-
-// ── MAINTENANCE MODAL ──
-function showMaintenance() {
-  const m = document.getElementById('maintModal');
-  m.style.display = 'flex';
-}
-function closeMaintenance() {
-  document.getElementById('maintModal').style.display = 'none';
-}
-// Tutup dengan ESC
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeMaintenance();
-});
 
 // ── INIT ──
 tick();
