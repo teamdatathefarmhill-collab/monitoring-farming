@@ -1005,7 +1005,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
 
 // Auto-refresh setiap 5 menit
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 60 * 60 * 1000; // 1 jam — sinkron dengan GAS cache TTL
 
 // ── STATE ──
 let RAW = [], cur = [], sortAsc = true, filt = 'semua', q = '';
@@ -1038,33 +1038,38 @@ const fmt = n => Number(n).toLocaleString('id-ID');
 async function fetchData(manual = false) {
   setPill('loading');
 
-  // Jika bukan manual, cek localStorage cache dulu (instant render)
+  // ── Cek localStorage cache ──
+  // Strategi: tampilkan cache lama SEKETIKA (walaupun expired),
+  // lalu fetch background untuk update. User tidak pernah nunggu.
   if (!manual) {
-    const cached = localStorage.getItem('ft_cache');
+    const cached   = localStorage.getItem('ft_cache');
     const cachedAt = parseInt(localStorage.getItem('ft_cache_ts') || '0');
-    if (cached && Date.now() - cachedAt < REFRESH_MS) {
+    if (cached) {
       try {
-        const json = JSON.parse(cached);
+        const json     = JSON.parse(cached);
+        const isStale  = Date.now() - cachedAt >= REFRESH_MS;
         applyData(json);
         setPill('ok');
         scheduleRefresh();
-        // Tetap fetch background untuk update cache
-        fetchBackground();
+        if (isStale) {
+          // Cache sudah lama — fetch background tanpa blok UI
+          fetchBackground();
+        }
         return;
       } catch(_) {}
     }
   }
 
+  // Tidak ada cache sama sekali — fetch langsung (pertama kali)
   try {
-    const url = GAS_URL + '?_t=' + Date.now();
+    const url  = GAS_URL + '?_t=' + Date.now();
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     if (!Array.isArray(json.data)) throw new Error('Format data tidak sesuai');
 
-    // Simpan ke localStorage
-    localStorage.setItem('ft_cache', JSON.stringify(json));
+    localStorage.setItem('ft_cache',    JSON.stringify(json));
     localStorage.setItem('ft_cache_ts', Date.now().toString());
 
     applyData(json);
@@ -1075,7 +1080,6 @@ async function fetchData(manual = false) {
     setPill('err');
     showErr(e.message);
     console.error('[FarmTrack]', e);
-    // Tutup splash meski error agar user tidak stuck
     if (typeof window._splashDone === 'function') {
       window._splashDone();
       window._splashDone = null;
