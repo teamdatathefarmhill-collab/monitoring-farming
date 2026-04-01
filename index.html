@@ -463,8 +463,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
-    <div class="nav-item soon"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag">soon</span></div>
-    <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
+    <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
+    <div class="nav-item" id="nav-hpt" onclick="showMaintenance()" style="opacity:.7;cursor:not-allowed">
+      <span class="nav-icon">🐛</span> HPT
+      <span style="margin-left:auto;background:#c87800;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;letter-spacing:.3px">🔧</span>
+    </div>
 
     <div class="nav-section">Laporan</div>
     <div class="nav-item soon"><span class="nav-icon">🌾</span> Semai <span class="soon-tag">soon</span></div>
@@ -473,6 +476,41 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
   </nav>
+
+  <!-- MAINTENANCE MODAL -->
+  <div id="maintModal" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(10,25,15,.55);backdrop-filter:blur(4px);align-items:center;justify-content:center" onclick="if(event.target===this)closeMaintenance()">
+    <div style="background:var(--surface);border-radius:18px;padding:36px 32px;max-width:400px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.25);border:1.5px solid var(--border);text-align:center;animation:maintIn .25s cubic-bezier(.34,1.56,.64,1)">
+      <style>
+        @keyframes maintIn{from{opacity:0;transform:scale(.88) translateY(12px)}to{opacity:1;transform:scale(1) translateY(0)}}
+        @keyframes wrenchSwing{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
+      </style>
+
+      <!-- Icon -->
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--yellow-lt);border:2px solid #f5d08a;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:34px;animation:wrenchSwing 1.4s ease-in-out infinite">🔧</div>
+
+      <!-- Title -->
+      <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px">Under Maintenance</div>
+      <div style="font-size:13px;font-weight:700;color:var(--yellow);margin-bottom:14px;letter-spacing:.3px">🐛 Menu HPT</div>
+
+      <!-- Description -->
+      <div style="font-size:12.5px;color:var(--text3);line-height:1.7;margin-bottom:24px">
+        Fitur <b style="color:var(--text2)">Monitoring HPT</b> sedang dalam perbaikan.<br>
+        Data source sedang diverifikasi dan dibenahi agar akurat.<br><br>
+        <span style="color:var(--yellow-txt);font-weight:600">Mohon ditunggu, akan segera tersedia! 🙏</span>
+      </div>
+
+      <!-- Progress bar dekoratif -->
+      <div style="background:var(--bg);border-radius:6px;height:6px;margin-bottom:22px;overflow:hidden">
+        <div style="height:100%;width:65%;background:linear-gradient(90deg,#a06000,#d4820a);border-radius:6px;animation:maintProg 2s ease-in-out infinite alternate">
+          <style>@keyframes maintProg{from{width:55%}to{width:75%}}</style>
+        </div>
+      </div>
+
+      <button onclick="closeMaintenance()" style="background:var(--hdr);color:var(--hdr-txt);border:none;border-radius:9px;padding:10px 28px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;transition:opacity .15s" onmouseover="this.style.opacity='.8'" onmouseout="this.style.opacity='1'">
+        Mengerti
+      </button>
+    </div>
+  </div>
 
   <!-- MAIN -->
   <main class="main">
@@ -709,6 +747,116 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
     </div>
 
+    <!-- ═══════════ VIEW: SANITASI ═══════════ -->
+    <div id="view-sanitasi" style="display:none;">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🧹 Monitoring Sanitasi</div>
+          <div class="ph-sub" id="pgSubSan">Memuat data sanitasi…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="si" id="sanGHFilter"  onchange="rebuildSanitasi()" style="width:170px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+          <select class="si" id="sanKatFilter" onchange="rebuildSanitasi()" style="width:150px;padding-left:10px;background-image:none"><option value="">Semua Kategori</option></select>
+          <select class="si" id="sanPeriodeFilter" onchange="rebuildSanitasi()" style="width:130px;padding-left:10px;background-image:none"><option value="">Semua Periode</option></select>
+        </div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px">
+        <div class="sc g">
+          <div class="sc-lbl">Total Sanitasi</div>
+          <div class="sc-val g" id="sanSc1">—</div>
+          <div class="sc-note" id="sanSc1n">Semua kegiatan sanitasi</div>
+        </div>
+        <div class="sc b">
+          <div class="sc-lbl">GH Paling Aktif</div>
+          <div class="sc-val b" id="sanSc2" style="font-size:18px;word-break:break-word">—</div>
+          <div class="sc-note" id="sanSc2n">Jumlah sanitasi terbanyak</div>
+        </div>
+        <div class="sc y">
+          <div class="sc-lbl">True Sanitasi Terbanyak</div>
+          <div class="sc-val y" id="sanSc3" style="font-size:18px;word-break:break-word">—</div>
+          <div class="sc-note" id="sanSc3n">Jenis true sanitasi dominan</div>
+        </div>
+        <div class="sc">
+          <div class="sc-lbl">Total True Sanitasi</div>
+          <div class="sc-val" id="sanSc4" style="color:var(--green)">—</div>
+          <div class="sc-note" id="sanSc4n">Jumlah sulaman true sanitasi</div>
+        </div>
+      </div>
+
+      <!-- MAIN GRID: Tabel + Chart -->
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:16px;align-items:start;margin-bottom:18px">
+
+        <!-- TABEL SANITASI PER GH -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🧹 Rekap Sanitasi per GH</div>
+              <div class="card-sub" id="sanTblSub">Data terbaru per GH</div>
+            </div>
+            <div class="sw" style="gap:8px">
+              <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+                <button class="fbtn active" id="sanTabGH"     onclick="setSanTab('gh',this)"     style="padding:4px 11px;border:none;border-radius:6px;font-size:11px">Per GH</button>
+                <button class="fbtn"        id="sanTabVarian" onclick="setSanTab('varian',this)" style="padding:4px 11px;border:none;border-radius:6px;font-size:11px">Per Varietas</button>
+              </div>
+              <input class="si" type="text" id="sanSearch" placeholder="Cari GH…" oninput="rebuildSanitasi()" style="width:130px">
+            </div>
+          </div>
+
+          <!-- PER GH TABLE -->
+          <div id="sanViewGH" class="tw">
+            <table>
+              <thead><tr>
+                <th style="width:28px">#</th><th>Greenhouse</th>
+                <th class="c">Periode</th><th class="c">Tgl Terakhir</th>
+                <th class="r">Jml Sanitasi</th><th class="r">True Sanitasi</th>
+                <th class="c">Kategori</th><th class="c">Team</th>
+              </tr></thead>
+              <tbody id="sanBodyGH"><tr><td colspan="8" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+
+          <!-- PER VARIETAS TABLE -->
+          <div id="sanViewVarian" class="tw" style="display:none">
+            <table>
+              <thead><tr>
+                <th style="width:28px">#</th><th>Greenhouse</th>
+                <th class="c">Periode</th><th class="c">Varietas</th>
+                <th class="c">Tgl Terakhir</th>
+                <th class="r">Jml Sanitasi</th><th class="r">True Sanitasi</th>
+                <th class="c">Kategori</th>
+              </tr></thead>
+              <tbody id="sanBodyVarian"><tr><td colspan="8" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PANEL KANAN: Chart true sanitasi + Trend harian -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Bar chart: True Sanitasi per Kategori -->
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hd">
+              <div><div class="card-title">📊 True Sanitasi per Kategori</div>
+              <div class="card-sub" id="sanChartSub">Distribusi jenis sanitasi</div></div>
+            </div>
+            <div id="sanChart" style="padding:14px 16px"><div class="es">Memuat…</div></div>
+          </div>
+
+          <!-- Trend harian -->
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hd">
+              <div><div class="card-title">📈 Trend Sanitasi Harian</div>
+              <div class="card-sub" id="sanTrendSub">Aktivitas 14 hari terakhir</div></div>
+            </div>
+            <div id="sanTrend" style="padding:14px 16px"><div class="es">Memuat…</div></div>
+          </div>
+
+        </div>
+      </div><!-- /grid -->
+    </div><!-- /view-sanitasi -->
+
     <!-- ═══════════ VIEW: HPT ═══════════ -->
     <div id="view-hpt" style="display:none;">
       <div class="ph">
@@ -854,13 +1002,16 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 // ══════════════════════════════════════════════
 // KONFIGURASI — ganti dengan URL GAS v5 kamu
 // ══════════════════════════════════════════════
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
+// ── GAS deployed dari sheet DATABASE SANITASI ──
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbz-Yu9eGoNpShr8pMDtS1lzXK4tEuAZWpUmuufJlH4EWLvNgOcruAFj6YuJqCZvnTzu/exec';
 
 // Auto-refresh setiap 5 menit
-const REFRESH_MS = 5 * 60 * 1000;
+const REFRESH_MS = 60 * 60 * 1000; // 1 jam — sinkron dengan GAS cache TTL
 
 // ── STATE ──
 let RAW = [], cur = [], sortAsc = true, filt = 'semua', q = '';
+let RAW_VARIAN = [];
+let RAW_SANITASI = [];
 let activePage = 'dashboard';
 let rTimer = null, cdTimer = null, nextAt = null;
 
@@ -888,33 +1039,38 @@ const fmt = n => Number(n).toLocaleString('id-ID');
 async function fetchData(manual = false) {
   setPill('loading');
 
-  // Jika bukan manual, cek localStorage cache dulu (instant render)
+  // ── Cek localStorage cache ──
+  // Strategi: tampilkan cache lama SEKETIKA (walaupun expired),
+  // lalu fetch background untuk update. User tidak pernah nunggu.
   if (!manual) {
-    const cached = localStorage.getItem('ft_cache');
+    const cached   = localStorage.getItem('ft_cache');
     const cachedAt = parseInt(localStorage.getItem('ft_cache_ts') || '0');
-    if (cached && Date.now() - cachedAt < REFRESH_MS) {
+    if (cached) {
       try {
-        const json = JSON.parse(cached);
+        const json     = JSON.parse(cached);
+        const isStale  = Date.now() - cachedAt >= REFRESH_MS;
         applyData(json);
         setPill('ok');
         scheduleRefresh();
-        // Tetap fetch background untuk update cache
-        fetchBackground();
+        if (isStale) {
+          // Cache sudah lama — fetch background tanpa blok UI
+          fetchBackground();
+        }
         return;
       } catch(_) {}
     }
   }
 
+  // Tidak ada cache sama sekali — fetch langsung (pertama kali)
   try {
-    const url = GAS_URL + '?_t=' + Date.now();
+    const url  = GAS_URL + '?_t=' + Date.now();
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     if (!Array.isArray(json.data)) throw new Error('Format data tidak sesuai');
 
-    // Simpan ke localStorage
-    localStorage.setItem('ft_cache', JSON.stringify(json));
+    localStorage.setItem('ft_cache',    JSON.stringify(json));
     localStorage.setItem('ft_cache_ts', Date.now().toString());
 
     applyData(json);
@@ -925,7 +1081,6 @@ async function fetchData(manual = false) {
     setPill('err');
     showErr(e.message);
     console.error('[FarmTrack]', e);
-    // Tutup splash meski error agar user tidak stuck
     if (typeof window._splashDone === 'function') {
       window._splashDone();
       window._splashDone = null;
@@ -1027,6 +1182,23 @@ function applyData(json) {
   }
 
   rebuild();
+
+  // Parse sanitasi data
+  RAW_SANITASI = Array.isArray(json.sanitasiData)
+    ? json.sanitasiData.map(r => ({
+        tgl     : String(r.tgl      || '').trim(),
+        gh      : String(r.gh       || '').trim(),
+        periode : String(r.periode  || '').trim(),
+        varietas: String(r.varietas || '').trim(),
+        jumlahSan: +r.jumlahSan || 0,
+        trueSan  : +r.trueSan   || 0,
+        team     : String(r.team    || '').trim(),
+        kategori : String(r.kategori|| '').trim(),
+      })).filter(r => r.gh && r.tgl)
+    : [];
+
+  initSanitasiFilters();
+  if (activePage === 'sanitasi') rebuildSanitasi();
 
   // Tutup splash screen saat data pertama kali siap
   if (typeof window._splashDone === 'function') {
@@ -1421,7 +1593,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-sanitasi','view-hpt'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1443,6 +1615,7 @@ function switchPage(page) {
   if(document.getElementById('srchGr')) document.getElementById('srchGr').value = '';
 
   if (page === 'dashboard' || page === 'gramasi') rebuild();
+  if (page === 'sanitasi') rebuildSanitasi();
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
 
   if(document.getElementById('pgSub'))  {
@@ -2110,6 +2283,246 @@ function setHptTab(tab, el) {
   document.querySelectorAll('#hptTabHama,#hptTabPenyakit').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 }
+
+// ══════════════════════════════════════════════════════════════
+//  SANITASI MODULE
+// ══════════════════════════════════════════════════════════════
+let SAN_TAB = 'gh'; // 'gh' | 'varian'
+
+function setSanTab(tab, el) {
+  SAN_TAB = tab;
+  document.getElementById('sanViewGH').style.display     = tab === 'gh'     ? '' : 'none';
+  document.getElementById('sanViewVarian').style.display = tab === 'varian' ? '' : 'none';
+  document.querySelectorAll('#sanTabGH,#sanTabVarian').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildSanitasi();
+}
+
+function rebuildSanitasi() {
+  if (!RAW_SANITASI.length) return;
+
+  const ghVal      = document.getElementById('sanGHFilter')?.value      || '';
+  const katVal     = document.getElementById('sanKatFilter')?.value     || '';
+  const periodeVal = document.getElementById('sanPeriodeFilter')?.value || '';
+  const qSan       = (document.getElementById('sanSearch')?.value || '').toLowerCase().trim();
+
+  let rows = [...RAW_SANITASI];
+  if (ghVal)      rows = rows.filter(r => r.gh === ghVal);
+  if (katVal)     rows = rows.filter(r => r.kategori === katVal);
+  if (periodeVal) rows = rows.filter(r => r.periode === periodeVal);
+  if (qSan)       rows = rows.filter(r => r.gh.toLowerCase().includes(qSan));
+
+  // ── KPI CARDS ──
+  const totalSan    = rows.reduce((s,r) => s + r.jumlahSan, 0);
+  const totalTrue   = rows.reduce((s,r) => s + r.trueSan,   0);
+
+  // GH paling aktif (jumlah sanitasi terbanyak)
+  const byGH = {};
+  rows.forEach(r => { byGH[r.gh] = (byGH[r.gh] || 0) + r.jumlahSan; });
+  const topGH = Object.entries(byGH).sort((a,b) => b[1]-a[1])[0];
+
+  // True sanitasi varietas terbanyak
+  const byVar = {};
+  rows.forEach(r => { if (r.varietas) byVar[r.varietas] = (byVar[r.varietas] || 0) + r.trueSan; });
+  const topVar = Object.entries(byVar).sort((a,b) => b[1]-a[1])[0];
+
+  document.getElementById('sanSc1').textContent  = totalSan.toLocaleString('id-ID');
+  document.getElementById('sanSc1n').textContent = `Dari ${new Set(rows.map(r=>r.gh)).size} GH`;
+  document.getElementById('sanSc2').textContent  = topGH ? topGH[0] : '—';
+  document.getElementById('sanSc2n').textContent = topGH ? `${topGH[1].toLocaleString('id-ID')} sanitasi` : '—';
+  document.getElementById('sanSc3').textContent  = topVar ? topVar[0] : '—';
+  document.getElementById('sanSc3n').textContent = topVar ? `${topVar[1].toLocaleString('id-ID')} true sanitasi` : '—';
+  document.getElementById('sanSc4').textContent  = totalTrue.toLocaleString('id-ID');
+  document.getElementById('sanSc4n').textContent = `Rata-rata ${rows.length ? Math.round(totalTrue/new Set(rows.map(r=>r.gh)).size) : 0} per GH`;
+
+  // Page subtitle
+  const n = new Date();
+  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const pgEl = document.getElementById('pgSubSan');
+  if (pgEl) pgEl.textContent = `Data Sanitasi · ${hr}, ${tg} · ${rows.length} entri`;
+
+  renderSanitasiTable(rows);
+  renderSanitasiChart(rows);
+  renderSanitasiTrend(rows);
+}
+
+function renderSanitasiTable(rows) {
+  if (SAN_TAB === 'gh') {
+    // Summary per GH: ambil terbaru per GH
+    const byGH = {};
+    rows.forEach(r => {
+      const k = r.gh + '||' + r.periode;
+      if (!byGH[k]) byGH[k] = { ...r, _san:0, _true:0, _tgl:'' };
+      byGH[k]._san  += r.jumlahSan;
+      byGH[k]._true += r.trueSan;
+      if (r.tgl > byGH[k]._tgl) { byGH[k]._tgl = r.tgl; byGH[k].team = r.team; byGH[k].kategori = r.kategori; }
+    });
+    const summary = Object.values(byGH).sort((a,b) => a.gh.localeCompare(b.gh));
+    const subEl = document.getElementById('sanTblSub');
+    if (subEl) subEl.textContent = `${summary.length} GH ditampilkan`;
+
+    document.getElementById('sanBodyGH').innerHTML = summary.length
+      ? summary.map((r,i) => {
+          const dot = CC[clOf(r.gh)] || '#999';
+          return `<tr>
+            <td class="no-col">${i+1}</td>
+            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c mono" style="font-size:11px;color:var(--text3)">${r.periode||'—'}</td>
+            <td class="c mono" style="font-size:11px">${fmtTgl(r._tgl)}</td>
+            <td class="r mono" style="font-weight:700;color:var(--green)">${r._san.toLocaleString('id-ID')}</td>
+            <td class="r mono" style="font-weight:700;color:var(--blue)">${r._true.toLocaleString('id-ID')}</td>
+            <td class="c"><span class="pill p-ok" style="font-size:10px">${r.kategori||'—'}</span></td>
+            <td class="c" style="font-size:11px;color:var(--text3)">${r.team||'—'}</td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="8" class="es">Tidak ada data sanitasi</td></tr>';
+
+  } else {
+    // Per GH × Varietas
+    const byGHVar = {};
+    rows.forEach(r => {
+      const k = r.gh + '||' + r.varietas + '||' + r.periode;
+      if (!byGHVar[k]) byGHVar[k] = { ...r, _san:0, _true:0, _tgl:'' };
+      byGHVar[k]._san  += r.jumlahSan;
+      byGHVar[k]._true += r.trueSan;
+      if (r.tgl > byGHVar[k]._tgl) { byGHVar[k]._tgl = r.tgl; byGHVar[k].kategori = r.kategori; }
+    });
+    const summary = Object.values(byGHVar).sort((a,b) => a.gh.localeCompare(b.gh) || a.varietas.localeCompare(b.varietas));
+    const subEl = document.getElementById('sanTblSub');
+    if (subEl) subEl.textContent = `${summary.length} baris (per GH × Varietas)`;
+
+    document.getElementById('sanBodyVarian').innerHTML = summary.length
+      ? summary.map((r,i) => {
+          const dot = CC[clOf(r.gh)] || '#999';
+          return `<tr>
+            <td class="no-col">${i+1}</td>
+            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c mono" style="font-size:11px;color:var(--text3)">${r.periode||'—'}</td>
+            <td class="c" style="font-size:11px;color:var(--text3)">${r.varietas||'—'}</td>
+            <td class="c mono" style="font-size:11px">${fmtTgl(r._tgl)}</td>
+            <td class="r mono" style="font-weight:700;color:var(--green)">${r._san.toLocaleString('id-ID')}</td>
+            <td class="r mono" style="font-weight:700;color:var(--blue)">${r._true.toLocaleString('id-ID')}</td>
+            <td class="c"><span class="pill p-ok" style="font-size:10px">${r.kategori||'—'}</span></td>
+          </tr>`;
+        }).join('')
+      : '<tr><td colspan="8" class="es">Tidak ada data sanitasi</td></tr>';
+  }
+}
+
+function renderSanitasiChart(rows) {
+  const el = document.getElementById('sanChart');
+  if (!el) return;
+
+  // Group by kategori → total true sanitasi
+  const byKat = {};
+  rows.forEach(r => {
+    const k = r.kategori || 'Tidak Diketahui';
+    if (!byKat[k]) byKat[k] = { san: 0, true: 0 };
+    byKat[k].san  += r.jumlahSan;
+    byKat[k].true += r.trueSan;
+  });
+
+  const entries = Object.entries(byKat).sort((a,b) => b[1].true - a[1].true);
+  if (!entries.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
+
+  const maxTrue = Math.max(...entries.map(e => e[1].true)) || 1;
+  const COLORS  = ['var(--green)','var(--blue)','var(--yellow)','var(--red)','#7b2d8b','#1a6a8a'];
+
+  el.innerHTML = entries.map(([kat, d], idx) => {
+    const pct     = (d.true / maxTrue * 100).toFixed(1);
+    const pctSan  = (d.san  / maxTrue * 100).toFixed(1);
+    const col     = COLORS[idx % COLORS.length];
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px">
+        <span style="font-size:11.5px;font-weight:700;color:var(--text)">${kat}</span>
+        <span style="font-size:10.5px;font-family:'JetBrains Mono',monospace;color:var(--text3)">${d.true.toLocaleString('id-ID')} true · ${d.san.toLocaleString('id-ID')} san</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+        <div style="font-size:9px;color:var(--text4);width:32px;text-align:right">True</div>
+        <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${col};border-radius:4px;transition:width .8s cubic-bezier(.22,1,.36,1)"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="font-size:9px;color:var(--text4);width:32px;text-align:right">San</div>
+        <div style="flex:1;height:7px;background:var(--bg);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pctSan}%;background:${col};opacity:.35;border-radius:4px"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const sub = document.getElementById('sanChartSub');
+  if (sub) sub.textContent = `${entries.length} kategori · ${rows.length} entri`;
+}
+
+function renderSanitasiTrend(rows) {
+  const el = document.getElementById('sanTrend');
+  if (!el) return;
+
+  // Group by tgl → total sanitasi & true sanitasi, 14 hari terakhir
+  const byTgl = {};
+  rows.forEach(r => {
+    if (!byTgl[r.tgl]) byTgl[r.tgl] = { san: 0, true: 0 };
+    byTgl[r.tgl].san  += r.jumlahSan;
+    byTgl[r.tgl].true += r.trueSan;
+  });
+
+  const sorted = Object.entries(byTgl)
+    .sort((a,b) => a[0].localeCompare(b[0]))
+    .slice(-14); // 14 hari terakhir
+
+  if (!sorted.length) { el.innerHTML = '<div class="es">Tidak ada data</div>'; return; }
+
+  const maxSan = Math.max(...sorted.map(e => e[1].san)) || 1;
+
+  el.innerHTML = sorted.map(([tgl, d]) => {
+    const w   = (d.san / maxSan * 100).toFixed(1);
+    const wT  = (d.true / maxSan * 100).toFixed(1);
+    const p   = tgl.split('-');
+    const lbl = p.length === 3 ? `${p[2]}/${p[1]}` : tgl;
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text3);width:36px;text-align:right;flex-shrink:0">${lbl}</div>
+      <div style="flex:1;position:relative;height:20px;background:var(--bg);border-radius:4px;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;height:100%;width:${w}%;background:linear-gradient(90deg,var(--green),var(--green-mid));border-radius:4px;opacity:.35;transition:width .7s"></div>
+        <div style="position:absolute;top:0;left:0;height:100%;width:${wT}%;background:linear-gradient(90deg,var(--green),var(--green-mid));border-radius:4px;transition:width .7s"></div>
+      </div>
+      <div style="font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--text2);font-weight:700;width:36px;flex-shrink:0">${d.san}</div>
+    </div>`;
+  }).join('');
+
+  const sub = document.getElementById('sanTrendSub');
+  if (sub) sub.textContent = `${sorted.length} hari terakhir · hijau gelap = true sanitasi`;
+}
+
+function initSanitasiFilters() {
+  const ghSel  = document.getElementById('sanGHFilter');
+  const katSel = document.getElementById('sanKatFilter');
+  const perSel = document.getElementById('sanPeriodeFilter');
+  if (!ghSel) return;
+
+  const ghList  = [...new Set(RAW_SANITASI.map(r => r.gh))].sort();
+  const katList = [...new Set(RAW_SANITASI.map(r => r.kategori).filter(Boolean))].sort();
+  const perList = [...new Set(RAW_SANITASI.map(r => r.periode).filter(Boolean))].sort();
+
+  ghSel.innerHTML  = '<option value="">Semua GH</option>'       + ghList.map(g  => `<option value="${g}">${g}</option>`).join('');
+  katSel.innerHTML = '<option value="">Semua Kategori</option>' + katList.map(k  => `<option value="${k}">${k}</option>`).join('');
+  perSel.innerHTML = '<option value="">Semua Periode</option>'  + perList.map(p  => `<option value="${p}">${p}</option>`).join('');
+}
+
+// ── MAINTENANCE MODAL ──
+function showMaintenance() {
+  const m = document.getElementById('maintModal');
+  m.style.display = 'flex';
+}
+function closeMaintenance() {
+  document.getElementById('maintModal').style.display = 'none';
+}
+// Tutup dengan ESC
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeMaintenance();
+});
 
 // ── INIT ──
 tick();
