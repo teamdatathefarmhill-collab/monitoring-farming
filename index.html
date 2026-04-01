@@ -516,10 +516,12 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <button class="fbtn" onclick="fetchHpt(true)">🔄 Refresh</button>
         </div>
       </div>
+
       <div class="up-strip" id="hptUpStrip">
         <span>📡 Data HPT dari Google Sheets · Diperbarui: <b id="hptUpAt">—</b></span>
         <span id="hptCnt" style="color:var(--text2);font-weight:600">— entri</span>
       </div>
+
       <!-- STAT CARDS -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px">
         <div class="sc g">
@@ -543,73 +545,105 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-note" id="hptSc4n">Rata-rata semua GH</div>
         </div>
       </div>
-      <!-- TABEL -->
-      <div class="card" style="margin-bottom:18px">
+
+      <!-- MAIN LAYOUT: Tabel kiri + Recent Findings kanan -->
+      <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start">
+
+        <!-- TABEL REKAP HPT -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">📋 Rekap HPT per GH</div>
+              <div class="card-sub" id="hptTblSub">Data terbaru per GH disorot</div>
+            </div>
+            <div class="sw" style="gap:8px">
+              <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+                <button class="fbtn active" id="hptTabHama"     onclick="setHptTab('hama',this)"     style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🦟 Hama</button>
+                <button class="fbtn"        id="hptTabPenyakit" onclick="setHptTab('penyakit',this)" style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🍂 Penyakit</button>
+              </div>
+              <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:140px">
+            </div>
+          </div>
+
+          <!-- HAMA TABLE -->
+          <div id="hptViewHama" class="tw">
+            <table>
+              <thead><tr>
+                <th style="width:28px">#</th>
+                <th>Greenhouse</th>
+                <th class="c">Periode</th>
+                <th class="c">HST</th>
+                <th class="c">Tgl Input</th>
+                <th class="r">Kutu Kebul</th><th class="r">Thrips</th>
+                <th class="r">Ulat/Kupu²</th><th class="r">Tungau/Daun</th>
+                <th class="r">Tikus</th><th class="r">Aphids</th>
+                <th class="c">Risiko</th>
+              </tr></thead>
+              <tbody id="hptBodyHama"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+
+          <!-- PENYAKIT TABLE -->
+          <div id="hptViewPenyakit" class="tw" style="display:none">
+            <table>
+              <thead><tr>
+                <th style="width:28px">#</th>
+                <th>Greenhouse</th>
+                <th class="c">Periode</th>
+                <th class="c">HST</th>
+                <th class="c">Tgl Input</th>
+                <th class="r">PM Insidensi (%)</th><th class="r">PM Intensitas (%)</th>
+                <th class="r">DM Insidensi (%)</th><th class="r">DM Intensitas (%)</th>
+                <th class="r">GSB</th><th class="c">Risiko</th>
+              </tr></thead>
+              <tbody id="hptBodyPenyakit"><tr><td colspan="11" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- RECENT FINDINGS (kanan) -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- Alert HPT card -->
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hd">
+              <div><div class="card-title">🚨 Alert HPT</div>
+              <div class="card-sub">GH serangan tinggi</div></div>
+              <span class="pill p-b" id="hptAlertBadge">—</span>
+            </div>
+            <div id="hptAlertList" style="max-height:200px;overflow-y:auto"><div class="es">Memuat…</div></div>
+          </div>
+
+          <!-- Recent Findings -->
+          <div class="card" style="margin-bottom:0">
+            <div class="card-hd">
+              <div><div class="card-title">🔍 Recent Findings</div>
+              <div class="card-sub" id="hptFindingSub">Temuan terbaru per GH</div></div>
+            </div>
+            <div id="hptFindings" style="max-height:480px;overflow-y:auto">
+              <div class="es">Memuat…</div>
+            </div>
+          </div>
+
+        </div>
+      </div><!-- /grid -->
+
+      <!-- GH HEALTH CARDS (bawah) -->
+      <div class="card" style="margin-top:16px">
         <div class="card-hd">
-          <div>
-            <div class="card-title">📋 Rekap HPT per GH</div>
-            <div class="card-sub" id="hptTblSub">Data input terbaru per greenhouse</div>
-          </div>
-          <div class="sw" style="gap:8px">
-            <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
-              <button class="fbtn active" id="hptTabHama"     onclick="setHptTab('hama',this)"     style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🦟 Hama</button>
-              <button class="fbtn"        id="hptTabPenyakit" onclick="setHptTab('penyakit',this)" style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🍂 Penyakit</button>
-            </div>
-            <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:150px">
+          <div><div class="card-title">🌿 Greenhouse Health Cards</div>
+          <div class="card-sub" id="hptCardSub">Status serangan per GH · data terbaru</div></div>
+          <div style="display:flex;gap:5px">
+            <span class="pill p-ok" style="font-size:9.5px">Low Risk</span>
+            <span class="pill p-w"  style="font-size:9.5px">Medium</span>
+            <span class="pill p-b"  style="font-size:9.5px">High Risk</span>
           </div>
         </div>
-        <div id="hptViewHama" class="tw">
-          <table>
-            <thead><tr>
-              <th style="width:28px">#</th><th>Greenhouse</th>
-              <th class="c">Tgl Input</th><th class="c">Oleh</th>
-              <th class="r">Kutu Kebul</th><th class="r">Thrips</th>
-              <th class="r">Ulat/Kupu²</th><th class="r">Tungau/Daun</th>
-              <th class="r">Tikus</th><th class="r">Aphids</th>
-              <th class="r">Ulat Kompos</th><th class="r">Kutu Putih</th>
-              <th class="c">Risiko</th>
-            </tr></thead>
-            <tbody id="hptBodyHama"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
-          </table>
-        </div>
-        <div id="hptViewPenyakit" class="tw" style="display:none">
-          <table>
-            <thead><tr>
-              <th style="width:28px">#</th><th>Greenhouse</th>
-              <th class="c">Tgl Input</th><th class="c">Oleh</th>
-              <th class="r">PM Insidensi (%)</th><th class="r">PM Intensitas (%)</th>
-              <th class="r">DM Insidensi (%)</th><th class="r">DM Intensitas (%)</th>
-              <th class="r">GSB</th><th class="c">Risiko</th>
-            </tr></thead>
-            <tbody id="hptBodyPenyakit"><tr><td colspan="10" class="es">Memuat…</td></tr></tbody>
-          </table>
+        <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px" id="hptCards">
+          <div class="es" style="grid-column:1/-1">Memuat…</div>
         </div>
       </div>
-      <!-- BOTTOM GRID: CARDS + ALERTS -->
-      <div class="bg2">
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">🌿 Greenhouse Health Cards</div>
-            <div class="card-sub" id="hptCardSub">Status serangan per GH · data terbaru</div></div>
-            <div style="display:flex;gap:5px">
-              <span class="pill p-ok" style="font-size:9.5px">Low Risk</span>
-              <span class="pill p-w"  style="font-size:9.5px">Medium</span>
-              <span class="pill p-b"  style="font-size:9.5px">High Risk</span>
-            </div>
-          </div>
-          <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px" id="hptCards">
-            <div class="es" style="grid-column:1/-1">Memuat…</div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-hd">
-            <div><div class="card-title">🚨 Alert HPT</div>
-            <div class="card-sub">GH dengan serangan tinggi — perlu penanganan segera</div></div>
-            <span class="pill p-b" id="hptAlertBadge">—</span>
-          </div>
-          <div id="hptAlertList"><div class="es">Memuat…</div></div>
-        </div>
-      </div>
+
     </div><!-- /view-hpt -->
 
   </main>
@@ -1576,6 +1610,7 @@ function rebuildHpt() {
   renderHptTables(rows);
   renderHptCards(rows);
   renderHptAlerts(rows);
+  renderHptFindings(rows);
 
   const subEl = document.getElementById('hptTblSub');
   if (subEl) subEl.textContent = rows.length + ' entri ditampilkan · data terbaru per GH disorot';
@@ -1624,42 +1659,74 @@ function penyakitNum(val, warn=10, crit=25) {
 
 // ── RENDER TABEL ──
 function renderHptTables(rows) {
+  // Cross-ref periode & HST dari RAW (dashboard data) berdasarkan nama GH
+  const rawByGH = {};
+  RAW.forEach(r => { rawByGH[r.gh.toLowerCase()] = r; });
+  const getGHInfo = gh => {
+    const key = Object.keys(rawByGH).find(k => k === gh.toLowerCase() || gh.toLowerCase().includes(k.split(' ')[0].toLowerCase()) && k.includes(gh.split(' ').pop()));
+    // Cari exact match dulu, lalu fuzzy
+    const exact = rawByGH[gh.toLowerCase()];
+    if (exact) return exact;
+    // Fuzzy: cari nama yang paling mirip
+    const match = RAW.find(r => r.gh.toLowerCase() === gh.toLowerCase());
+    return match || null;
+  };
+
   // Hama
   const hamaBody = document.getElementById('hptBodyHama');
   if (hamaBody) {
-    hamaBody.innerHTML = rows.length
-      ? rows.map((r,i) => {
-          const dot = CC[clOf(r.gh)] || '#999';
+    // Untuk summary: ambil entri terbaru per GH
+    const latestByGH = {};
+    rows.forEach(r => {
+      if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+    });
+    const summaryRows = Object.values(latestByGH).sort((a,b) => a.gh.localeCompare(b.gh));
+
+    hamaBody.innerHTML = summaryRows.length
+      ? summaryRows.map((r, i) => {
+          const dot  = CC[clOf(r.gh)] || '#999';
+          const info = getGHInfo(r.gh);
+          const periodeDisp = info ? `<span style="font-size:11px;color:var(--text3)">${info.periode}</span>` : '—';
+          const hstDisp     = info ? `<span class="hst-b" style="font-size:10px">HST ${info.hst}</span>` : '—';
           return `<tr>
             <td class="no-col">${i+1}</td>
             <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c">${periodeDisp}</td>
+            <td class="c">${hstDisp}</td>
             <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
-            <td class="c" style="font-size:11px;color:var(--text3)">${r.alias}</td>
             <td class="r">${hamaNum(r.kutukebul)}</td>
             <td class="r">${hamaNum(r.thrips)}</td>
             <td class="r">${hamaNum(r.ulat)}</td>
             <td class="r">${hamaNum(r.tungau)}</td>
             <td class="r">${hamaNum(r.tikus,2,5)}</td>
             <td class="r">${hamaNum(r.aphids)}</td>
-            <td class="r">${hamaNum(r.ulatkompos)}</td>
-            <td class="r">${hamaNum(r.kutukukih)}</td>
             <td class="c">${riskPill(risikoHama(r))}</td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="13" class="es">Tidak ada data hama sesuai filter</td></tr>';
+      : '<tr><td colspan="12" class="es">Tidak ada data hama sesuai filter</td></tr>';
   }
 
   // Penyakit
   const penyakitBody = document.getElementById('hptBodyPenyakit');
   if (penyakitBody) {
-    penyakitBody.innerHTML = rows.length
-      ? rows.map((r,i) => {
-          const dot = CC[clOf(r.gh)] || '#999';
+    const latestByGH = {};
+    rows.forEach(r => {
+      if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+    });
+    const summaryRows = Object.values(latestByGH).sort((a,b) => a.gh.localeCompare(b.gh));
+
+    penyakitBody.innerHTML = summaryRows.length
+      ? summaryRows.map((r, i) => {
+          const dot  = CC[clOf(r.gh)] || '#999';
+          const info = getGHInfo(r.gh);
+          const periodeDisp = info ? `<span style="font-size:11px;color:var(--text3)">${info.periode}</span>` : '—';
+          const hstDisp     = info ? `<span class="hst-b" style="font-size:10px">HST ${info.hst}</span>` : '—';
           return `<tr>
             <td class="no-col">${i+1}</td>
             <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+            <td class="c">${periodeDisp}</td>
+            <td class="c">${hstDisp}</td>
             <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
-            <td class="c" style="font-size:11px;color:var(--text3)">${r.alias}</td>
             <td class="r">${penyakitNum(r.pmInsidensi)}</td>
             <td class="r">${penyakitNum(r.pmIntensitas)}</td>
             <td class="r">${penyakitNum(r.dmInsidensi)}</td>
@@ -1668,8 +1735,72 @@ function renderHptTables(rows) {
             <td class="c">${riskPill(risikoPenyakit(r))}</td>
           </tr>`;
         }).join('')
-      : '<tr><td colspan="10" class="es">Tidak ada data penyakit sesuai filter</td></tr>';
+      : '<tr><td colspan="11" class="es">Tidak ada data penyakit sesuai filter</td></tr>';
   }
+}
+
+// ── RENDER RECENT FINDINGS ──
+// Menampilkan entri terbaru per GH sebagai feed card di panel kanan
+function renderHptFindings(rows) {
+  const el  = document.getElementById('hptFindings');
+  const sub = document.getElementById('hptFindingSub');
+  if (!el) return;
+  if (!rows.length) { el.innerHTML = '<div class="es">Tidak ada temuan</div>'; return; }
+
+  // Ambil terbaru per GH, sort by tgl desc
+  const latestByGH = {};
+  rows.forEach(r => {
+    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+  });
+  const sorted = Object.values(latestByGH).sort((a,b) => b.tgl.localeCompare(a.tgl));
+
+  const HAMA_ICONS = [
+    { key:'kutukebul', label:'Kutu Kebul', emoji:'🦟', warn:5,  crit:10 },
+    { key:'thrips',    label:'Thrips',     emoji:'🐜', warn:5,  crit:10 },
+    { key:'ulat',      label:'Ulat',       emoji:'🐛', warn:5,  crit:10 },
+    { key:'tungau',    label:'Tungau',     emoji:'🕷', warn:5,  crit:10 },
+    { key:'aphids',    label:'Aphids',     emoji:'🦗', warn:5,  crit:10 },
+    { key:'tikus',     label:'Tikus',      emoji:'🐀', warn:2,  crit:5  },
+  ];
+
+  el.innerHTML = sorted.map(r => {
+    const lvl         = risikoGlobal(r);
+    const dot         = CC[clOf(r.gh)] || '#999';
+    const borderColor = lvl==='high' ? 'var(--red)' : lvl==='medium' ? '#c87800' : 'var(--green-mid)';
+    const bgTop       = lvl==='high' ? 'var(--red-lt)' : lvl==='medium' ? 'var(--yellow-lt)' : 'var(--green-lt)';
+
+    // Aktif hama (> 0)
+    const activeHama = HAMA_ICONS.filter(h => r[h.key] > 0);
+
+    // Tags hama yang kritis/warning
+    const hamaTags = activeHama.map(h => {
+      const col = r[h.key] >= h.crit ? 'var(--red)' : '#c87800';
+      return `<span style="background:${lvl==='high'?'rgba(192,32,32,.1)':'rgba(160,96,0,.1)'};color:${col};border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">${h.emoji} ${h.label} <b>${r[h.key]}</b></span>`;
+    }).join('');
+
+    // Penyakit summary
+    const penyakitLine = (r.pmIntensitas > 0 || r.dmIntensitas > 0)
+      ? `<div style="display:flex;gap:8px;margin-top:5px">
+          ${r.pmIntensitas > 0 ? `<span style="font-size:10px;color:#7b2d8b;font-weight:600">PM ${r.pmIntensitas.toFixed(1)}%</span>` : ''}
+          ${r.dmIntensitas > 0 ? `<span style="font-size:10px;color:#1a6a8a;font-weight:600">DM ${r.dmIntensitas.toFixed(1)}%</span>` : ''}
+         </div>`
+      : '';
+
+    return `<div style="border-bottom:1px solid var(--border);padding:12px 14px;transition:background .1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:6px">
+        <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <span style="font-size:12.5px;font-weight:800;flex:1">${r.gh}</span>
+        ${riskPill(lvl)}
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-family:'JetBrains Mono',monospace">${r.tgl||'—'} · ${r.alias||'—'}</div>
+      ${activeHama.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${hamaTags}</div>`
+        : `<div style="font-size:10px;color:var(--text4);font-style:italic">Tidak ada hama terdeteksi</div>`}
+      ${penyakitLine}
+    </div>`;
+  }).join('');
+
+  if (sub) sub.textContent = `${sorted.length} GH · data terbaru per GH`;
 }
 
 // ── RENDER HEALTH CARDS ──
