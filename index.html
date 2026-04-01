@@ -628,8 +628,9 @@ function applyData(json) {
         hst           : +r.hst  || 0,
         varian        : String(r.varian  || '').trim(),
         avgGramasi    : +r.gramasi     || 0,
-        gramasiPrev   : +r.gramasiPrev || 0,   // gramasi hari sebelumnya (dari GAS)
-        kenaikanHarian: +r.kenaikanHarian || 0,
+        gramasiPrev   : +r.gramasiPrev || 0,
+        // null = belum ada data sebelumnya, angka = selisih aktual (bisa negatif/0/positif)
+        kenaikanHarian: (r.kenaikanHarian === null || r.kenaikanHarian === undefined) ? null : +r.kenaikanHarian,
         lastUpdateGr  : String(r.tgl || '').trim(),
         targetGramasi : 0,
       })).filter(r => r.gh && r.avgGramasi > 0)
@@ -642,7 +643,7 @@ function applyData(json) {
     const base = rawByGH[r.gh] || {};
     // Simpan nilai varian dulu sebelum spread
     const _avgGramasi     = r.avgGramasi;
-    const _kenaikanHarian = +r.kenaikanHarian || 0;
+    const _kenaikanHarian = (r.kenaikanHarian === null || r.kenaikanHarian === undefined) ? null : +r.kenaikanHarian;
     const _gramasiPrev    = +r.gramasiPrev    || 0;
     const _lastUpdateGr   = r.lastUpdateGr;
     const _varian         = r.varian;
@@ -903,14 +904,19 @@ function rebuildGramasi() {
       if (!ghMap[key]) {
         ghMap[key] = {
           ...r,
-          _grSum: 0, _tgtSum: 0, _kenaikanSum: 0, _prevSum: 0, _cnt: 0, _maxTgl: '',
+          _grSum: 0, _tgtSum: 0, _kenaikanSum: 0, _prevSum: 0,
+          _cnt: 0, _kenCnt: 0, _maxTgl: '',  // _kenCnt: hanya hitung varian yang punya data prev
         };
       }
-      ghMap[key]._grSum       += r.avgGramasi;
-      ghMap[key]._tgtSum      += (r.targetGramasi || 0);
-      ghMap[key]._kenaikanSum += (r.kenaikanHarian || 0);
-      ghMap[key]._prevSum     += (r.gramasiPrev   || 0);
+      ghMap[key]._grSum   += r.avgGramasi;
+      ghMap[key]._tgtSum  += (r.targetGramasi || 0);
+      ghMap[key]._prevSum += (r.gramasiPrev   || 0);
       ghMap[key]._cnt++;
+      // Hanya akumulasi kenaikan jika ada data (bukan null)
+      if (r.kenaikanHarian !== null && r.kenaikanHarian !== undefined) {
+        ghMap[key]._kenaikanSum += r.kenaikanHarian;
+        ghMap[key]._kenCnt++;
+      }
       if (r.lastUpdateGr && r.lastUpdateGr > ghMap[key]._maxTgl) {
         ghMap[key]._maxTgl = r.lastUpdateGr;
       }
@@ -932,7 +938,7 @@ function rebuildGramasi() {
       varian        : '',
       avgGramasi    : r._cnt > 0 ? Math.round(r._grSum / r._cnt) : 0,
       targetGramasi : r._cnt > 0 ? Math.round(r._tgtSum / r._cnt) : 0,
-      kenaikanHarian: r._cnt > 0 ? round1(r._kenaikanSum / r._cnt) : 0,
+      kenaikanHarian: r._kenCnt > 0 ? round1(r._kenaikanSum / r._kenCnt) : null,
       gramasiPrev   : r._cnt > 0 ? Math.round(r._prevSum / r._cnt) : 0,
       lastUpdateGr  : r._maxTgl || maxTglGH(r.gh),
     }));
@@ -971,13 +977,24 @@ function rebuildGramasi() {
           ? `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>`
           : `<td class="r mono" style="font-weight:700">${r.avgGramasi} g</td>`;
 
-        // Kenaikan harian — dari GAS (selisih aktual antar hari, skip hari kosong)
-        const ken     = r.kenaikanHarian || 0;
-        const kenPrev = r.gramasiPrev    || 0;
-        const kenPct  = (kenPrev > 0 && ken > 0) ? (ken / kenPrev * 100) : 0;
-        const kenaikStr = ken > 0
-          ? `<span class="mono" style="font-size:12px;color:var(--text2)">${ken.toFixed(1)} g/hari</span><br><span style="font-size:10px;color:var(--green)">+${kenPct.toFixed(1)}%</span>`
-          : `<span style="color:var(--text4);font-size:11px">—</span>`;
+        // Kenaikan harian — null = belum ada data prev, angka = selisih aktual
+        const ken     = r.kenaikanHarian;
+        const kenPrev = r.gramasiPrev || 0;
+        let kenaikStr;
+        if (ken === null || ken === undefined) {
+          kenaikStr = `<span style="color:var(--text4);font-size:11px">—</span>`;
+        } else {
+          const kenPct  = (kenPrev > 0) ? (ken / kenPrev * 100) : 0;
+          const absKen  = Math.abs(ken);
+          const absPct  = Math.abs(kenPct);
+          if (ken > 0) {
+            kenaikStr = `<span class="mono" style="font-size:12px;color:var(--text2)">+${ken.toFixed(1)} g/hari</span><br><span style="font-size:10px;color:var(--green)">+${kenPct.toFixed(1)}%</span>`;
+          } else if (ken < 0) {
+            kenaikStr = `<span class="mono" style="font-size:12px;color:var(--red)">${ken.toFixed(1)} g/hari</span><br><span style="font-size:10px;color:var(--red)">${kenPct.toFixed(1)}%</span>`;
+          } else {
+            kenaikStr = `<span class="mono" style="font-size:12px;color:var(--text3)">0 g/hari</span><br><span style="font-size:10px;color:var(--text3)">0.0%</span>`;
+          }
+        }
 
         // Deviasi vs target
         const devVal  = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
