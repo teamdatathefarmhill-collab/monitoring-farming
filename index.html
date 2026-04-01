@@ -416,14 +416,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       <!-- STAT CARDS -->
       <div class="stat-grid">
         <div class="sc g">
-          <div class="sc-lbl">Avg Gramasi Harian (Semua GH)</div>
+          <div class="sc-lbl">Avg Gramasi Keseluruhan</div>
           <div class="sc-val g" id="scGr1"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
           <div class="sc-note" id="scGr1n">Rata-rata dari GH aktif (diukur)</div>
         </div>
         <div class="sc b">
           <div class="sc-lbl">Avg Gramasi per Periode</div>
           <div class="sc-val b" id="scGr4"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr4n">Rata-rata gramasi per periode aktif</div>
+          <div class="sc-note" id="scGr4n">Rata-rata target gramasi periode aktif</div>
         </div>
         <div class="sc y">
           <div class="sc-lbl">GH Performa Terbaik</div>
@@ -432,96 +432,53 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- CHART: SEMUA GH VS TARGET -->
+      <!-- TABEL UTAMA GRAMASI -->
       <div class="card">
         <div class="card-hd">
           <div>
-            <div class="card-title">📉 Deviasi Gramasi vs Standar</div>
-            <div class="card-sub">Perbandingan gramasi aktual terhadap target. Garis hitam = Target Standar.</div>
+            <div class="card-title">⚖️ Overview Gramasi per GH</div>
+            <div class="card-sub" id="tblSubGr">Memuat data…</div>
+          </div>
+          <div class="sw" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
+            <!-- Tanggal update gramasi -->
+            <div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:5px 11px;font-size:11px;color:var(--text3)">
+              🕐 Update: <b id="grLastUpdate" style="color:var(--text2)">—</b>
+            </div>
+            <!-- Filter Varian -->
+            <select class="si" id="grFilterVarian" onchange="rebuildGramasi()" style="width:130px;padding-left:10px;background-image:none">
+              <option value="">Semua Varian</option>
+            </select>
+            <!-- Filter GH -->
+            <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
+              <option value="">Semua GH</option>
+            </select>
+            <!-- Search -->
+            <input class="si" type="text" id="srchGr" placeholder="Cari nama GH…" oninput="rebuildGramasi()" style="width:160px">
           </div>
         </div>
-        <div class="bc-legend">
-          <span><span class="ll"></span> Target Standar</span>
-          <span style="color:var(--green)">■</span><span>Di atas/sama target</span>
-          <span style="color:var(--red)">■</span><span>Di bawah target</span>
-        </div>
-        <div class="bc" id="barChartGr"><div class="es">Memuat…</div></div>
-      </div>
-
-      <!-- BOTTOM GRID (Statistik + Distribusi) -->
-      <div class="bg2" style="grid-template-columns: 1fr 1fr; margin-bottom:18px">
-        <!-- STATISTIK HARIAN -->
-        <div class="card" style="margin-bottom:0">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">📋 Statistik Harian</div>
-            </div>
-          </div>
-          <div style="padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:18px">
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">AVG GRAMASI</div>
-              <div class="mono" style="font-size:22px;font-weight:700;color:var(--green)" id="statGr1">—</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">AVG GRAMASI PETILO</div>
-              <div class="mono" style="font-size:22px;font-weight:700;color:var(--blue)" id="statGr2">—</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">AVG GRAMASI HARIAN</div>
-              <div class="mono" style="font-size:22px;font-weight:700;color:var(--text2)" id="statGr3">—</div>
-            </div>
-            <div>
-              <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">TARGET BERAT PERIODE</div>
-              <div class="mono" style="font-size:22px;font-weight:700;color:var(--yellow)" id="statGr4">—</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- DISTRIBUSI BERAT PER GH -->
-        <div class="card" style="margin-bottom:0">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">📊 Distribusi Berat per Greenhouse</div>
-              <div class="card-sub">Average berat across active GHs</div>
-            </div>
-          </div>
-          <div class="bc" id="distChartGr"><div class="es">Memuat…</div></div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:32px">#</th>
+                <th>Greenhouse</th>
+                <th class="c">Varian</th>
+                <th class="c">Periode</th>
+                <th class="c" onclick="doSortGr('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
+                <th class="r">Avg Gramasi</th>
+                <th class="r">Target</th>
+                <th class="r">Kenaikan Harian</th>
+                <th class="r">Deviasi (%)</th>
+                <th class="c">Status</th>
+              </tr>
+            </thead>
+            <tbody id="tBodyGr">
+              <tr><td colspan="10" class="es">Memuat…</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-
-        <!-- TABLE -->
-        <div class="card">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">⚖️ Detail Pengukuran Gramasi per GH</div>
-              <div class="card-sub" id="tblSubGr">Menampilkan data gramasi aktif</div>
-            </div>
-            <div class="sw">
-              <input class="si" type="text" id="srchGr" placeholder="Cari nama GH…" oninput="onSearch(this.value)">
-            </div>
-          </div>
-          <div class="tw">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:32px">#</th>
-                  <th>Greenhouse</th>
-                  <th class="c">Periode</th>
-                  <th class="c">HST ↕</th>
-                  <th class="r">Berat Hari Ini (g)</th>
-                  <th class="r">Avg Berat Periode (g)</th>
-                  <th class="r">Kenaikan Harian</th>
-                  <th class="r">Deviasi (%)</th>
-                  <th class="c">Status</th>
-                </tr>
-              </thead>
-              <tbody id="tBodyGr">
-                <tr><td colspan="9" class="es">Memuat…</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+    </div>
 
   </main>
 </div>
@@ -637,6 +594,21 @@ function applyData(json) {
   })).filter(r => r.gh);
 
   showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
+
+  // Update tanggal gramasi (gunakan lastUpdated atau dataDate)
+  const grUpEl = document.getElementById('grLastUpdate');
+  if (grUpEl) {
+    if (json.dataDate) {
+      const p = json.dataDate.split('-');
+      grUpEl.textContent = p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : json.dataDate;
+    } else if (json.lastUpdated) {
+      const d = new Date(json.lastUpdated);
+      grUpEl.textContent = d.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    } else {
+      grUpEl.textContent = '—';
+    }
+  }
+
   rebuild();
 }
 
@@ -769,6 +741,8 @@ function renderBar(d) {
 }
 
 // ── RENDER GRAMASI PAGE ──
+let grSortCol = 'hst', grSortAsc = true;
+
 function renderGramasi(d) {
   const wGr = d.filter(hasGr);
   const shortName = n => n.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
@@ -781,7 +755,6 @@ function renderGramasi(d) {
     const dev = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : -999;
     if (dev > bestDev) { bestDev = dev; bestGH = r.gh; }
   });
-
   document.getElementById('scGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
   document.getElementById('scGr4').textContent = wGr.length ? Math.round(avgPeriode) + ' g' : '—';
   document.getElementById('scGr2').textContent = bestGH !== '—' ? shortName(bestGH) : '—';
@@ -789,55 +762,60 @@ function renderGramasi(d) {
     ? (bestDev >= 0 ? `Deviasi <b class="up">+${bestDev.toFixed(1)}%</b>` : `Deviasi <b class="dn">${bestDev.toFixed(1)}%</b>`)
     : '—';
 
-  // ── STATISTIK HARIAN ──
-  const devBawahCnt = wGr.filter(r => r.avgGramasi < r.targetGramasi).length;
-  const avgHarian = wGr.length ? wGr.reduce((s,r) => s + (r.hst > 0 ? r.avgGramasi / r.hst : 0), 0) / wGr.length : 0;
-  document.getElementById('statGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
-  document.getElementById('statGr2').textContent = devBawahCnt + ' GH';
-  document.getElementById('statGr3').textContent = wGr.length ? avgHarian.toFixed(1) + ' g' : '—';
-  document.getElementById('statGr4').textContent = wGr.length ? Math.round(avgPeriode) + ' g' : '—';
+  // ── POPULATE DROPDOWN GH & VARIAN ──
+  const ghSel = document.getElementById('grFilterGH');
+  const varSel = document.getElementById('grFilterVarian');
+  const prevGH = ghSel.value, prevVar = varSel.value;
+  const ghList = [...new Set(wGr.map(r => r.gh))].sort();
+  const varList = [...new Set(wGr.map(r => r.varian).filter(Boolean))].sort();
+  ghSel.innerHTML = '<option value="">Semua GH</option>' + ghList.map(g => `<option value="${g}"${g===prevGH?' selected':''}>${g}</option>`).join('');
+  varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v => `<option value="${v}"${v===prevVar?' selected':''}>${v}</option>`).join('');
 
-  // SNAPSHOT BAR CHART (Deviasi vs Standar)
-  const sortedByHST = [...wGr].sort((a,b) => a.hst - b.hst);
-  const maxGr = Math.max(...wGr.map(r => Math.max(r.avgGramasi, r.targetGramasi)), 10);
-  document.getElementById('barChartGr').innerHTML = sortedByHST.length
-    ? sortedByHST.map(r => {
-        const wAct = (Math.min(r.avgGramasi, maxGr) / maxGr * 100).toFixed(1);
-        const wTgt = (Math.min(r.targetGramasi, maxGr) / maxGr * 100).toFixed(1);
-        const c = r.avgGramasi >= r.targetGramasi ? 'bf-g' : 'bf-r';
-        return `<div class="br"><div class="bl" title="${r.gh}">${shortName(r.gh)}</div><div class="bt"><div class="bf ${c}" style="width:${wAct}%">${r.avgGramasi}g</div><div class="pt" style="left:${wTgt}%;background:#000;width:2px;z-index:2" title="Target: ${r.targetGramasi}g"></div></div></div>`;
-      }).join('')
-    : '<div class="es">Tidak ada data gramasi</div>';
+  rebuildGramasi();
+}
 
-  // DISTRIBUSI BERAT PER GH
-  const maxGrDist = Math.max(...wGr.map(r => r.avgGramasi), 10);
-  document.getElementById('distChartGr').innerHTML = wGr.length
-    ? [...wGr].sort((a,b) => b.avgGramasi - a.avgGramasi).map(r => {
-        const w = (r.avgGramasi / maxGrDist * 100).toFixed(1);
-        const c = r.avgGramasi >= r.targetGramasi ? 'bf-g' : 'bf-r';
-        return `<div class="br"><div class="bl" title="${r.gh}">${shortName(r.gh)}</div><div class="bt"><div class="bf ${c}" style="width:${w}%">${r.avgGramasi}g</div></div></div>`;
-      }).join('')
-    : '<div class="es">Tidak ada data</div>';
+function rebuildGramasi() {
+  const wGr = (cur.length ? cur : RAW).filter(hasGr);
+  const shortName = n => n.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
+  const ghVal  = document.getElementById('grFilterGH')?.value || '';
+  const varVal = document.getElementById('grFilterVarian')?.value || '';
+  const qGr    = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
 
-  // TABLE dengan kolom Kenaikan Harian
-  document.getElementById('tBodyGr').innerHTML = wGr.length
-    ? [...wGr].sort((a,b) => a.hst - b.hst).map((r, i) => {
+  let rows = [...wGr];
+  if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
+  if (varVal) rows = rows.filter(r => r.varian === varVal);
+  if (qGr)   rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+
+  // Sort
+  rows.sort((a,b) => {
+    const v = grSortAsc ? a[grSortCol]-b[grSortCol] : b[grSortCol]-a[grSortCol];
+    return v;
+  });
+
+  // Subtitle
+  const el = document.getElementById('tblSubGr');
+  if (el) el.textContent = `${rows.length} GH ditampilkan · diurutkan HST`;
+
+  // TABLE
+  document.getElementById('tBodyGr').innerHTML = rows.length
+    ? rows.map((r, i) => {
         const devVal = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
         const devStr = devVal > 0 ? `+${devVal.toFixed(1)}%` : `${devVal.toFixed(1)}%`;
         const devCol = devVal >= 0 ? 'var(--green)' : 'var(--red)';
         const statPill = devVal >= 0
           ? '<span class="pill p-ok">✓ On Track</span>'
           : '<span class="pill p-b">⚠ Di Bawah Std</span>';
-        // Kenaikan harian estimasi: avgGramasi / HST
-        const kenaikGram = r.hst > 0 ? r.avgGramasi / r.hst : 0;
+        const kenaikGram   = r.hst > 0 ? r.avgGramasi / r.hst : 0;
         const targetKenaik = r.hst > 0 ? r.targetGramasi / r.hst : 0;
-        const kenaikPct = targetKenaik > 0 ? (kenaikGram - targetKenaik) / targetKenaik * 100 : 0;
-        const kenaikStr = kenaikGram > 0
-          ? `<span class="mono" style="font-size:12px;color:var(--text2)">${kenaikGram.toFixed(1)}g/hr</span><br><span style="font-size:10px;color:${kenaikPct>=0?'var(--green)':'var(--red)'}">${kenaikPct>=0?'+':''}${kenaikPct.toFixed(1)}%</span>`
+        const kenaikPct    = targetKenaik > 0 ? (kenaikGram - targetKenaik) / targetKenaik * 100 : 0;
+        const kenaikStr    = kenaikGram > 0
+          ? `<span class="mono" style="font-size:12px;color:var(--text2)">${kenaikGram.toFixed(1)} g/hr</span><br><span style="font-size:10px;color:${kenaikPct>=0?'var(--green)':'var(--red)'}">${kenaikPct>=0?'+':''}${kenaikPct.toFixed(1)}%</span>`
           : '<span style="color:var(--text4);font-size:11px">—</span>';
+        const dot = CC[clOf(r.gh)] || '#999';
         return `<tr>
           <td class="no-col">${i+1}</td>
-          <td class="gh-name">${r.gh}</td>
+          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+          <td class="c" style="font-size:11px;color:var(--text3)">${r.varian || '—'}</td>
           <td class="c mono" style="color:var(--text3)">${r.periode}</td>
           <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
           <td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span></td>
@@ -847,7 +825,13 @@ function renderGramasi(d) {
           <td class="c">${statPill}</td>
         </tr>`;
       }).join('')
-    : `<tr><td colspan="9" class="es">Tidak ada data gramasi aktif sesuai filter</td></tr>`;
+    : `<tr><td colspan="10" class="es">Tidak ada data gramasi sesuai filter</td></tr>`;
+}
+
+function doSortGr(col) {
+  grSortAsc = grSortCol === col ? !grSortAsc : true;
+  grSortCol = col;
+  rebuildGramasi();
 }
 
 // ── REBUILD (filter + render all) ──
