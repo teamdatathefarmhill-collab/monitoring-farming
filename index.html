@@ -501,7 +501,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
     <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
-    <div class="nav-item soon"><span class="nav-icon">🌾</span> Semai <span class="soon-tag">soon</span></div>
+    <div class="nav-item" id="nav-semai" onclick="switchPage('semai')"><span class="nav-icon">🌱</span> Semai</div>
 
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
@@ -1120,6 +1120,150 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     </div><!-- /view-penyiraman -->
 
+    <!-- ═══════════ VIEW: SEMAI ═══════════ -->
+    <div id="view-semai" style="display:none">
+
+      <div class="ph">
+        <div>
+          <div class="ph-title">🌱 Monitoring Semai</div>
+          <div class="ph-sub" id="semaiSubtitle">Memuat data…</div>
+        </div>
+      </div>
+
+      <div class="err-banner" id="semaiErrBanner" style="display:none;margin-bottom:14px">
+        <span style="font-size:20px;flex-shrink:0">⚠️</span>
+        <div><b>Gagal memuat data Semai</b><br><span id="semaiErrMsg">Periksa koneksi.</span></div>
+      </div>
+
+      <!-- FILTER -->
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <button class="fbtn active" id="semBtnSemua"   onclick="setSemaiFilter('semua',this)">Semua</button>
+        <button class="fbtn"        id="semBtnAktif"   onclick="setSemaiFilter('aktif',this)">Aktif</button>
+        <button class="fbtn"        id="semBtnTanam"   onclick="setSemaiFilter('tanam',this)">Sudah Tanam</button>
+        <select class="si" id="semSelGH" onchange="rebuildSemai()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+        <select class="si" id="semSelItem" onchange="rebuildSemai()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua Item</option></select>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px">
+        <div class="sc g" style="border-radius:13px;padding:16px 18px">
+          <div class="sc-lbl">Batch Aktif</div>
+          <div class="sc-val g" id="semSc1">—</div>
+          <div class="sc-note" id="semSc1n">belum tanam</div>
+        </div>
+        <div class="sc b" style="border-radius:13px;padding:16px 18px">
+          <div class="sc-lbl">Avg %Sprout</div>
+          <div class="sc-val b" id="semSc2">—</div>
+          <div class="sc-note">batch aktif</div>
+        </div>
+        <div class="sc g" style="border-radius:13px;padding:16px 18px">
+          <div class="sc-lbl">Avg %Keberhasilan</div>
+          <div class="sc-val g" id="semSc3">—</div>
+          <div class="sc-note">sudah tanam</div>
+        </div>
+        <div class="sc y" style="border-radius:13px;padding:16px 18px">
+          <div class="sc-lbl">Siap Tanam</div>
+          <div class="sc-val y" id="semSc4">—</div>
+          <div class="sc-note">HSS ≥ 14 hari</div>
+        </div>
+        <div class="sc" style="border-radius:13px;padding:16px 18px;border-top:4px solid var(--red)">
+          <div class="sc-lbl">Sprout Rendah</div>
+          <div class="sc-val" style="color:var(--red)" id="semSc5">—</div>
+          <div class="sc-note">%Sprout &lt; 80%</div>
+        </div>
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+
+        <!-- TABEL BATCH -->
+        <div class="card" style="padding:0;overflow:hidden">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">📋 Rekap Batch Semai</div>
+              <div class="card-sub" id="semTblSub">diurutkan Tgl Semai terbaru</div>
+            </div>
+            <input class="si" type="text" id="semSrch" placeholder="Cari GH / Item…" oninput="rebuildSemai()" style="width:140px">
+          </div>
+          <div class="tw">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>GH</th>
+                  <th>Nama Item</th>
+                  <th>Tgl Semai</th>
+                  <th>Tgl Tanam</th>
+                  <th class="r">HSS</th>
+                  <th class="r">Qty Benih</th>
+                  <th>%Sprout</th>
+                  <th class="r">Bibit A</th>
+                  <th class="r">Bibit B</th>
+                  <th class="r">Siap Tanam</th>
+                  <th>%Keberhasilan</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="semBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PANEL KANAN -->
+        <div style="display:flex;flex-direction:column;gap:12px">
+
+          <!-- ALERT -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between">
+              <div class="card-title">🚨 Alert Semai</div>
+              <span class="pill p-b" id="semAlertBadge">—</span>
+            </div>
+            <div id="semAlertList" style="max-height:260px;overflow-y:auto"><div class="es">Memuat…</div></div>
+          </div>
+
+          <!-- RINGKASAN -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="card-hd">
+              <div class="card-title">📊 Ringkasan</div>
+            </div>
+            <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:var(--text3)">Sudah Tanam</span>
+                <span style="font-size:14px;font-weight:700;color:var(--green)" id="semRingSudah">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:var(--text3)">Siap Tanam</span>
+                <span style="font-size:14px;font-weight:700;color:var(--blue)" id="semRingSiap">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:var(--text3)">Masih Proses</span>
+                <span style="font-size:14px;font-weight:700;color:var(--yellow)" id="semRingProses">—</span>
+              </div>
+              <div style="height:0.5px;background:var(--border)"></div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:var(--text3)">Total Benih</span>
+                <span style="font-size:14px;font-weight:700" id="semRingBenih">—</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-size:12px;color:var(--text3)">Total Bibit ke GH</span>
+                <span style="font-size:14px;font-weight:700;color:var(--green)" id="semRingBibit">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- PROGRESS BATCH -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="card-hd">
+              <div class="card-title">🌿 Progress Batch Aktif</div>
+              <div class="card-sub" id="semProgSub">—</div>
+            </div>
+            <div id="semProgList" style="max-height:320px;overflow-y:auto"><div class="es">Memuat…</div></div>
+          </div>
+
+        </div>
+      </div>
+    </div><!-- /view-semai -->
+
   </main>
 </div>
 
@@ -1694,7 +1838,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1718,6 +1862,7 @@ function switchPage(page) {
   if (page === 'dashboard' || page === 'gramasi') rebuild();
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
   if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
+  if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
 
   if(document.getElementById('pgSub'))  {
     const n = new Date();
@@ -2389,6 +2534,240 @@ function setHptTab(tab, el) {
 tick();
 setInterval(tick, 1000);
 fetchData();
+
+// ══════════════════════════════════════════════
+//  SEMAI MODULE
+// ══════════════════════════════════════════════
+const SEMAI_GAS_URL = GAS_URL + '?sheet=semai';
+let RAW_SEMAI       = [];
+let SEMAI_FILT      = 'semua'; // semua | aktif | tanam
+
+const SPROUT_WARN = 80;  // % sprout warning threshold
+const SPROUT_BAD  = 70;  // % sprout kritis threshold
+
+// ── FETCH ──
+async function fetchSemai(silent) {
+  if (!silent) {
+    document.getElementById('semBody').innerHTML      = '<tr><td colspan="13" class="es">Memuat data semai…</td></tr>';
+    document.getElementById('semAlertList').innerHTML = '<div class="es">Memuat…</div>';
+    document.getElementById('semProgList').innerHTML  = '<div class="es">Memuat…</div>';
+  }
+  try {
+    const resp = await fetch(SEMAI_GAS_URL + '&_t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    RAW_SEMAI = json.rows || [];
+    populateSemaiFilters();
+    rebuildSemai();
+    document.getElementById('semaiErrBanner').style.display = 'none';
+  } catch(e) {
+    document.getElementById('semaiErrBanner').style.display = 'flex';
+    document.getElementById('semaiErrMsg').textContent = e.message;
+    document.getElementById('semBody').innerHTML = '<tr><td colspan="13" class="es">Gagal memuat data.</td></tr>';
+  }
+}
+
+// ── POPULATE FILTERS ──
+function populateSemaiFilters() {
+  const ghs   = [...new Set(RAW_SEMAI.map(r => r.gh))].filter(Boolean).sort();
+  const items = [...new Set(RAW_SEMAI.map(r => r.namaItem))].filter(Boolean).sort();
+  const selGH   = document.getElementById('semSelGH');
+  const selItem = document.getElementById('semSelItem');
+  const curGH   = selGH.value, curItem = selItem.value;
+  selGH.innerHTML   = '<option value="">Semua GH</option>'   + ghs.map(g   => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
+  selItem.innerHTML = '<option value="">Semua Item</option>' + items.map(i => `<option value="${i}"${i===curItem?' selected':''}>${i}</option>`).join('');
+}
+
+// ── STATUS HELPER ──
+function semaiStatus(r) {
+  if (r.realTglTanam) return 'tanam';
+  if (r.hss >= 14)    return 'siap';
+  if (r.pctSprout > 0 && r.pctSprout < SPROUT_BAD)  return 'bad';
+  if (r.pctSprout > 0 && r.pctSprout < SPROUT_WARN) return 'warn';
+  return 'proses';
+}
+
+function semaiStatusPill(r) {
+  const st = semaiStatus(r);
+  if (st === 'tanam') return '<span class="pill p-ok">Sudah Tanam</span>';
+  if (st === 'siap')  return '<span class="pill" style="background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0">Siap Tanam</span>';
+  if (st === 'bad')   return '<span class="pill p-b">Sprout Rendah</span>';
+  if (st === 'warn')  return '<span class="pill p-w">Sprout Low</span>';
+  return '<span class="pill p-w" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">Proses</span>';
+}
+
+// ── PROGRESS BAR ──
+function semPbar(pct) {
+  const cls = pct >= SPROUT_WARN ? 'g' : pct >= SPROUT_BAD ? 'y' : 'r';
+  const col  = cls==='g'?'var(--green-mid)':cls==='y'?'#c87800':'var(--red)';
+  const tcol = cls==='g'?'var(--green-txt)':cls==='y'?'var(--yellow-txt)':'var(--red-txt)';
+  return `<div class="pw"><div class="pb"><div class="pf" style="width:${Math.min(pct,100)}%;background:${col}"></div></div><span class="pv" style="color:${tcol}">${pct.toFixed(1)}%</span></div>`;
+}
+
+// ── SET FILTER ──
+function setSemaiFilter(f, el) {
+  SEMAI_FILT = f;
+  document.querySelectorAll('#semBtnSemua,#semBtnAktif,#semBtnTanam').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildSemai();
+}
+
+// ── REBUILD ──
+function rebuildSemai() {
+  let rows = [...RAW_SEMAI];
+
+  // Status filter
+  if (SEMAI_FILT === 'aktif')  rows = rows.filter(r => !r.realTglTanam);
+  if (SEMAI_FILT === 'tanam')  rows = rows.filter(r =>  r.realTglTanam);
+
+  // GH & Item filter
+  const ghVal   = (document.getElementById('semSelGH')||{}).value   || '';
+  const itemVal = (document.getElementById('semSelItem')||{}).value || '';
+  if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
+  if (itemVal) rows = rows.filter(r => r.namaItem === itemVal);
+
+  // Search
+  const q = ((document.getElementById('semSrch')||{}).value||'').toLowerCase().trim();
+  if (q) rows = rows.filter(r => r.gh.toLowerCase().includes(q) || r.namaItem.toLowerCase().includes(q));
+
+  // Subtitle
+  const n  = new Date();
+  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const subEl = document.getElementById('semaiSubtitle');
+  if (subEl) subEl.textContent = `Kondisi harian · ${hr}, ${tg} · ${RAW_SEMAI.length} batch tercatat`;
+
+  // ── STAT CARDS ──
+  const all      = RAW_SEMAI;
+  const aktif    = all.filter(r => !r.realTglTanam);
+  const siap     = aktif.filter(r => r.hss >= 14);
+  const sproutD  = aktif.filter(r => r.pctSprout > 0 && r.pctSprout < SPROUT_WARN);
+  const sproutData = aktif.filter(r => r.pctSprout > 0);
+  const avgSprout  = sproutData.length ? sproutData.reduce((s,r)=>s+r.pctSprout,0)/sproutData.length : 0;
+  const berhasData = all.filter(r => r.realTglTanam && r.pctKeberhasilan > 0);
+  const avgBerhasil= berhasData.length ? berhasData.reduce((s,r)=>s+r.pctKeberhasilan,0)/berhasData.length : 0;
+
+  const sc1 = document.getElementById('semSc1'); if(sc1) sc1.textContent = aktif.length||'0';
+  const sc2 = document.getElementById('semSc2'); if(sc2){ sc2.textContent = avgSprout?avgSprout.toFixed(1)+'%':'—'; sc2.style.color = avgSprout?(avgSprout<SPROUT_WARN?'var(--red)':avgSprout<90?'var(--yellow)':'var(--blue)'):'var(--text)'; }
+  const sc3 = document.getElementById('semSc3'); if(sc3){ sc3.textContent = avgBerhasil?avgBerhasil.toFixed(1)+'%':'—'; sc3.style.color = avgBerhasil?(avgBerhasil<80?'var(--red)':'var(--green)'):'var(--text)'; }
+  const sc4 = document.getElementById('semSc4'); if(sc4){ sc4.textContent = siap.length||'0'; sc4.style.color = siap.length?'var(--yellow)':'var(--text3)'; }
+  const sc5 = document.getElementById('semSc5'); if(sc5){ sc5.textContent = sproutD.length||'0'; sc5.style.color = sproutD.length?'var(--red)':'var(--green)'; }
+
+  // ── RINGKASAN ──
+  const sudahTanam = all.filter(r => r.realTglTanam).length;
+  const proses     = aktif.filter(r => r.hss < 14).length;
+  const totalBenih = all.reduce((s,r)=>s+(r.realQtyBenih||r.qty||0),0);
+  const totalBibit = all.reduce((s,r)=>s+(r.totalDalamGH||0),0);
+  const eS=document.getElementById('semRingSudah'); if(eS) eS.textContent=sudahTanam+' batch';
+  const eSi=document.getElementById('semRingSiap'); if(eSi) eSi.textContent=siap.length+' batch';
+  const eP=document.getElementById('semRingProses'); if(eP) eP.textContent=proses+' batch';
+  const eB=document.getElementById('semRingBenih'); if(eB) eB.textContent=totalBenih.toLocaleString('id-ID');
+  const eBi=document.getElementById('semRingBibit'); if(eBi) eBi.textContent=totalBibit.toLocaleString('id-ID');
+
+  // ── ALERTS ──
+  const alerts = [];
+  aktif.forEach(r => {
+    if (r.pctSprout > 0 && r.pctSprout < SPROUT_BAD)
+      alerts.push({lvl:'red',  gh:r.gh, msg:`${r.namaItem} · %Sprout ${r.pctSprout.toFixed(1)}% · HSS ${r.hss}`});
+    else if (r.pctSprout > 0 && r.pctSprout < SPROUT_WARN)
+      alerts.push({lvl:'amber',gh:r.gh, msg:`${r.namaItem} · %Sprout ${r.pctSprout.toFixed(1)}% · HSS ${r.hss}`});
+  });
+  siap.forEach(r => {
+    alerts.push({lvl:'blue', gh:r.gh, msg:`${r.namaItem} · HSS ${r.hss} · ${(r.totalBibitSiap||0).toLocaleString('id-ID')} bibit siap`});
+  });
+  const badgEl = document.getElementById('semAlertBadge');
+  if (badgEl) badgEl.textContent = alerts.length + ' aktif';
+  const alertEl = document.getElementById('semAlertList');
+  alertEl.innerHTML = alerts.length
+    ? alerts.map(a => {
+        const ico = a.lvl==='red'?'🔴':a.lvl==='amber'?'🟡':'🔵';
+        return `<div class="ai"><span class="ai-ico">${ico}</span><div class="ai-body"><div class="ai-title">${a.gh}</div><div class="ai-desc">${a.msg}</div></div></div>`;
+      }).join('')
+    : '<div class="es">✅ Tidak ada alert semai</div>';
+
+  // ── PROGRESS LIST (batch aktif, diurutkan HSS desc) ──
+  const progRows = aktif.slice().sort((a,b) => b.hss - a.hss).slice(0,10);
+  const progEl   = document.getElementById('semProgList');
+  const progSub  = document.getElementById('semProgSub');
+  if (progSub) progSub.textContent = aktif.length + ' batch aktif';
+  progEl.innerHTML = progRows.length ? progRows.map(r => {
+    const dot = CC[clOf(r.gh)]||'#999';
+    const stages = [
+      { lbl:'Peram',  done: !!r.tglPeram,     date: r.tglPeram   },
+      { lbl:'Semai',  done: !!r.realTglSemai,  date: r.realTglSemai },
+      { lbl:'Siap',   done: r.hss >= 14,       date: r.hss >= 14 ? 'HSS '+r.hss : '—' },
+      { lbl:'Tanam',  done: !!r.realTglTanam,  date: r.realTglTanam||'—' },
+    ];
+    const activeIdx = stages.reduce((last,s,i) => s.done ? i : last, -1) + 1;
+    const stagesHtml = stages.map((s,i) => {
+      const isDone   = s.done;
+      const isActive = i === activeIdx && i < stages.length;
+      const dotStyle = isDone
+        ? `background:var(--green-mid);border-color:var(--green-mid)`
+        : isActive
+          ? `background:var(--surface);border-color:var(--green-mid);box-shadow:0 0 0 3px rgba(44,163,84,.15)`
+          : `background:var(--surface2);border-color:var(--border2)`;
+      const lineStyle = isDone && i < stages.length-1 ? `background:var(--green-mid)` : `background:var(--border2)`;
+      return `<div style="flex:1;text-align:center;position:relative">
+        ${i < stages.length-1 ? `<div style="position:absolute;top:5px;left:50%;right:-50%;height:2px;${lineStyle};z-index:0"></div>` : ''}
+        <div style="width:12px;height:12px;border-radius:50%;border:2px solid;${dotStyle};margin:0 auto 4px;position:relative;z-index:1"></div>
+        <div style="font-size:9px;color:var(--text3)">${s.lbl}</div>
+        <div style="font-size:9px;color:var(--text4);margin-top:1px">${s.date||'—'}</div>
+      </div>`;
+    }).join('');
+
+    const sproutHtml = r.pctSprout > 0
+      ? `<span style="font-size:10px;font-weight:700;color:${r.pctSprout<SPROUT_BAD?'var(--red)':r.pctSprout<SPROUT_WARN?'var(--yellow)':'var(--green-mid)'}">Sprout ${r.pctSprout.toFixed(1)}%</span>`
+      : `<span style="font-size:10px;color:var(--text4)">Sprout —</span>`;
+
+    return `<div style="border-bottom:1px solid var(--border);padding:12px 16px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+        <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <span style="font-size:12px;font-weight:800;flex:1">${r.gh}</span>
+        <span style="font-size:10px;color:var(--text3)">${r.namaItem}</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:8px">${stagesHtml}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        ${sproutHtml}
+        <span style="font-size:10px;color:var(--text3)">HSS <b>${r.hss}</b></span>
+        <span style="font-size:10px;color:var(--text3)">Siap <b>${(r.totalBibitSiap||0).toLocaleString('id-ID')}</b></span>
+      </div>
+    </div>`;
+  }).join('') : '<div class="es">Tidak ada batch aktif</div>';
+
+  // ── TABEL ──
+  const body = document.getElementById('semBody');
+  const tblSub = document.getElementById('semTblSub');
+  if (tblSub) tblSub.textContent = `${rows.length} batch · diurutkan Tgl Semai terbaru`;
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
+
+  body.innerHTML = rows.map((r,i) => {
+    const dot  = CC[clOf(r.gh)]||'#999';
+    const st   = semaiStatus(r);
+    const rowCls = st==='bad'?'rc':st==='warn'?'rw':'';
+    const sproutOk = r.pctSprout >= SPROUT_WARN;
+    const berOk    = r.pctKeberhasilan >= 80;
+    const tglS = r.tglSemai   ? r.tglSemai.split('-').reverse().join('/') : '—';
+    const tglT = r.realTglTanam ? r.realTglTanam.split('-').reverse().join('/') : (r.tglTanam ? r.tglTanam.split('-').reverse().join('/') : '—');
+    const tglTStyle = r.realTglTanam ? '' : 'color:var(--text4)';
+    return `<tr class="${rowCls}">
+      <td class="no-col">${i+1}</td>
+      <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+      <td style="font-size:11px;font-weight:600">${r.namaItem||'—'}</td>
+      <td class="mono" style="font-size:11px">${tglS}</td>
+      <td class="mono" style="font-size:11px;${tglTStyle}">${tglT}</td>
+      <td class="r"><span class="hst-b">${r.hss||0}</span></td>
+      <td class="r mono" style="font-size:11px">${(r.realQtyBenih||r.qty||0).toLocaleString('id-ID')}</td>
+      <td>${r.pctSprout>0 ? semPbar(r.pctSprout) : '<span class="av-none">—</span>'}</td>
+      <td class="r mono">${r.bibitA>0?r.bibitA.toLocaleString('id-ID'):'—'}</td>
+      <td class="r mono" style="color:var(--text3)">${r.bibitB>0?r.bibitB.toLocaleString('id-ID'):'—'}</td>
+      <td class="r mono">${r.totalBibitSiap>0?r.totalBibitSiap.toLocaleString('id-ID'):'—'}</td>
+      <td>${r.pctKeberhasilan>0 ? semPbar(r.pctKeberhasilan) : '<span class="av-none">—</span>'}</td>
+      <td>${semaiStatusPill(r)}</td>
+    </tr>`;
+  }).join('');
+}
 
 // ══════════════════════════════════════════════
 //  PENYIRAMAN MODULE
