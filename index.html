@@ -896,28 +896,39 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div><b>Gagal memuat data Penyiraman</b><br><span id="pnyErrMsg">Periksa koneksi atau akses sheet.</span></div>
       </div>
 
-      <!-- FILTER -->
-      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
-        <button class="fbtn active" id="pnyBtnSemua"  onclick="setPnyTipe('semua',this)">Semua</button>
-        <button class="fbtn"        id="pnyBtnDutch"  onclick="setPnyTipe('dutch',this)">Dutch Bucket</button>
-        <button class="fbtn"        id="pnyBtnDrip"   onclick="setPnyTipe('drip',this)">Drip</button>
+      <!-- FILTER BAR -->
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <button class="fbtn active" id="pnyBtnSemua" onclick="setPnyTipe('semua',this)">Semua</button>
+        <button class="fbtn"        id="pnyBtnDutch" onclick="setPnyTipe('dutch',this)">Dutch Bucket</button>
+        <button class="fbtn"        id="pnyBtnDrip"  onclick="setPnyTipe('drip',this)">Drip</button>
         <select class="si" id="pnySelGH" onchange="rebuildPny()" style="width:160px;padding-left:10px;background-image:none">
           <option value="">Semua GH</option>
         </select>
-        <select class="si" id="pnySelDate" onchange="rebuildPny()" style="width:130px;padding-left:10px;background-image:none">
-          <option value="today">Hari Ini</option>
-          <option value="7">7 Hari</option>
-          <option value="30">30 Hari</option>
-          <option value="all">Semua</option>
-        </select>
+        <input type="date" id="pnyDateFrom" onchange="rebuildPny()"
+          style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+        <span style="font-size:12px;color:var(--text3)">—</span>
+        <input type="date" id="pnyDateTo" onchange="rebuildPny()"
+          style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
       </div>
 
-      <!-- TOP ROW: stat cards + weather scorecard -->
+      <!-- TABS -->
+      <div style="display:flex;gap:0;border-bottom:1.5px solid var(--border);margin-bottom:16px">
+        <button id="pnyTabRekap"  onclick="setPnyTab('rekap',this)"
+          style="padding:8px 20px;font-size:12px;font-weight:700;background:none;border:none;border-bottom:2px solid var(--green-mid);color:var(--green-txt);cursor:pointer;font-family:inherit;margin-bottom:-1.5px">
+          📋 Rekap GH
+        </button>
+        <button id="pnyTabJam" onclick="setPnyTab('jam',this)"
+          style="padding:8px 20px;font-size:12px;font-weight:700;background:none;border:none;border-bottom:2px solid transparent;color:var(--text3);cursor:pointer;font-family:inherit;margin-bottom:-1.5px">
+          🕐 Per Jam
+        </button>
+      </div>
+
+      <!-- STAT CARDS + WEATHER (shared across tabs) -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.4fr;gap:10px;margin-bottom:16px">
         <div class="sc" style="border-top:4px solid #1a5fa0;border-radius:13px;padding:16px 18px">
-          <div class="sc-lbl">Sesi Hari Ini</div>
+          <div class="sc-lbl">Total Sesi</div>
           <div class="sc-val b" id="pnySc1">—</div>
-          <div class="sc-note" id="pnySc1n">GH disiram</div>
+          <div class="sc-note" id="pnySc1n">entri data</div>
         </div>
         <div class="sc" style="border-top:4px solid #1a7a3a;border-radius:13px;padding:16px 18px">
           <div class="sc-lbl">Avg EC In</div>
@@ -934,7 +945,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-val" style="color:var(--red)" id="pnySc4">—</div>
           <div class="sc-note" id="pnySc4n">GH perlu perhatian</div>
         </div>
-        <!-- WEATHER SCORECARD -->
         <div id="pnyWxCard" style="border-radius:13px;padding:16px 18px;background:linear-gradient(135deg,#fffbe8,#fef3c7);border:1.5px solid rgba(186,117,23,.25);display:flex;flex-direction:column;justify-content:space-between;gap:10px">
           <div style="display:flex;align-items:flex-start;justify-content:space-between">
             <div>
@@ -956,91 +966,158 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- BOTTOM ROW -->
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
+      <!-- ══ TAB: REKAP GH ══ -->
+      <div id="pnyViewRekap">
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:14px">
 
-        <!-- TABEL REKAP PER GH -->
+          <div class="card" style="padding:0;overflow:hidden">
+            <div class="card-hd">
+              <div>
+                <div class="card-title">📋 Rekap per GH</div>
+                <div class="card-sub" id="pnyTblSub">Data terbaru per GH</div>
+              </div>
+              <input class="si" type="text" id="pnySrch" placeholder="Cari GH…" oninput="rebuildPny()" style="width:130px">
+            </div>
+            <div class="tw">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th><th>Greenhouse</th><th>Tipe</th>
+                    <th class="r">EC In</th><th class="r">EC Out</th>
+                    <th class="r">pH In</th><th class="r">pH Out</th>
+                    <th class="r">DO</th><th class="r">Vol (L)</th>
+                    <th class="r">Suhu</th><th class="r">RH</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="pnyBody"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="card" style="padding:0;overflow:hidden">
+              <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between">
+                <div class="card-title">🚨 Alert Deviasi</div>
+                <span class="pill p-b" id="pnyAlertBadge">—</span>
+              </div>
+              <div id="pnyAlertList" style="max-height:240px;overflow-y:auto"><div class="es">Memuat…</div></div>
+            </div>
+            <div class="card" style="padding:0;overflow:hidden">
+              <div class="card-hd">
+                <div class="card-title">📊 Volume per Tipe</div>
+                <div class="card-sub" id="pnyVolSub">—</div>
+              </div>
+              <div style="padding:14px 16px">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Dutch Bucket</span>
+                  <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
+                    <div id="pnyBarDutch" style="height:100%;background:linear-gradient(90deg,#1a7a3a,#2ca354);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
+                  </div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Drip</span>
+                  <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
+                    <div id="pnyBarDrip" style="height:100%;background:linear-gradient(90deg,#1a5fa0,#388bfd);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+                  <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Dutch Bucket</div>
+                    <div style="font-size:15px;font-weight:700" id="pnyCtDutch">—</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
+                  </div>
+                  <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Drip</div>
+                    <div style="font-size:15px;font-weight:700" id="pnyCtDrip">—</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ TAB: PER JAM ══ -->
+      <div id="pnyViewJam" style="display:none">
+
+        <!-- STAT STRIP PER JAM -->
+        <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px">
+          <div class="sc" style="border-radius:11px;padding:13px 15px">
+            <div class="sc-lbl">Total Sesi</div>
+            <div class="sc-val b" id="pjSc1">—</div>
+            <div class="sc-note">entri periode ini</div>
+          </div>
+          <div class="sc" style="border-radius:11px;padding:13px 15px">
+            <div class="sc-lbl">GH Disiram</div>
+            <div class="sc-val" id="pjSc2">—</div>
+            <div class="sc-note">greenhouse unik</div>
+          </div>
+          <div class="sc" style="border-radius:11px;padding:13px 15px">
+            <div class="sc-lbl">Jam Pertama</div>
+            <div class="sc-val" id="pjSc3" style="font-size:22px">—</div>
+            <div class="sc-note">sesi paling awal</div>
+          </div>
+          <div class="sc" style="border-radius:11px;padding:13px 15px">
+            <div class="sc-lbl">Jam Terakhir</div>
+            <div class="sc-val" id="pjSc4" style="font-size:22px">—</div>
+            <div class="sc-note">sesi paling akhir</div>
+          </div>
+          <div class="sc" style="border-radius:11px;padding:13px 15px">
+            <div class="sc-lbl">Sesi Bermasalah</div>
+            <div class="sc-val" style="color:var(--red)" id="pjSc5">—</div>
+            <div class="sc-note">EC/pH di luar range</div>
+          </div>
+        </div>
+
+        <!-- TIMELINE HEATMAP -->
+        <div class="card" style="padding:0;overflow:hidden;margin-bottom:14px">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🗓️ Timeline Penyiraman per Jam</div>
+              <div class="card-sub" id="pjTlSub">Setiap cell = 1 sesi · warna = status EC/pH</div>
+            </div>
+          </div>
+          <div style="overflow-x:auto;padding:14px 16px">
+            <div id="pjTimeline">
+              <div class="es">Memuat…</div>
+            </div>
+          </div>
+          <!-- LEGEND -->
+          <div style="display:flex;gap:14px;padding:6px 16px 12px;font-size:10px;color:var(--text3);flex-wrap:wrap">
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:var(--green-lt);border:1px solid #b8dfc4"></div> EC & pH Normal</div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a"></div> EC/pH Di luar range</div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0"></div> EC/pH Kritis</div>
+            <div style="display:flex;align-items:center;gap:5px"><div style="width:10px;height:10px;border-radius:2px;background:var(--surface2);border:1px solid var(--border)"></div> Tidak ada sesi</div>
+          </div>
+        </div>
+
+        <!-- DETAIL TABLE ALL SESI -->
         <div class="card" style="padding:0;overflow:hidden">
           <div class="card-hd">
             <div>
-              <div class="card-title">📋 Rekap per GH</div>
-              <div class="card-sub" id="pnyTblSub">Data terbaru per GH</div>
+              <div class="card-title">📄 Detail Semua Sesi</div>
+              <div class="card-sub" id="pjDetailSub">Semua entri · diurutkan tanggal & jam</div>
             </div>
-            <input class="si" type="text" id="pnySrch" placeholder="Cari GH…" oninput="rebuildPny()" style="width:130px">
           </div>
           <div class="tw">
             <table>
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Greenhouse</th>
-                  <th>Tipe</th>
-                  <th class="r">EC In</th>
-                  <th class="r">EC Out</th>
-                  <th class="r">pH In</th>
-                  <th class="r">pH Out</th>
-                  <th class="r">DO</th>
-                  <th class="r">Vol (L)</th>
-                  <th class="r">Suhu</th>
-                  <th class="r">RH</th>
-                  <th>Status</th>
+                  <th>#</th><th>Tanggal</th><th>Jam</th><th>Greenhouse</th><th>Tipe</th>
+                  <th class="r">EC In</th><th class="r">EC Out</th>
+                  <th class="r">pH In</th><th class="r">pH Out</th>
+                  <th class="r">DO</th><th class="r">Vol (L)</th>
+                  <th>Operator</th><th>Status</th>
                 </tr>
               </thead>
-              <tbody id="pnyBody"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
+              <tbody id="pjBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
             </table>
           </div>
         </div>
 
-        <!-- PANEL KANAN -->
-        <div style="display:flex;flex-direction:column;gap:12px">
+      </div><!-- /pnyViewJam -->
 
-          <!-- ALERT -->
-          <div class="card" style="padding:0;overflow:hidden">
-            <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between">
-              <div class="card-title">🚨 Alert Deviasi</div>
-              <span class="pill p-b" id="pnyAlertBadge">—</span>
-            </div>
-            <div id="pnyAlertList" style="max-height:240px;overflow-y:auto">
-              <div class="es">Memuat…</div>
-            </div>
-          </div>
-
-          <!-- VOLUME PER TIPE -->
-          <div class="card" style="padding:0;overflow:hidden">
-            <div class="card-hd">
-              <div class="card-title">📊 Volume per Tipe</div>
-              <div class="card-sub" id="pnyVolSub">hari ini</div>
-            </div>
-            <div style="padding:14px 16px">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Dutch Bucket</span>
-                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
-                  <div id="pnyBarDutch" style="height:100%;background:linear-gradient(90deg,#1a7a3a,#2ca354);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
-                </div>
-              </div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Drip</span>
-                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
-                  <div id="pnyBarDrip" style="height:100%;background:linear-gradient(90deg,#1a5fa0,#388bfd);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
-                </div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
-                <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
-                  <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Dutch Bucket</div>
-                  <div style="font-size:15px;font-weight:700" id="pnyCtDutch">—</div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
-                </div>
-                <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
-                  <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Drip</div>
-                  <div style="font-size:15px;font-weight:700" id="pnyCtDrip">—</div>
-                  <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </div>
     </div><!-- /view-penyiraman -->
 
   </main>
@@ -2320,65 +2397,47 @@ const PNY_SHEET_ID = '1koqehMQj7g9SrIvwmUt7qCXVq2skYCWVPQ0IYBgVgCQ';
 const PNY_GID      = '327946924';
 const PNY_CSV_URL  = `https://docs.google.com/spreadsheets/d/${PNY_SHEET_ID}/export?format=csv&gid=${PNY_GID}`;
 
-let RAW_PNY    = [];
-let PNY_TIPE   = 'semua'; // semua | dutch | drip
+let RAW_PNY  = [];
+let PNY_TIPE = 'semua';
+let PNY_TAB  = 'rekap';
 
-// ── EC / pH target ranges ──
 const EC_MIN = 2.5, EC_MAX = 3.2;
 const PH_MIN = 5.8, PH_MAX = 6.3;
+const PNY_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18];
 
-// ── Cuaca icon map ──
-const WX_ICON = {
-  'cerah'          : '☀️',
-  'cerah berawan'  : '⛅',
-  'berawan'        : '🌥️',
-  'mendung'        : '🌥️',
-  'hujan'          : '🌧️',
-  'hujan lebat'    : '⛈️',
-  'gerimis'        : '🌦️',
-};
-const WX_BG = {
-  'cerah'          : 'linear-gradient(135deg,#fffbe8,#fef3c7)',
-  'cerah berawan'  : 'linear-gradient(135deg,#f0f4ff,#dbeafe)',
-  'berawan'        : 'linear-gradient(135deg,#f3f4f6,#e5e7eb)',
-  'mendung'        : 'linear-gradient(135deg,#f3f4f6,#e5e7eb)',
-  'hujan'          : 'linear-gradient(135deg,#eff6ff,#dbeafe)',
-  'hujan lebat'    : 'linear-gradient(135deg,#eff6ff,#bfdbfe)',
-  'gerimis'        : 'linear-gradient(135deg,#eff6ff,#dbeafe)',
-};
+const WX_ICON = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','mendung':'🌥️','hujan':'🌧️','hujan lebat':'⛈️','gerimis':'🌦️'};
+const WX_BG   = {'cerah':'linear-gradient(135deg,#fffbe8,#fef3c7)','cerah berawan':'linear-gradient(135deg,#f0f4ff,#dbeafe)','berawan':'linear-gradient(135deg,#f3f4f6,#e5e7eb)','mendung':'linear-gradient(135deg,#f3f4f6,#e5e7eb)','hujan':'linear-gradient(135deg,#eff6ff,#dbeafe)','hujan lebat':'linear-gradient(135deg,#eff6ff,#bfdbfe)','gerimis':'linear-gradient(135deg,#eff6ff,#dbeafe)'};
 
-function wxIcon(cuaca) {
-  const k = (cuaca||'').toLowerCase().trim();
-  for (const key of Object.keys(WX_ICON)) {
-    if (k.includes(key)) return WX_ICON[key];
-  }
-  return '🌤️';
-}
-function wxBg(cuaca) {
-  const k = (cuaca||'').toLowerCase().trim();
-  for (const key of Object.keys(WX_BG)) {
-    if (k.includes(key)) return WX_BG[key];
-  }
-  return 'linear-gradient(135deg,#f0f4ff,#dbeafe)';
+function wxIcon(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_ICON))if(k.includes(key))return WX_ICON[key];return'🌤️';}
+function wxBg(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_BG))if(k.includes(key))return WX_BG[key];return'linear-gradient(135deg,#f0f4ff,#dbeafe)';}
+function modus(arr){const f={};let m=0,r='';arr.forEach(v=>{f[v]=(f[v]||0)+1;if(f[v]>m){m=f[v];r=v;}});return r;}
+
+// ── INIT DATE RANGE to today ──
+function pnyInitDates() {
+  const today = new Date().toISOString().slice(0,10);
+  const df = document.getElementById('pnyDateFrom');
+  const dt = document.getElementById('pnyDateTo');
+  if (df && !df.value) df.value = today;
+  if (dt && !dt.value) dt.value = today;
 }
 
 // ── FETCH ──
 async function fetchPny(silent) {
+  pnyInitDates();
   if (!silent) {
     document.getElementById('pnyBody').innerHTML = '<tr><td colspan="12" class="es">Memuat data penyiraman…</td></tr>';
+    document.getElementById('pjBody').innerHTML  = '<tr><td colspan="13" class="es">Memuat data penyiraman…</td></tr>';
   }
   try {
     const resp = await fetch(PNY_CSV_URL + '&t=' + Date.now());
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    RAW_PNY = parsePnyCsv(text);
+    RAW_PNY = parsePnyCsv(await resp.text());
     populatePnyGHFilter();
     rebuildPny();
     document.getElementById('pnyErrBanner').style.display = 'none';
   } catch(e) {
     document.getElementById('pnyErrBanner').style.display = 'flex';
     document.getElementById('pnyErrMsg').textContent = e.message;
-    document.getElementById('pnyBody').innerHTML = '<tr><td colspan="12" class="es">Gagal memuat data.</td></tr>';
   }
 }
 
@@ -2386,187 +2445,158 @@ async function fetchPny(silent) {
 function parsePnyCsv(text) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
-  // Header: tgl,jam,Nama,Tipe,Greenhouse,Periode,HST,EC_In,EC_Out,pH_In,pH_Out,DO_Tandon,DO_Bucket,Suhu_Ruang,Volume,Volume_Nutrisi,RH,Deviasi,Cuaca
   const rows = [];
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i]);
     if (c.length < 5) continue;
     const p = v => parseFloat(v) || 0;
     rows.push({
-      tgl     : (c[0]||'').trim(),
-      jam     : (c[1]||'').trim(),
-      nama    : (c[2]||'').trim(),
-      tipe    : (c[3]||'').trim(),
-      gh      : (c[4]||'').trim(),
-      periode : (c[5]||'').trim(),
-      hst     : p(c[6]),
-      ecIn    : p(c[7]),
-      ecOut   : p(c[8]),
-      phIn    : p(c[9]),
-      phOut   : p(c[10]),
-      doTandon: p(c[11]),
-      doBucket: p(c[12]),
-      suhu    : p(c[13]),
-      volume  : p(c[14]),
-      volNut  : p(c[15]),
-      rh      : p(c[16]),
-      deviasi : p(c[17]),
-      cuaca   : (c[18]||'').trim(),
+      tgl:(c[0]||'').trim(), jam:(c[1]||'').trim(), nama:(c[2]||'').trim(),
+      tipe:(c[3]||'').trim(), gh:(c[4]||'').trim(), periode:(c[5]||'').trim(),
+      hst:p(c[6]), ecIn:p(c[7]), ecOut:p(c[8]), phIn:p(c[9]), phOut:p(c[10]),
+      doTandon:p(c[11]), doBucket:p(c[12]), suhu:p(c[13]), volume:p(c[14]),
+      volNut:p(c[15]), rh:p(c[16]), deviasi:p(c[17]), cuaca:(c[18]||'').trim(),
     });
   }
   return rows;
 }
+function splitCsvLine(line){const r=[];let c='',inQ=false;for(let i=0;i<line.length;i++){const ch=line[i];if(ch==='"'){inQ=!inQ;continue;}if(ch===','&&!inQ){r.push(c);c='';continue;}c+=ch;}r.push(c);return r;}
 
-function splitCsvLine(line) {
-  const result = []; let cur = ''; let inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') { inQ = !inQ; continue; }
-    if (ch === ',' && !inQ) { result.push(cur); cur = ''; continue; }
-    cur += ch;
-  }
-  result.push(cur);
-  return result;
-}
-
-// ── POPULATE GH FILTER ──
+// ── GH FILTER ──
 function populatePnyGHFilter() {
-  const sel = document.getElementById('pnySelGH');
-  if (!sel) return;
-  const ghs = [...new Set(RAW_PNY.map(r => r.gh))].filter(Boolean).sort();
+  const sel = document.getElementById('pnySelGH'); if(!sel) return;
+  const ghs = [...new Set(RAW_PNY.map(r=>r.gh))].filter(Boolean).sort();
   const cur = sel.value;
-  sel.innerHTML = '<option value="">Semua GH</option>' + ghs.map(g => `<option value="${g}"${g===cur?' selected':''}>${g}</option>`).join('');
+  sel.innerHTML = '<option value="">Semua GH</option>' + ghs.map(g=>`<option value="${g}"${g===cur?' selected':''}>${g}</option>`).join('');
 }
 
-// ── DATE FILTER ──
+// ── DATE RANGE FILTER ──
 function pnyDateFilter(rows) {
-  const sel = document.getElementById('pnySelDate');
-  const val = sel ? sel.value : 'today';
-  if (val === 'all') return rows;
-  const today = new Date(); today.setHours(0,0,0,0);
-  if (val === 'today') {
-    const todayStr = today.toISOString().slice(0,10);
-    return rows.filter(r => r.tgl.slice(0,10) === todayStr);
-  }
-  const days = parseInt(val);
-  const cutoff = new Date(today); cutoff.setDate(cutoff.getDate() - days);
-  return rows.filter(r => new Date(r.tgl) >= cutoff);
+  const from = (document.getElementById('pnyDateFrom')||{}).value || '';
+  const to   = (document.getElementById('pnyDateTo')||{}).value   || '';
+  if (!from && !to) return rows;
+  return rows.filter(r => {
+    const d = r.tgl.slice(0,10);
+    if (from && d < from) return false;
+    if (to   && d > to)   return false;
+    return true;
+  });
 }
 
-// ── MODUS helper ──
-function modus(arr) {
-  const freq = {}; let max = 0; let mode = '';
-  arr.forEach(v => { freq[v] = (freq[v]||0)+1; if(freq[v]>max){max=freq[v];mode=v;} });
-  return mode;
+// ── TAB SWITCH ──
+function setPnyTab(tab, el) {
+  PNY_TAB = tab;
+  document.getElementById('pnyViewRekap').style.display = tab === 'rekap' ? '' : 'none';
+  document.getElementById('pnyViewJam').style.display   = tab === 'jam'   ? '' : 'none';
+  document.querySelectorAll('#pnyTabRekap,#pnyTabJam').forEach(b => {
+    b.style.borderBottomColor = 'transparent';
+    b.style.color = 'var(--text3)';
+  });
+  el.style.borderBottomColor = 'var(--green-mid)';
+  el.style.color = 'var(--green-txt)';
+  rebuildPny();
 }
 
-// ── SET TIPE FILTER ──
+// ── TIPE FILTER ──
 function setPnyTipe(tipe, el) {
   PNY_TIPE = tipe;
-  document.querySelectorAll('#pnyBtnSemua,#pnyBtnDutch,#pnyBtnDrip').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#pnyBtnSemua,#pnyBtnDutch,#pnyBtnDrip').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   rebuildPny();
 }
 
-// ── REBUILD ──
+// ── CHIP STATUS ──
+function pnyStatus(r) {
+  if (r.ecIn>0&&r.ecIn>EC_MAX) return 'warn';
+  if (r.ecIn>0&&r.ecIn<EC_MIN) return 'bad';
+  if (r.phIn>0&&r.phIn>PH_MAX) return 'warn';
+  if (r.phIn>0&&r.phIn<PH_MIN) return 'bad';
+  return 'ok';
+}
+function pnyStatusPill(r) {
+  if (r.ecIn>0&&r.ecIn>EC_MAX) return '<span class="pill p-w">EC Tinggi</span>';
+  if (r.ecIn>0&&r.ecIn<EC_MIN) return '<span class="pill p-b">EC Rendah</span>';
+  if (r.phIn>0&&r.phIn>PH_MAX) return '<span class="pill p-w">pH Tinggi</span>';
+  if (r.phIn>0&&r.phIn<PH_MIN) return '<span class="pill p-b">pH Rendah</span>';
+  return '<span class="pill p-ok">Normal</span>';
+}
+
+// ── REBUILD MAIN ──
 function rebuildPny() {
+  pnyInitDates();
   let rows = pnyDateFilter(RAW_PNY);
-
-  // tipe filter
-  if (PNY_TIPE === 'dutch') rows = rows.filter(r => r.tipe.toLowerCase().includes('dutch'));
-  if (PNY_TIPE === 'drip')  rows = rows.filter(r => r.tipe.toLowerCase().includes('drip'));
-
-  // gh filter
-  const ghSel = (document.getElementById('pnySelGH')||{}).value || '';
-  if (ghSel) rows = rows.filter(r => r.gh === ghSel);
-
-  // search
-  const q = ((document.getElementById('pnySrch')||{}).value||'').toLowerCase().trim();
-  if (q) rows = rows.filter(r => r.gh.toLowerCase().includes(q) || r.tipe.toLowerCase().includes(q));
+  if (PNY_TIPE==='dutch') rows = rows.filter(r=>r.tipe.toLowerCase().includes('dutch'));
+  if (PNY_TIPE==='drip')  rows = rows.filter(r=>r.tipe.toLowerCase().includes('drip'));
+  const ghSel = (document.getElementById('pnySelGH')||{}).value||'';
+  if (ghSel) rows = rows.filter(r=>r.gh===ghSel);
 
   // subtitle
-  const selDate = (document.getElementById('pnySelDate')||{}).value || 'today';
-  const rangeLabel = {today:'hari ini','7':'7 hari terakhir','30':'30 hari terakhir',all:'semua data'}[selDate]||'';
-  const n = new Date();
-  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
-  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
-  const el = document.getElementById('pnySubtitle');
-  if (el) el.textContent = `Kondisi harian · ${hr}, ${tg} · ${RAW_PNY.length} entri tercatat`;
+  const n=new Date(), hr=['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+  const tg=n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const el=document.getElementById('pnySubtitle');
+  if(el) el.textContent=`Kondisi harian · ${hr}, ${tg} · ${RAW_PNY.length} entri tercatat`;
 
-  // ── WEATHER SCORECARD (modus cuaca dari rows, avg suhu & RH) ──
-  // Ambil jam live clock (floor), pakai log cuaca ≤ jam tersebut
-  const nowHour = new Date().getHours();
-  // filter rows yg jamnya ≤ nowHour
-  const wxRows = rows.filter(r => {
-    const h = parseInt((r.jam||'00').split(':')[0]);
-    return h <= nowHour;
-  });
-  const wxSrc = wxRows.length ? wxRows : rows;
-
-  const cuacaModus = modus(wxSrc.map(r => r.cuaca).filter(Boolean)) || '—';
-  const avgSuhu = wxSrc.length ? (wxSrc.reduce((s,r)=>s+r.suhu,0)/wxSrc.length) : 0;
-  const avgRH   = wxSrc.length ? (wxSrc.reduce((s,r)=>s+r.rh,0)/wxSrc.length) : 0;
-
+  // WEATHER
+  const nowH = n.getHours();
+  const wxSrc = rows.filter(r=>parseInt((r.jam||'0').split(':')[0])<=nowH);
+  const wxR   = wxSrc.length ? wxSrc : rows;
+  const cuacaModus = modus(wxR.map(r=>r.cuaca).filter(Boolean))||'—';
+  const avgSuhu = wxR.length ? wxR.reduce((s,r)=>s+r.suhu,0)/wxR.length : 0;
+  const avgRH   = wxR.length ? wxR.reduce((s,r)=>s+r.rh,0)/wxR.length   : 0;
   const wxCard = document.getElementById('pnyWxCard');
-  if (wxCard) wxCard.style.background = wxBg(cuacaModus);
-  const wxCond = document.getElementById('pnyWxCond'); if(wxCond) wxCond.textContent = cuacaModus || '—';
-  const wxIcon2 = document.getElementById('pnyWxIcon'); if(wxIcon2) wxIcon2.textContent = cuacaModus !== '—' ? wxIcon(cuacaModus) : '—';
-  const wxTemp = document.getElementById('pnyWxTemp'); if(wxTemp) wxTemp.textContent = avgSuhu ? avgSuhu.toFixed(1)+'°C' : '—';
-  const wxRH   = document.getElementById('pnyWxRH');   if(wxRH)   wxRH.textContent   = avgRH   ? avgRH.toFixed(0)+'%'   : '—';
+  if(wxCard) wxCard.style.background = wxBg(cuacaModus);
+  const wxC=document.getElementById('pnyWxCond');   if(wxC)  wxC.textContent  = cuacaModus;
+  const wxI=document.getElementById('pnyWxIcon');   if(wxI)  wxI.textContent  = cuacaModus!=='—'?wxIcon(cuacaModus):'—';
+  const wxT=document.getElementById('pnyWxTemp');   if(wxT)  wxT.textContent  = avgSuhu?avgSuhu.toFixed(1)+'°C':'—';
+  const wxRH=document.getElementById('pnyWxRH');    if(wxRH) wxRH.textContent = avgRH?avgRH.toFixed(0)+'%':'—';
 
-  // ── LATEST PER GH ──
-  const latestByGH = {};
-  rows.forEach(r => {
-    const k = r.gh;
-    if (!latestByGH[k] || r.tgl+r.jam > latestByGH[k].tgl+latestByGH[k].jam) latestByGH[k] = r;
-  });
-  const latest = Object.values(latestByGH).sort((a,b) => a.gh.localeCompare(b.gh));
-
-  // ── STAT CARDS ──
-  // Sesi = jumlah unik GH di date filter rows
-  const sesGH = new Set(rows.map(r=>r.gh)).size;
+  // SHARED STAT CARDS
   const ecVals = rows.filter(r=>r.ecIn>0).map(r=>r.ecIn);
   const phVals = rows.filter(r=>r.phIn>0).map(r=>r.phIn);
-  const avgEC  = ecVals.length ? ecVals.reduce((a,b)=>a+b,0)/ecVals.length : null;
-  const avgPH  = phVals.length ? phVals.reduce((a,b)=>a+b,0)/phVals.length : null;
+  const avgEC  = ecVals.length?ecVals.reduce((a,b)=>a+b,0)/ecVals.length:null;
+  const avgPH  = phVals.length?phVals.reduce((a,b)=>a+b,0)/phVals.length:null;
+  const sc1=document.getElementById('pnySc1'); if(sc1) sc1.textContent=rows.length||'—';
+  const sc1n=document.getElementById('pnySc1n'); if(sc1n) sc1n.textContent='entri data';
+  const sc2=document.getElementById('pnySc2'); if(sc2){sc2.textContent=avgEC?avgEC.toFixed(2):'—';sc2.style.color=avgEC?(avgEC<EC_MIN||avgEC>EC_MAX?'var(--red)':'var(--green)'):'var(--text)';}
+  const sc3=document.getElementById('pnySc3'); if(sc3){sc3.textContent=avgPH?avgPH.toFixed(2):'—';sc3.style.color=avgPH?(avgPH<PH_MIN||avgPH>PH_MAX?'var(--red)':'var(--green)'):'var(--text)';}
 
-  const sc1 = document.getElementById('pnySc1'); if(sc1) sc1.textContent = sesGH || '—';
-  const sc1n= document.getElementById('pnySc1n');if(sc1n) sc1n.textContent= `GH disiram · ${rangeLabel}`;
-  const sc2 = document.getElementById('pnySc2'); if(sc2){ sc2.textContent = avgEC ? avgEC.toFixed(2) : '—'; sc2.style.color = avgEC ? (avgEC<EC_MIN||avgEC>EC_MAX?'var(--red)':'var(--green)') : 'var(--text)'; }
-  const sc3 = document.getElementById('pnySc3'); if(sc3){ sc3.textContent = avgPH ? avgPH.toFixed(2) : '—'; sc3.style.color = avgPH ? (avgPH<PH_MIN||avgPH>PH_MAX?'var(--red)':'var(--green)') : 'var(--text)'; }
-
-  // Alerts
-  const alerts = [];
-  latest.forEach(r => {
-    if (r.ecIn > 0 && r.ecIn > EC_MAX) alerts.push({lvl:'red', gh:r.gh, msg:`EC In ${r.ecIn.toFixed(2)} · batas atas ${EC_MAX}`});
-    if (r.ecIn > 0 && r.ecIn < EC_MIN) alerts.push({lvl:'red', gh:r.gh, msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${EC_MIN}`});
-    if (r.phIn > 0 && r.phIn > PH_MAX) alerts.push({lvl:'amber', gh:r.gh, msg:`pH In ${r.phIn.toFixed(2)} · batas atas ${PH_MAX}`});
-    if (r.phIn > 0 && r.phIn < PH_MIN) alerts.push({lvl:'amber', gh:r.gh, msg:`pH In ${r.phIn.toFixed(2)} · batas bawah ${PH_MIN}`});
+  // alerts per GH (latest)
+  const latestByGH={};
+  rows.forEach(r=>{const k=r.gh;if(!latestByGH[k]||r.tgl+r.jam>latestByGH[k].tgl+latestByGH[k].jam)latestByGH[k]=r;});
+  const latest=Object.values(latestByGH).sort((a,b)=>a.gh.localeCompare(b.gh));
+  const alerts=[];
+  latest.forEach(r=>{
+    if(r.ecIn>0&&r.ecIn>EC_MAX) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas atas ${EC_MAX}`});
+    if(r.ecIn>0&&r.ecIn<EC_MIN) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${EC_MIN}`});
+    if(r.phIn>0&&r.phIn>PH_MAX) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas atas ${PH_MAX}`});
+    if(r.phIn>0&&r.phIn<PH_MIN) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas bawah ${PH_MIN}`});
   });
-  const sc4 = document.getElementById('pnySc4'); if(sc4) { sc4.textContent = alerts.length || '0'; sc4.style.color = alerts.length ? 'var(--red)' : 'var(--green)'; }
+  const sc4=document.getElementById('pnySc4'); if(sc4){sc4.textContent=alerts.length||'0';sc4.style.color=alerts.length?'var(--red)':'var(--green)';}
 
-  // ── RENDER TABEL ──
-  const body = document.getElementById('pnyBody');
-  if (!latest.length) { body.innerHTML = '<tr><td colspan="12" class="es">Tidak ada data untuk filter ini</td></tr>'; }
+  if (PNY_TAB==='rekap') renderPnyRekap(rows, latest, alerts);
+  else                    renderPnyJam(rows);
+}
+
+// ── RENDER: REKAP GH ──
+function renderPnyRekap(rows, latest, alerts) {
+  const from=(document.getElementById('pnyDateFrom')||{}).value||'';
+  const to  =(document.getElementById('pnyDateTo')||{}).value  ||'';
+  const rangeLabel = from===to ? from : `${from} – ${to}`;
+
+  // tabel
+  const q=((document.getElementById('pnySrch')||{}).value||'').toLowerCase();
+  const filtered = q ? latest.filter(r=>r.gh.toLowerCase().includes(q)||r.tipe.toLowerCase().includes(q)) : latest;
+  const body=document.getElementById('pnyBody');
+  if(!filtered.length){body.innerHTML='<tr><td colspan="12" class="es">Tidak ada data</td></tr>';}
   else {
-    body.innerHTML = latest.map((r,i) => {
-      const ecSt = r.ecIn>0 ? (r.ecIn>EC_MAX||r.ecIn<EC_MIN ? (r.ecIn>EC_MAX?'av-w':'av-bad') : 'av-ok') : 'av-none';
-      const phSt = r.phIn>0 ? (r.phIn>PH_MAX||r.phIn<PH_MIN ? (r.phIn>PH_MAX?'av-w':'av-bad') : 'av-ok') : 'av-none';
-      const ecBad = r.ecIn>0 && (r.ecIn>EC_MAX||r.ecIn<EC_MIN);
-      const phBad = r.phIn>0 && (r.phIn>PH_MAX||r.phIn<PH_MIN);
-      const rowCls = ecBad&&r.ecIn>EC_MAX ? 'rw' : (ecBad||phBad) ? 'rc' : '';
-      const dot = CC[clOf(r.gh)] || '#999';
-      const tipeLower = r.tipe.toLowerCase();
-      const tipeTag = tipeLower.includes('dutch')
-        ? `<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
-        : `<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Drip</span>`;
-
-      let statusPill = `<span class="pill p-ok">Normal</span>`;
-      if (r.ecIn>0&&r.ecIn>EC_MAX) statusPill = `<span class="pill p-w">EC Tinggi</span>`;
-      else if (r.ecIn>0&&r.ecIn<EC_MIN) statusPill = `<span class="pill p-b">EC Rendah</span>`;
-      else if (r.phIn>0&&r.phIn>PH_MAX) statusPill = `<span class="pill p-w">pH Tinggi</span>`;
-      else if (r.phIn>0&&r.phIn<PH_MIN) statusPill = `<span class="pill p-b">pH Rendah</span>`;
-
+    body.innerHTML = filtered.map((r,i)=>{
+      const ecSt=r.ecIn>0?(r.ecIn>EC_MAX||r.ecIn<EC_MIN?(r.ecIn>EC_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+      const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+      const rowCls=(r.ecIn>0&&r.ecIn>EC_MAX)?'rw':((r.ecIn>0&&r.ecIn<EC_MIN)||(r.phIn>0&&(r.phIn>PH_MAX||r.phIn<PH_MIN)))?'rc':'';
+      const dot=CC[clOf(r.gh)]||'#999';
+      const tipeTag=r.tipe.toLowerCase().includes('dutch')
+        ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
+        :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Drip</span>`;
       return `<tr class="${rowCls}">
         <td class="no-col">${i+1}</td>
         <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
@@ -2575,42 +2605,141 @@ function rebuildPny() {
         <td class="r mono" style="color:var(--text3)">${r.ecOut>0?r.ecOut.toFixed(2):'—'}</td>
         <td class="r mono ${phSt}">${r.phIn>0?r.phIn.toFixed(2):'—'}</td>
         <td class="r mono" style="color:var(--text3)">${r.phOut>0?r.phOut.toFixed(2):'—'}</td>
-        <td class="r mono" style="font-size:12px">${r.doTandon>0?r.doTandon.toFixed(1):'—'}</td>
-        <td class="r mono" style="font-size:12px">${r.volume>0?r.volume:'—'}</td>
-        <td class="r mono" style="font-size:12px">${r.suhu>0?r.suhu.toFixed(1)+'°':'—'}</td>
-        <td class="r mono" style="font-size:12px">${r.rh>0?r.rh+'%':'—'}</td>
-        <td>${statusPill}</td>
+        <td class="r mono">${r.doTandon>0?r.doTandon.toFixed(1):'—'}</td>
+        <td class="r mono">${r.volume>0?r.volume:'—'}</td>
+        <td class="r mono">${r.suhu>0?r.suhu.toFixed(1)+'°':'—'}</td>
+        <td class="r mono">${r.rh>0?r.rh+'%':'—'}</td>
+        <td>${pnyStatusPill(r)}</td>
       </tr>`;
     }).join('');
   }
-  document.getElementById('pnyTblSub').textContent = `${latest.length} GH · ${rangeLabel}`;
+  const tblSub=document.getElementById('pnyTblSub'); if(tblSub) tblSub.textContent=`${filtered.length} GH · ${rangeLabel}`;
 
-  // ── RENDER ALERTS ──
-  const alertEl = document.getElementById('pnyAlertList');
-  document.getElementById('pnyAlertBadge').textContent = alerts.length + ' aktif';
-  alertEl.innerHTML = alerts.length
-    ? alerts.map(a => `<div class="ai">
-        <span class="ai-ico">${a.lvl==='red'?'🔴':'🟡'}</span>
-        <div class="ai-body">
-          <div class="ai-title">${a.gh}</div>
-          <div class="ai-desc">${a.msg}</div>
-        </div>
-      </div>`).join('')
-    : '<div class="es">✅ Tidak ada alert deviasi</div>';
+  // alerts
+  const alertEl=document.getElementById('pnyAlertList');
+  document.getElementById('pnyAlertBadge').textContent=alerts.length+' aktif';
+  alertEl.innerHTML=alerts.length
+    ?alerts.map(a=>`<div class="ai"><span class="ai-ico">${a.lvl==='red'?'🔴':'🟡'}</span><div class="ai-body"><div class="ai-title">${a.gh}</div><div class="ai-desc">${a.msg}</div></div></div>`).join('')
+    :'<div class="es">✅ Tidak ada alert deviasi</div>';
 
-  // ── VOLUME PER TIPE ──
-  const dutchRows = rows.filter(r=>r.tipe.toLowerCase().includes('dutch'));
-  const dripRows  = rows.filter(r=>r.tipe.toLowerCase().includes('drip'));
-  const ctD = new Set(dutchRows.map(r=>r.gh)).size;
-  const ctR = new Set(dripRows.map(r=>r.gh)).size;
-  const total = ctD + ctR || 1;
-  const pctD = Math.round(ctD/total*100);
-  const pctR = Math.round(ctR/total*100);
-  const barD = document.getElementById('pnyBarDutch'); if(barD){barD.style.width=pctD+'%';barD.textContent=pctD+'%';}
-  const barR = document.getElementById('pnyBarDrip');  if(barR){barR.style.width=pctR+'%';barR.textContent=pctR+'%';}
-  const ctDE = document.getElementById('pnyCtDutch'); if(ctDE) ctDE.textContent = ctD + ' GH';
-  const ctRE = document.getElementById('pnyCtDrip');  if(ctRE) ctRE.textContent = ctR + ' GH';
-  document.getElementById('pnyVolSub').textContent = rangeLabel;
+  // volume per tipe
+  const dutchGH=new Set(rows.filter(r=>r.tipe.toLowerCase().includes('dutch')).map(r=>r.gh)).size;
+  const dripGH =new Set(rows.filter(r=>r.tipe.toLowerCase().includes('drip')).map(r=>r.gh)).size;
+  const tot=dutchGH+dripGH||1;
+  const pD=Math.round(dutchGH/tot*100), pR=Math.round(dripGH/tot*100);
+  const bD=document.getElementById('pnyBarDutch');if(bD){bD.style.width=pD+'%';bD.textContent=pD+'%';}
+  const bR=document.getElementById('pnyBarDrip'); if(bR){bR.style.width=pR+'%';bR.textContent=pR+'%';}
+  const cD=document.getElementById('pnyCtDutch');if(cD) cD.textContent=dutchGH+' GH';
+  const cR=document.getElementById('pnyCtDrip'); if(cR) cR.textContent=dripGH+' GH';
+  const vs=document.getElementById('pnyVolSub'); if(vs) vs.textContent=rangeLabel;
+}
+
+// ── RENDER: PER JAM ──
+function renderPnyJam(rows) {
+  const from=(document.getElementById('pnyDateFrom')||{}).value||'';
+  const to  =(document.getElementById('pnyDateTo')||{}).value  ||'';
+
+  // Sort all rows by tgl+jam
+  const sorted = [...rows].sort((a,b)=>(a.tgl+a.jam).localeCompare(b.tgl+b.jam));
+
+  // STAT STRIP
+  const ghSet = new Set(sorted.map(r=>r.gh));
+  const jams  = sorted.map(r=>r.jam).filter(Boolean).sort();
+  const badCount = sorted.filter(r=>pnyStatus(r)!=='ok').length;
+  const pjSc1=document.getElementById('pjSc1'); if(pjSc1) pjSc1.textContent=sorted.length||'—';
+  const pjSc2=document.getElementById('pjSc2'); if(pjSc2) pjSc2.textContent=ghSet.size||'—';
+  const pjSc3=document.getElementById('pjSc3'); if(pjSc3) pjSc3.textContent=jams.length?jams[0].slice(0,5):'—';
+  const pjSc4=document.getElementById('pjSc4'); if(pjSc4) pjSc4.textContent=jams.length?jams[jams.length-1].slice(0,5):'—';
+  const pjSc5=document.getElementById('pjSc5'); if(pjSc5){pjSc5.textContent=badCount;pjSc5.style.color=badCount?'var(--red)':'var(--green)';}
+  const pjTlSub=document.getElementById('pjTlSub'); if(pjTlSub) pjTlSub.textContent=`${sorted.length} sesi · ${from===to?from:from+' – '+to} · warna = status EC/pH`;
+
+  // TIMELINE
+  const tlEl = document.getElementById('pjTimeline');
+  if (!sorted.length) { tlEl.innerHTML='<div class="es">Tidak ada data untuk filter ini</div>'; }
+  else {
+    // group by gh → jam → rows[]
+    const byGH = {};
+    sorted.forEach(r=>{
+      if(!byGH[r.gh]) byGH[r.gh]={};
+      const h = parseInt((r.jam||'0').split(':')[0]);
+      if(!byGH[r.gh][h]) byGH[r.gh][h]=[];
+      byGH[r.gh][h].push(r);
+    });
+    const ghs = Object.keys(byGH).sort();
+    const COL_W = 72; // px per jam column
+    const LBL_W = 110;
+
+    let html = `<div style="display:grid;grid-template-columns:${LBL_W}px repeat(${PNY_HOURS.length},${COL_W}px);min-width:${LBL_W+COL_W*PNY_HOURS.length}px;gap:0">`;
+
+    // header row
+    html += `<div style="font-size:10px;color:var(--text3);padding:0 0 8px;font-weight:600">GH</div>`;
+    PNY_HOURS.forEach(h=>{
+      html+=`<div style="font-size:10px;color:var(--text3);text-align:center;padding:0 0 8px;font-weight:600">${String(h).padStart(2,'0')}:00</div>`;
+    });
+
+    // GH rows
+    ghs.forEach(gh=>{
+      const dot = CC[clOf(gh)]||'#999';
+      html+=`<div style="font-size:11px;font-weight:700;padding:5px 6px 5px 0;display:flex;align-items:center;gap:5px;border-top:0.5px solid var(--border);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+        <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <span style="overflow:hidden;text-overflow:ellipsis">${gh}</span>
+      </div>`;
+      PNY_HOURS.forEach(h=>{
+        const sesi = byGH[gh][h];
+        if (!sesi || !sesi.length) {
+          html+=`<div style="border-left:0.5px solid var(--border);border-top:0.5px solid var(--border);min-height:52px;background:var(--surface2)"></div>`;
+        } else {
+          // show up to 2 chips if multiple sesi in same hour
+          const chips = sesi.slice(0,2).map(r=>{
+            const st = pnyStatus(r);
+            const bg = st==='ok'?'var(--green-lt)':st==='warn'?'var(--yellow-lt)':'var(--red-lt)';
+            const tc = st==='ok'?'var(--green-txt)':st==='warn'?'var(--yellow-txt)':'var(--red-txt)';
+            return `<div style="background:${bg};color:${tc};border-radius:5px;padding:3px 5px;font-size:9px;font-weight:700;text-align:center;line-height:1.3">
+              <div style="font-size:10px">${r.ecIn>0?r.ecIn.toFixed(1):'—'}</div>
+              <div>pH ${r.phIn>0?r.phIn.toFixed(1):'—'}</div>
+            </div>`;
+          }).join('');
+          const extra = sesi.length>2?`<div style="font-size:9px;color:var(--text3);text-align:center">+${sesi.length-2}</div>`:'';
+          html+=`<div style="border-left:0.5px solid var(--border);border-top:0.5px solid var(--border);min-height:52px;padding:3px 4px;display:flex;flex-direction:column;gap:2px;background:rgba(26,122,58,.03)">${chips}${extra}</div>`;
+        }
+      });
+    });
+    html += '</div>';
+    tlEl.innerHTML = html;
+  }
+
+  // DETAIL TABLE
+  const body = document.getElementById('pjBody');
+  const pjDetailSub = document.getElementById('pjDetailSub');
+  if(pjDetailSub) pjDetailSub.textContent=`${sorted.length} entri · diurutkan tanggal & jam`;
+  if (!sorted.length) { body.innerHTML='<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
+  body.innerHTML = sorted.map((r,i)=>{
+    const ecSt=r.ecIn>0?(r.ecIn>EC_MAX||r.ecIn<EC_MIN?(r.ecIn>EC_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+    const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+    const st=pnyStatus(r);
+    const rowCls=st==='bad'?'rc':st==='warn'?'rw':'';
+    const tipeTag=r.tipe.toLowerCase().includes('dutch')
+      ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
+      :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Drip</span>`;
+    const dot=CC[clOf(r.gh)]||'#999';
+    // format date dd/mm/yyyy
+    const tglFmt = r.tgl ? r.tgl.split('-').reverse().join('/') : '—';
+    return `<tr class="${rowCls}">
+      <td class="no-col">${i+1}</td>
+      <td class="mono" style="font-size:11px">${tglFmt}</td>
+      <td class="mono" style="font-weight:700;font-size:12px">${r.jam?r.jam.slice(0,5):'—'}</td>
+      <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+      <td>${tipeTag}</td>
+      <td class="r mono ${ecSt}">${r.ecIn>0?r.ecIn.toFixed(2):'—'}</td>
+      <td class="r mono" style="color:var(--text3)">${r.ecOut>0?r.ecOut.toFixed(2):'—'}</td>
+      <td class="r mono ${phSt}">${r.phIn>0?r.phIn.toFixed(2):'—'}</td>
+      <td class="r mono" style="color:var(--text3)">${r.phOut>0?r.phOut.toFixed(2):'—'}</td>
+      <td class="r mono">${r.doTandon>0?r.doTandon.toFixed(1):'—'}</td>
+      <td class="r mono">${r.volume>0?r.volume:'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.nama||'—'}</td>
+      <td>${pnyStatusPill(r)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── HPT MAINTENANCE MODAL ──
