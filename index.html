@@ -1183,11 +1183,17 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <div class="card-title">📋 Rekap Batch Semai</div>
               <div class="card-sub" id="semTblSub">diurutkan Tgl Semai terbaru</div>
             </div>
-            <input class="si" type="text" id="semSrch" placeholder="Cari GH / Item…" oninput="rebuildSemai()" style="width:140px">
+            <div style="display:flex;gap:7px;align-items:center">
+              <div class="sw">
+                <button class="fbtn" id="semVmGH"     onclick="setSemaiView('gh',this)"     style="padding:4px 12px;font-size:11px">Semua GH</button>
+                <button class="fbtn active" id="semVmVarian" onclick="setSemaiView('varian',this)" style="padding:4px 12px;font-size:11px">Per Varian</button>
+              </div>
+              <input class="si" type="text" id="semSrch" placeholder="Cari GH / Item…" oninput="rebuildSemai()" style="width:130px">
+            </div>
           </div>
           <div class="tw">
-            <table>
-              <thead>
+            <table id="semTable">
+              <thead id="semThead">
                 <tr>
                   <th>#</th>
                   <th>GH</th>
@@ -2541,6 +2547,7 @@ fetchData();
 const SEMAI_GAS_URL = GAS_URL + '?sheet=semai';
 let RAW_SEMAI       = [];
 let SEMAI_FILT      = 'semua'; // semua | aktif | tanam
+let SEMAI_VIEW      = 'varian'; // varian | gh
 
 const SPROUT_WARN = 80;  // % sprout warning threshold
 const SPROUT_BAD  = 70;  // % sprout kritis threshold
@@ -2609,6 +2616,14 @@ function semPbar(pct) {
 function setSemaiFilter(f, el) {
   SEMAI_FILT = f;
   document.querySelectorAll('#semBtnSemua,#semBtnAktif,#semBtnTanam').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildSemai();
+}
+
+// ── SET VIEW MODE ──
+function setSemaiView(mode, el) {
+  SEMAI_VIEW = mode;
+  document.querySelectorAll('#semVmGH,#semVmVarian').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   rebuildSemai();
 }
@@ -2737,36 +2752,131 @@ function rebuildSemai() {
   }).join('') : '<div class="es">Tidak ada batch aktif</div>';
 
   // ── TABEL ──
-  const body = document.getElementById('semBody');
-  const tblSub = document.getElementById('semTblSub');
-  if (tblSub) tblSub.textContent = `${rows.length} batch · diurutkan Tgl Semai terbaru`;
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
+  const body    = document.getElementById('semBody');
+  const thead   = document.getElementById('semThead');
+  const tblSub  = document.getElementById('semTblSub');
 
-  body.innerHTML = rows.map((r,i) => {
-    const dot  = CC[clOf(r.gh)]||'#999';
-    const st   = semaiStatus(r);
-    const rowCls = st==='bad'?'rc':st==='warn'?'rw':'';
-    const sproutOk = r.pctSprout >= SPROUT_WARN;
-    const berOk    = r.pctKeberhasilan >= 80;
-    const tglS = r.tglSemai   ? r.tglSemai.split('-').reverse().join('/') : '—';
-    const tglT = r.realTglTanam ? r.realTglTanam.split('-').reverse().join('/') : (r.tglTanam ? r.tglTanam.split('-').reverse().join('/') : '—');
-    const tglTStyle = r.realTglTanam ? '' : 'color:var(--text4)';
-    return `<tr class="${rowCls}">
-      <td class="no-col">${i+1}</td>
-      <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-      <td style="font-size:11px;font-weight:600">${r.namaItem||'—'}</td>
-      <td class="mono" style="font-size:11px">${tglS}</td>
-      <td class="mono" style="font-size:11px;${tglTStyle}">${tglT}</td>
-      <td class="r"><span class="hst-b">${r.hss||0}</span></td>
-      <td class="r mono" style="font-size:11px">${(r.realQtyBenih||r.qty||0).toLocaleString('id-ID')}</td>
-      <td>${r.pctSprout>0 ? semPbar(r.pctSprout) : '<span class="av-none">—</span>'}</td>
-      <td class="r mono">${r.bibitA>0?r.bibitA.toLocaleString('id-ID'):'—'}</td>
-      <td class="r mono" style="color:var(--text3)">${r.bibitB>0?r.bibitB.toLocaleString('id-ID'):'—'}</td>
-      <td class="r mono">${r.totalBibitSiap>0?r.totalBibitSiap.toLocaleString('id-ID'):'—'}</td>
-      <td>${r.pctKeberhasilan>0 ? semPbar(r.pctKeberhasilan) : '<span class="av-none">—</span>'}</td>
-      <td>${semaiStatusPill(r)}</td>
+  if (SEMAI_VIEW === 'varian') {
+    // ── MODE: PER VARIAN (default) — 1 baris per GH × Nama Item ──
+    if (thead) thead.innerHTML = `<tr>
+      <th>#</th><th>GH</th><th>Nama Item</th><th>Tgl Semai</th><th>Tgl Tanam</th>
+      <th class="r">HSS</th><th class="r">Qty Benih</th><th>%Sprout</th>
+      <th class="r">Bibit A</th><th class="r">Bibit B</th><th class="r">Siap Tanam</th>
+      <th>%Keberhasilan</th><th>Status</th>
     </tr>`;
-  }).join('');
+    if (tblSub) tblSub.textContent = `${rows.length} baris (per GH × Varian) · diurutkan Tgl Semai terbaru`;
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; }
+    else {
+      body.innerHTML = rows.map((r,i) => {
+        const dot  = CC[clOf(r.gh)]||'#999';
+        const st   = semaiStatus(r);
+        const rowCls = st==='bad'?'rc':st==='warn'?'rw':'';
+        const tglS = r.tglSemai    ? r.tglSemai.split('-').reverse().join('/') : '—';
+        const tglT = r.realTglTanam ? r.realTglTanam.split('-').reverse().join('/') : (r.tglTanam ? r.tglTanam.split('-').reverse().join('/') : '—');
+        const tglTStyle = r.realTglTanam ? '' : 'color:var(--text4)';
+        return `<tr class="${rowCls}">
+          <td class="no-col">${i+1}</td>
+          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+          <td style="font-size:11px;font-weight:600">${r.namaItem||'—'}</td>
+          <td class="mono" style="font-size:11px">${tglS}</td>
+          <td class="mono" style="font-size:11px;${tglTStyle}">${tglT}</td>
+          <td class="r"><span class="hst-b">${r.hss||0}</span></td>
+          <td class="r mono" style="font-size:11px">${(r.realQtyBenih||r.qty||0).toLocaleString('id-ID')}</td>
+          <td>${r.pctSprout>0 ? semPbar(r.pctSprout) : '<span class="av-none">—</span>'}</td>
+          <td class="r mono">${r.bibitA>0?r.bibitA.toLocaleString('id-ID'):'—'}</td>
+          <td class="r mono" style="color:var(--text3)">${r.bibitB>0?r.bibitB.toLocaleString('id-ID'):'—'}</td>
+          <td class="r mono">${r.totalBibitSiap>0?r.totalBibitSiap.toLocaleString('id-ID'):'—'}</td>
+          <td>${r.pctKeberhasilan>0 ? semPbar(r.pctKeberhasilan) : '<span class="av-none">—</span>'}</td>
+          <td>${semaiStatusPill(r)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+  } else {
+    // ── MODE: PER GH — 1 baris per GH, summary semua varian ──
+    if (thead) thead.innerHTML = `<tr>
+      <th>#</th><th>GH</th><th>Varian</th><th>Tgl Semai</th><th>Tgl Tanam</th>
+      <th class="r">HSS</th><th class="r">Total Benih</th><th>Avg %Sprout</th>
+      <th class="r">Total Bibit A</th><th class="r">Total Bibit B</th>
+      <th class="r">Total Siap</th><th>Avg %Keberhasilan</th><th>Status</th>
+    </tr>`;
+
+    // Group by GH
+    const ghMap = {};
+    rows.forEach(r => {
+      if (!ghMap[r.gh]) ghMap[r.gh] = [];
+      ghMap[r.gh].push(r);
+    });
+
+    // Sort GH by latest tglSemai desc
+    const ghGroups = Object.entries(ghMap).sort(([,a],[,b]) => {
+      const latA = a.reduce((m,r)=>r.tglSemai>m?r.tglSemai:m,'');
+      const latB = b.reduce((m,r)=>r.tglSemai>m?r.tglSemai:m,'');
+      return latB.localeCompare(latA);
+    });
+
+    if (tblSub) tblSub.textContent = `${ghGroups.length} GH · ${rows.length} total varian`;
+
+    if (!ghGroups.length) { body.innerHTML = '<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; }
+    else {
+      body.innerHTML = ghGroups.map(([gh, ghRows], i) => {
+        const dot = CC[clOf(gh)]||'#999';
+
+        // Summary
+        const totalBenih = ghRows.reduce((s,r)=>s+(r.realQtyBenih||r.qty||0),0);
+        const totalBibitA= ghRows.reduce((s,r)=>s+(r.bibitA||0),0);
+        const totalBibitB= ghRows.reduce((s,r)=>s+(r.bibitB||0),0);
+        const totalSiap  = ghRows.reduce((s,r)=>s+(r.totalBibitSiap||0),0);
+        const sproutRows = ghRows.filter(r=>r.pctSprout>0);
+        const avgSprout  = sproutRows.length ? sproutRows.reduce((s,r)=>s+r.pctSprout,0)/sproutRows.length : 0;
+        const berRows    = ghRows.filter(r=>r.pctKeberhasilan>0);
+        const avgBerhasil= berRows.length ? berRows.reduce((s,r)=>s+r.pctKeberhasilan,0)/berRows.length : 0;
+
+        // HSS: pakai max dari semua varian di GH ini
+        const maxHss = Math.max(...ghRows.map(r=>r.hss||0));
+
+        // Dates
+        const tglSemais = ghRows.map(r=>r.tglSemai).filter(Boolean).sort();
+        const tglTanams = ghRows.map(r=>r.realTglTanam||r.tglTanam).filter(Boolean).sort();
+        const tglS = tglSemais.length ? tglSemais[tglSemais.length-1].split('-').reverse().join('/') : '—';
+        const tglT = tglTanams.length ? tglTanams[tglTanams.length-1].split('-').reverse().join('/') : '—';
+        const tglTStyle = ghRows.some(r=>r.realTglTanam) ? '' : 'color:var(--text4)';
+
+        // Varian list
+        const varianList = [...new Set(ghRows.map(r=>r.namaItem).filter(Boolean))].join(', ');
+
+        // Row status: worst of group
+        const hasBad  = ghRows.some(r=>semaiStatus(r)==='bad');
+        const hasWarn = ghRows.some(r=>semaiStatus(r)==='warn');
+        const allTanam= ghRows.every(r=>r.realTglTanam);
+        const anySiap = ghRows.some(r=>semaiStatus(r)==='siap');
+        const rowCls  = hasBad?'rc':hasWarn?'rw':'';
+
+        let statusPill;
+        if (allTanam)     statusPill = '<span class="pill p-ok">Sudah Tanam</span>';
+        else if (hasBad)  statusPill = '<span class="pill p-b">Sprout Rendah</span>';
+        else if (hasWarn) statusPill = '<span class="pill p-w">Sprout Low</span>';
+        else if (anySiap) statusPill = '<span class="pill" style="background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0">Siap Tanam</span>';
+        else              statusPill = '<span class="pill p-w" style="background:var(--surface2);color:var(--text2);border:1px solid var(--border2)">Proses</span>';
+
+        return `<tr class="${rowCls}">
+          <td class="no-col">${i+1}</td>
+          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${gh}</div></td>
+          <td style="font-size:10px;color:var(--text2)">${varianList}</td>
+          <td class="mono" style="font-size:11px">${tglS}</td>
+          <td class="mono" style="font-size:11px;${tglTStyle}">${tglT}</td>
+          <td class="r"><span class="hst-b">${maxHss}</span></td>
+          <td class="r mono" style="font-size:11px">${totalBenih.toLocaleString('id-ID')}</td>
+          <td>${avgSprout>0 ? semPbar(avgSprout) : '<span class="av-none">—</span>'}</td>
+          <td class="r mono">${totalBibitA>0?totalBibitA.toLocaleString('id-ID'):'—'}</td>
+          <td class="r mono" style="color:var(--text3)">${totalBibitB>0?totalBibitB.toLocaleString('id-ID'):'—'}</td>
+          <td class="r mono">${totalSiap>0?totalSiap.toLocaleString('id-ID'):'—'}</td>
+          <td>${avgBerhasil>0 ? semPbar(avgBerhasil) : '<span class="av-none">—</span>'}</td>
+          <td>${statusPill}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
