@@ -3580,34 +3580,49 @@ async function fetchSnt(silent) {
   }
 }
 
-// ── PARSE CSV (header-agnostic) ──
-// Kolom sheet: Tanggal, Greenhouse, Periode, Varietas, Jumlah Sanitasi, Jumlah Sulam, TRUE SANITASI, Team, Kategori
+// ── PARSE CSV ──
+// Kolom: Tanggal | GREENHOUSE | PERIODE | VARIETAS | JUMLAH SANITASI | JUMLAH SULAM | TRUE SANITASI | TEAM | KATEGORI
+// TRUE SANITASI = nama/jenis sanitasi yang dilakukan (GSB, KERITING, MOZAIK, dll) — bukan flag 0/1
 function parseSntCsv(text) {
   const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
-  const headers = splitCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+  const rawHeaders = splitCsvLine(lines[0]).map(h => h.trim());
+  const headers    = rawHeaders.map(h => h.toLowerCase());
   const rows = [];
+
+  // Cari index kolom berdasarkan exact match (case-insensitive)
+  const idxOf = name => headers.findIndex(h => h === name.toLowerCase());
+  const idxOfPartial = name => headers.findIndex(h => h.includes(name.toLowerCase()));
+
+  const iDate    = idxOf('tanggal')          >= 0 ? idxOf('tanggal')          : idxOfPartial('tanggal');
+  const iGH      = idxOf('greenhouse')       >= 0 ? idxOf('greenhouse')       : idxOfPartial('greenhouse');
+  const iPeriode = idxOf('periode')          >= 0 ? idxOf('periode')          : -1;
+  const iVarietas= idxOf('varietas')         >= 0 ? idxOf('varietas')         : idxOfPartial('varietas');
+  const iJmlSnt  = idxOf('jumlah sanitasi')  >= 0 ? idxOf('jumlah sanitasi')  : idxOfPartial('jumlah sanitasi');
+  const iJmlSulam= idxOf('jumlah sulam')     >= 0 ? idxOf('jumlah sulam')     : idxOfPartial('jumlah sulam');
+  const iTrueSnt = idxOf('true sanitasi')    >= 0 ? idxOf('true sanitasi')    : idxOfPartial('true sanitasi');
+  const iTeam    = idxOf('team')             >= 0 ? idxOf('team')             : idxOfPartial('team');
+  const iKat     = idxOf('kategori')         >= 0 ? idxOf('kategori')         : idxOfPartial('kategori');
+
+  const get = (cols, idx) => idx >= 0 && idx < cols.length ? (cols[idx]||'').trim() : '';
+
   for (let i = 1; i < lines.length; i++) {
     const cols = splitCsvLine(lines[i]);
     if (cols.length < 2) continue;
-    const row = {};
-    headers.forEach((h, idx) => { row[h] = (cols[idx] || '').trim(); });
 
-    const tgl     = findSntCol(row, ['tanggal','timestamp','tgl','date']) || '';
-    const gh      = findSntCol(row, ['greenhouse','gh','nama gh','nama greenhouse']) || '—';
-    const team    = findSntCol(row, ['team','tim','nama tim','nama team']) || '—';
-    const periode = findSntCol(row, ['periode']) || '';
-    const varietas= findSntCol(row, ['varietas','varian']) || '';
-    // TRUE SANITASI = kolom flag 0/1 — ini yang jadi acuan "true sanitasi"
-    const trueSnt = parseFloat(findSntCol(row, ['true sanitasi','true_sanitasi','true snt']) || '0') || 0;
-    // JUMLAH SANITASI = angka kegiatan sanitasi
-    const jmlSnt  = parseFloat(findSntCol(row, ['jumlah sanitasi','jml sanitasi']) || '0') || 0;
-    // JUMLAH SULAM
-    const jmlSulam= parseFloat(findSntCol(row, ['jumlah sulam','jml sulam']) || '0') || 0;
-    // KATEGORI
-    const kat     = findSntCol(row, ['kategori','kategori sanitasi','category','jenis sanitasi','jenis','tipe']) || 'Lainnya';
-    const ket     = findSntCol(row, ['keterangan','catatan','notes','note','remarks']) || '';
+    const tgl      = get(cols, iDate);
+    const gh       = get(cols, iGH);
+    const periode  = get(cols, iPeriode);
+    const varietas = get(cols, iVarietas);
+    const jmlSnt   = parseFloat(get(cols, iJmlSnt))   || 0;
+    const jmlSulam = parseFloat(get(cols, iJmlSulam)) || 0;
+    const trueSnt  = get(cols, iTrueSnt);   // string: "GSB", "KERITING", dll — kategori sanitasi
+    const team     = get(cols, iTeam);
+    const kat      = get(cols, iKat);
 
+    if (!gh) continue;
+
+    // Parse tanggal ke ISO
     let tglIso = '';
     if (tgl) {
       const d = new Date(tgl);
@@ -3615,19 +3630,18 @@ function parseSntCsv(text) {
       else {
         const m = tgl.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
         if (m) tglIso = `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-        else tglIso = tgl.slice(0,10);
+        else   tglIso = tgl.slice(0,10);
       }
     }
-    if (!gh || gh === '—') continue;
+
     rows.push({
       tgl: tglIso, tglRaw: tgl,
-      gh: gh.trim(), team: team.trim(),
-      periode, varietas,
-      trueSnt,   // 0 or 1 — flag
-      jmlSnt,    // jumlah kegiatan sanitasi
-      jmlSulam,  // jumlah sulam
-      jml: trueSnt, // alias for backward compat (used in drill etc)
-      kat: kat.trim(), ket
+      gh, team, periode, varietas,
+      jmlSnt,       // JUMLAH SANITASI (angka)
+      jmlSulam,     // JUMLAH SULAM (angka)
+      trueSnt,      // TRUE SANITASI (string kategori: GSB, KERITING, dll)
+      kat,          // KATEGORI (team kategori: HPT, BUDIDAYA, dll)
+      jml: jmlSnt,  // alias
     });
   }
   return rows;
@@ -3670,48 +3684,50 @@ function setSntPeriode(mode, el) {
 // ── REBUILD ──
 function rebuildSnt() {
   closeSntDrill();
-  const qGH = ''; // search GH dipindah ke status table
 
   let rows = [...RAW_SNT];
   rows = sntDateFilter(rows);
 
-  // ── TRUE SANITASI = baris dengan trueSnt = 1 ──
-  const trueSanitasiRows = rows.filter(r => r.trueSnt === 1);
-  const activeDays = new Set(trueSanitasiRows.filter(r=>r.tgl).map(r=>r.tgl));
-  const trueSanitasi = trueSanitasiRows.length; // total record TRUE SANITASI=1
-
-  // ── GH unik tersanitasi per hari (rata-rata) ──
+  // Baris "aktif" = ada data trueSnt (kategori sanitasi terisi)
+  const activeRows = rows.filter(r => r.trueSnt && r.trueSnt.trim() !== '');
+  // TRUE SANITASI = total JUMLAH SANITASI dari semua baris
+  const totalJmlSnt   = rows.reduce((s,r) => s + r.jmlSnt, 0);
+  // Hari unik yang ada aktivitas sanitasi
+  const activeDays    = new Set(activeRows.filter(r=>r.tgl).map(r=>r.tgl));
+  // GH unik yang ada di activeRows
+  const ghUniqActive  = new Set(activeRows.map(r=>r.gh)).size;
+  // Team unik
+  const tmUniq        = new Set(rows.map(r=>r.team).filter(Boolean)).size;
+  // Rata-rata GH per hari
   const ghPerDay = {};
-  trueSanitasiRows.filter(r=>r.tgl).forEach(r => {
+  activeRows.filter(r=>r.tgl).forEach(r => {
     if (!ghPerDay[r.tgl]) ghPerDay[r.tgl] = new Set();
     ghPerDay[r.tgl].add(r.gh);
   });
-  const activeDayCount = Object.keys(ghPerDay).length;
+  const activeDayCount = activeDays.size;
   const avgGHPerDay = activeDayCount
     ? (Object.values(ghPerDay).reduce((s,v)=>s+v.size,0)/activeDayCount).toFixed(1)
     : '—';
-
-  const ghUniq  = new Set(rows.map(r=>r.gh)).size;
-  const tmUniq  = new Set(rows.map(r=>r.team)).size;
   const lastTgl = rows.filter(r=>r.tgl).sort((a,b)=>b.tgl.localeCompare(a.tgl))[0]?.tgl || '';
 
-  document.getElementById('sntSc1').textContent  = trueSanitasi.toLocaleString('id-ID');
-  document.getElementById('sntSc1n').textContent = activeDayCount + ' hari aktif · TRUE SANITASI=1';
+  document.getElementById('sntSc1').textContent  = totalJmlSnt.toLocaleString('id-ID');
+  document.getElementById('sntSc1n').textContent = activeDayCount + ' hari aktif sanitasi';
   document.getElementById('sntSc2').textContent  = rows.length.toLocaleString('id-ID');
   document.getElementById('sntSc2n').textContent = 'total entri masuk';
-  document.getElementById('sntSc3').textContent  = new Set(trueSanitasiRows.map(r=>r.gh)).size;
+  document.getElementById('sntSc3').textContent  = ghUniqActive;
   document.getElementById('sntSc3n').textContent = 'dari ' + new Set(RAW_SNT.map(r=>r.gh)).size + ' GH total';
-  document.getElementById('sntSc4').textContent  = new Set(trueSanitasiRows.map(r=>r.team)).size;
+  document.getElementById('sntSc4').textContent  = tmUniq;
   document.getElementById('sntSc4n').textContent = 'tim aktif melaporkan';
   document.getElementById('sntSc5').textContent  = avgGHPerDay;
-  document.getElementById('sntSc5n').textContent = lastTgl ? 'Terakhir: ' + lastTgl.split('-').reverse().join('/') : 'rata-rata GH/hari';
+  document.getElementById('sntSc5n').textContent = lastTgl ? 'Terakhir: ' + lastTgl.split('-').reverse().join('/') : 'avg GH/hari';
 
-  // Subtitle
+  document.getElementById('sntSc1').closest('.sc').querySelector('.sc-lbl').textContent = 'Total Jml Sanitasi';
+
   const n = new Date();
   const el = document.getElementById('sntSubtitle');
   if (el) el.textContent = `Data Sanitasi · ${['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()]}, ${n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})} · ${rows.length} entri`;
 
-  // Build grouped-by-date index for drill-down (snapshot per rebuild)
+  // grouped-by-date untuk drill-down
   SNT_GROUPED_BY_DATE = {};
   rows.filter(r=>r.tgl).forEach(r => {
     if (!SNT_GROUPED_BY_DATE[r.tgl]) SNT_GROUPED_BY_DATE[r.tgl] = [];
@@ -3722,7 +3738,7 @@ function rebuildSnt() {
   renderSntKategori(rows);
   renderSntPie(rows);
   renderSntHeatmap(rows);
-  renderSntBar(rows, qGH);
+  renderSntBar(rows);
   renderSntLastTable(rows);
 }
 
@@ -3735,11 +3751,10 @@ function renderSntTrend(rows) {
   document.getElementById('sntTrendSub').textContent = 'Klik titik untuk lihat detail GH · ' +
     (isMin ? 'Jumlah GH unik tersanitasi per minggu' : 'Jumlah GH unik tersanitasi per hari');
 
-  // Group: key → Set of GH yang trueSnt=1
+  // Group: key → Set of GH (semua baris aktif = punya trueSnt terisi)
   const grouped   = {};
   const dateToKey = {};
-  // Only count rows where TRUE SANITASI = 1
-  rows.filter(r=>r.tgl && r.trueSnt===1).forEach(r => {
+  rows.filter(r=>r.tgl).forEach(r => {
     let key;
     if (isMin) {
       const d = new Date(r.tgl); const day = d.getDay() || 7;
@@ -3927,9 +3942,9 @@ function renderSntHeatmap(rows) {
   const sub = document.getElementById('sntHeatSub');
   if (!el) return;
 
-  // Build day → count GH unik dengan trueSnt=1
+  // Build day → count GH unik
   const dayMap = {};
-  rows.filter(r=>r.tgl && r.trueSnt===1).forEach(r => {
+  rows.filter(r=>r.tgl).forEach(r => {
     if (!dayMap[r.tgl]) dayMap[r.tgl] = new Set();
     dayMap[r.tgl].add(r.gh);
   });
@@ -4032,125 +4047,111 @@ function sntHeatClick(iso) {
   if (rows.length) showSntDrill(iso, rows, false);
 }
 
-// ── BAR CHART TRUE SANITASI PER KATEGORI ──
-function renderSntBar(rows, qGH) {
-  // True sanitasi per kategori = jumlah record dengan trueSnt=1, di-group per kategori
+// ── BAR CHART TRUE SANITASI PER KATEGORI (kolom TRUE SANITASI) ──
+function renderSntBar(rows) {
+  // Group by nilai kolom TRUE SANITASI (GSB, KERITING, MOZAIK, dll)
   const katMap = {};
-  rows.filter(r => r.trueSnt === 1 && r.kat).forEach(r => {
-    const k = r.kat || 'Lainnya';
-    if (!katMap[k]) katMap[k] = { trueCnt: 0, ghSet: new Set(), days: new Set() };
-    katMap[k].trueCnt++;
+  rows.filter(r => r.trueSnt && r.trueSnt.trim()).forEach(r => {
+    const k = r.trueSnt.trim();
+    if (!katMap[k]) katMap[k] = { jmlTotal: 0, ghSet: new Set(), days: new Set() };
+    katMap[k].jmlTotal += r.jmlSnt || 0;
     katMap[k].ghSet.add(r.gh);
     if (r.tgl) katMap[k].days.add(r.tgl);
   });
 
-  const entries = Object.entries(katMap).sort((a,b) => b[1].trueCnt - a[1].trueCnt);
-
-  const canvas = document.getElementById('sntBarChart');
-  const empty  = document.getElementById('sntBarEmpty');
-  const subEl  = document.getElementById('sntBarSub');
+  const entries = Object.entries(katMap).sort((a,b) => b[1].jmlTotal - a[1].jmlTotal);
+  const canvas  = document.getElementById('sntBarChart');
+  const empty   = document.getElementById('sntBarEmpty');
+  const subEl   = document.getElementById('sntBarSub');
 
   if (!entries.length) {
     canvas.style.display = 'none'; if(empty) empty.style.display=''; return;
   }
   canvas.style.display = ''; if(empty) empty.style.display='none';
-  if (subEl) subEl.textContent = entries.length + ' kategori · diurutkan total TRUE SANITASI terbanyak';
+  if (subEl) subEl.textContent = entries.length + ' jenis sanitasi · diurutkan total terbanyak';
 
   if (sntBarChartObj) { sntBarChartObj.destroy(); sntBarChartObj = null; }
 
-  const KAT_COLORS = ['#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020','#2ca354','#388bfd','#d4820a'];
+  const KAT_COLORS = ['#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020','#2ca354','#388bfd','#d4820a','#43a047','#e57373'];
   const labels = entries.map(([k]) => k);
-  const data   = entries.map(([,v]) => v.trueCnt);
+  const data   = entries.map(([,v]) => v.jmlTotal);
   const colors = entries.map((_,i) => KAT_COLORS[i % KAT_COLORS.length]);
 
   sntBarChartObj = new Chart(canvas.getContext('2d'), {
     type: 'bar',
-    data: {
-      labels,
-      datasets:[{
-        label: 'True Sanitasi',
-        data, backgroundColor: colors,
-        borderRadius: 5, borderSkipped: false,
-      }]
-    },
+    data: { labels, datasets:[{ label:'Jumlah Sanitasi', data, backgroundColor:colors, borderRadius:5, borderSkipped:false }] },
     options:{
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins:{
         legend:{display:false},
-        tooltip:{
-          callbacks:{
-            label: c => ` ${c.raw.toLocaleString('id-ID')} true sanitasi`,
-            afterLabel: c => {
-              const e = entries[c.dataIndex];
-              return [`GH terlibat: ${e[1].ghSet.size}`, `Hari aktif: ${e[1].days.size}`];
-            }
+        tooltip:{callbacks:{
+          label: c => ` ${c.raw.toLocaleString('id-ID')} sanitasi`,
+          afterLabel: c => {
+            const e = entries[c.dataIndex];
+            return [`GH: ${e[1].ghSet.size}`, `Hari: ${e[1].days.size}`];
           }
-        }
+        }}
       },
       scales:{
-        x:{grid:{display:false},ticks:{font:{size:11},maxRotation:0}},
-        y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.05)'},ticks:{font:{size:10},precision:0},
-           title:{display:true,text:'Jumlah TRUE SANITASI',font:{size:10},color:'var(--text3)'}}
+        x:{grid:{display:false}, ticks:{font:{size:11},maxRotation:0}},
+        y:{beginAtZero:true, grid:{color:'rgba(0,0,0,.05)'}, ticks:{font:{size:10},precision:0},
+           title:{display:true,text:'Jumlah Sanitasi',font:{size:10},color:'var(--text3)'}}
       }
     }
   });
 }
 
-// ── KATEGORI SANITASI — cards grid ──
+// ── KATEGORI SANITASI CARDS — per kolom KATEGORI (HPT, BUDIDAYA, dll) ──
 function renderSntKategori(rows) {
   const grid  = document.getElementById('sntKatGrid');
   const subEl = document.getElementById('sntKatSub');
   if (!grid) return;
 
-  // Per kategori: hanya baris TRUE SANITASI = 1
+  // Group by KATEGORI (HPT, BUDIDAYA, SEMAI, dll)
   const katMap = {};
-  rows.filter(r => r.trueSnt === 1 && r.kat).forEach(r => {
-    const k = r.kat || 'Lainnya';
-    if (!katMap[k]) katMap[k] = { trueCnt: 0, ghSet: new Set(), days: new Set(), jmlTotal: 0 };
-    katMap[k].trueCnt++;
+  rows.forEach(r => {
+    const k = (r.kat && r.kat.trim()) ? r.kat.trim() : 'Lainnya';
+    if (!katMap[k]) katMap[k] = { jmlTotal: 0, ghSet: new Set(), days: new Set(), trueSntTypes: {} };
+    katMap[k].jmlTotal += r.jmlSnt || 0;
     katMap[k].ghSet.add(r.gh);
     if (r.tgl) katMap[k].days.add(r.tgl);
-    katMap[k].jmlTotal += r.jmlSnt || 0;
+    // Sub-breakdown per jenis TRUE SANITASI
+    if (r.trueSnt && r.trueSnt.trim()) {
+      const ts = r.trueSnt.trim();
+      katMap[k].trueSntTypes[ts] = (katMap[k].trueSntTypes[ts] || 0) + (r.jmlSnt || 0);
+    }
   });
 
-  const entries = Object.entries(katMap).sort((a,b) => b[1].trueCnt - a[1].trueCnt);
+  const entries = Object.entries(katMap).sort((a,b) => b[1].jmlTotal - a[1].jmlTotal);
 
   if (!entries.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1" class="es">Tidak ada data TRUE SANITASI = 1</div>`;
+    grid.innerHTML = `<div style="grid-column:1/-1" class="es">Tidak ada data</div>`;
     return;
   }
 
-  const total = entries.reduce((s,[,v]) => s + v.trueCnt, 0);
-  if (subEl) subEl.textContent = entries.length + ' kategori · ' + total.toLocaleString('id-ID') + ' total TRUE SANITASI';
+  const total = entries.reduce((s,[,v]) => s + v.jmlTotal, 0);
+  if (subEl) subEl.textContent = entries.length + ' kategori · ' + total.toLocaleString('id-ID') + ' total jumlah sanitasi';
 
   const KAT_COLORS = ['#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020','#2ca354','#388bfd','#d4820a'];
 
   grid.innerHTML = entries.map(([kat, v], i) => {
-    const pct = total ? (v.trueCnt / total * 100).toFixed(1) : 0;
+    const pct = total ? (v.jmlTotal / total * 100).toFixed(1) : 0;
     const col = KAT_COLORS[i % KAT_COLORS.length];
+    // Top 3 jenis TRUE SANITASI dalam kategori ini
+    const topTypes = Object.entries(v.trueSntTypes)
+      .sort((a,b)=>b[1]-a[1]).slice(0,4)
+      .map(([t,n])=>`<span style="font-size:9px;background:${col}22;color:${col};border-radius:3px;padding:1px 5px;font-weight:600">${t}: ${n.toLocaleString('id-ID')}</span>`)
+      .join(' ');
     return `<div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:11px;padding:14px 16px;position:relative;overflow:hidden">
-      <div style="position:absolute;bottom:0;left:0;height:3px;width:${pct}%;background:${col};border-radius:0 0 0 11px;transition:width .8s"></div>
-      <div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${kat}">${kat}</div>
-      <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--text);line-height:1">${v.trueCnt.toLocaleString('id-ID')}</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:3px">TRUE SANITASI</div>
+      <div style="position:absolute;bottom:0;left:0;height:3px;width:${pct}%;background:${col};transition:width .8s"></div>
+      <div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">${kat}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:28px;font-weight:800;color:var(--text);line-height:1">${v.jmlTotal.toLocaleString('id-ID')}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">total sanitasi</div>
+      ${topTypes ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px">${topTypes}</div>` : ''}
       <div style="display:flex;gap:10px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
-        <div>
-          <div style="font-size:9px;color:var(--text4);margin-bottom:1px">GH</div>
-          <div style="font-size:12px;font-weight:700;color:var(--text2)">${v.ghSet.size}</div>
-        </div>
-        <div>
-          <div style="font-size:9px;color:var(--text4);margin-bottom:1px">Hari</div>
-          <div style="font-size:12px;font-weight:700;color:var(--text2)">${v.days.size}</div>
-        </div>
-        ${v.jmlTotal > 0 ? `<div>
-          <div style="font-size:9px;color:var(--text4);margin-bottom:1px">Jml Snt</div>
-          <div style="font-size:12px;font-weight:700;color:var(--text2)">${v.jmlTotal.toLocaleString('id-ID')}</div>
-        </div>` : ''}
-        <div style="margin-left:auto;text-align:right">
-          <div style="font-size:9px;color:var(--text4);margin-bottom:1px">Share</div>
-          <div style="font-size:13px;font-weight:800;color:${col}">${pct}%</div>
-        </div>
+        <div><div style="font-size:9px;color:var(--text4)">GH</div><div style="font-size:12px;font-weight:700">${v.ghSet.size}</div></div>
+        <div><div style="font-size:9px;color:var(--text4)">Hari</div><div style="font-size:12px;font-weight:700">${v.days.size}</div></div>
+        <div style="margin-left:auto;text-align:right"><div style="font-size:9px;color:var(--text4)">Share</div><div style="font-size:13px;font-weight:800;color:${col}">${pct}%</div></div>
       </div>
     </div>`;
   }).join('');
@@ -4162,9 +4163,9 @@ function renderSntLastTable(rows) {
   const subEl = document.getElementById('sntLastSub');
   if (!body) return;
 
-  // Latest per GH dari rows TRUE SANITASI=1 yang sudah difilter
+  // Latest per GH dari semua rows yang sudah difilter periode
   const lastMap = {};
-  rows.filter(r=>r.tgl && r.trueSnt===1).forEach(r => {
+  rows.filter(r=>r.tgl).forEach(r => {
     if (!lastMap[r.gh] || r.tgl > lastMap[r.gh]) lastMap[r.gh] = r.tgl;
   });
 
