@@ -1430,6 +1430,7 @@ const REFRESH_MS = 5 * 60 * 1000;
 
 // ── STATE ──
 let RAW = [], cur = [], sortAsc = true, filt = 'semua', q = '';
+let RAW_SNT = [];
 let activePage = 'dashboard';
 let rTimer = null, cdTimer = null, nextAt = null;
 
@@ -3406,10 +3407,6 @@ function checkPnyCode() {
     document.getElementById('pnyCodeInput').select();
   }
 }
-document.getElementById('maintModalPenyiraman').addEventListener('click', function(e){
-  if (e.target === this) closePenyiramanMaintenance();
-});
-
 // ── SEMAI MAINTENANCE MODAL ──
 const SEMAI_ACCESS_CODE = 'timdatafarmhill';
 function showSemaiMaintenance() {
@@ -3438,10 +3435,6 @@ function checkSemaiCode() {
     document.getElementById('semaiCodeInput').select();
   }
 }
-document.getElementById('maintModalSemai').addEventListener('click', function(e){
-  if (e.target === this) closeSemaiMaintenance();
-});
-
 // ── HPT MAINTENANCE MODAL ──
 const HPT_ACCESS_CODE = 'timdatafarmhill';
 
@@ -3472,11 +3465,6 @@ function checkHptCode() {
     document.getElementById('hptCodeInput').select();
   }
 }
-// Tutup modal saat klik di luar box
-document.getElementById('maintModal').addEventListener('click', function(e){
-  if (e.target === this) closeHptMaintenance();
-});
-
 // ══════════════════════════════════════════════
 //  SANITASI MODULE
 // ══════════════════════════════════════════════
@@ -3484,8 +3472,7 @@ const SNT_SHEET_ID = '1YG2tCI4HLsJlueLv9iRx0_Ep-ub1rNFTDIaG2nUAn08';
 const SNT_GID      = '1342320262';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
 
-let RAW_SNT  = [];
-let SNT_PERIODE = 'harian';
+let RAW_SNT_PERIODE = 'harian';
 let sntTrendChartObj = null;
 let sntPieChartObj   = null;
 let sntBarChartObj   = null;
@@ -3615,7 +3602,7 @@ function sntDateFilter(rows) {
 
 // ── TOGGLE PERIODE ──
 function setSntPeriode(mode, el) {
-  SNT_PERIODE = mode;
+  RAW_SNT_PERIODE = mode;
   document.querySelectorAll('#sntBtnHarian,#sntBtnMingguan').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   rebuildSnt();
@@ -3662,7 +3649,7 @@ function rebuildSnt() {
 
 // ── RENDER TREND CHART ──
 function renderSntTrend(rows) {
-  const isMin = SNT_PERIODE === 'mingguan';
+  const isMin = RAW_SNT_PERIODE === 'mingguan';
   const titleEl = document.getElementById('sntTrendTitle');
   const subEl   = document.getElementById('sntTrendSub');
   if (titleEl) titleEl.textContent = isMin ? '📈 Trend Mingguan Sanitasi' : '📈 Trend Harian Sanitasi';
@@ -4009,3 +3996,17 @@ function renderSntTable(rows) {
 
 </body>
 </html>
+
+<script>
+// ── Modal backdrop-click bindings (run after all modal elements are in DOM) ──
+['maintModalPenyiraman','maintModalSemai','maintModal'].forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const closeFns = {
+    maintModalPenyiraman : () => { const m = document.getElementById('maintModalPenyiraman'); if(m) m.classList.remove('show'); },
+    maintModalSemai      : () => { const m = document.getElementById('maintModalSemai');       if(m) m.classList.remove('show'); },
+    maintModal           : () => { const m = document.getElementById('maintModal');            if(m) m.classList.remove('show'); },
+  };
+  el.addEventListener('click', function(e){ if(e.target === this) closeFns[id](); });
+});
+</script>
