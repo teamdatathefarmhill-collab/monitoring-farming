@@ -1329,7 +1329,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI CARDS -->
-      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px">
         <div class="sc g">
           <div class="sc-lbl">True Sanitasi</div>
           <div class="sc-val g" id="sntSc1">—</div>
@@ -1353,7 +1353,12 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div class="sc">
           <div class="sc-lbl">Rata-rata/Hari</div>
           <div class="sc-val" id="sntSc5" style="color:var(--green-mid)">—</div>
-          <div class="sc-note" id="sntSc5n">GH disanitasi per hari aktif</div>
+          <div class="sc-note" id="sntSc5n">avg GH/hari</div>
+        </div>
+        <div class="sc">
+          <div class="sc-lbl">GH Belum Sanitasi</div>
+          <div class="sc-val" id="sntSc6" style="color:#5b21b6">—</div>
+          <div class="sc-note" id="sntSc6n">dari GH existing</div>
         </div>
       </div>
 
@@ -1451,8 +1456,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div class="card" style="margin-bottom:0;overflow:hidden">
           <div class="card-hd">
             <div>
-              <div class="card-title">⏱️ Status Terakhir per GH</div>
-              <div class="card-sub" id="sntLastSub">Berdasarkan periode yang dipilih</div>
+              <div class="card-title">⏱️ Status Sanitasi GH Existing</div>
+              <div class="card-sub" id="sntLastSub">Cross-ref GH aktif (Populasi & Gramasi) vs data Sanitasi</div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;font-size:10px">
+              <span class="pill p-ok" style="font-size:9px">✓ ≤ 3 hari</span>
+              <span class="pill p-w" style="font-size:9px">⚠ 4–7 hari</span>
+              <span class="pill p-b" style="font-size:9px">🔴 > 7 hari</span>
+              <span style="background:#f3f0ff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:20px;padding:2px 7px;font-size:9px;font-weight:700">— Belum</span>
             </div>
           </div>
           <div style="max-height:360px;overflow-y:auto">
@@ -1460,11 +1471,12 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <thead>
                 <tr style="background:var(--hdr)">
                   <th style="padding:8px 12px;text-align:left;color:var(--hdr-txt);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Greenhouse</th>
+                  <th style="padding:8px 12px;text-align:center;color:var(--hdr-txt);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Periode</th>
                   <th style="padding:8px 12px;text-align:center;color:var(--hdr-txt);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Last Sanitasi</th>
-                  <th style="padding:8px 12px;text-align:center;color:var(--hdr-txt);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Hari lalu</th>
+                  <th style="padding:8px 12px;text-align:center;color:var(--hdr-txt);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px">Status</th>
                 </tr>
               </thead>
-              <tbody id="sntLastBody"><tr><td colspan="3" class="es">Memuat…</td></tr></tbody>
+              <tbody id="sntLastBody"><tr><td colspan="4" class="es">Memuat…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -3721,6 +3733,15 @@ function rebuildSnt() {
   document.getElementById('sntSc5').textContent  = avgGHPerDay;
   document.getElementById('sntSc5n').textContent = lastTgl ? 'Terakhir: ' + lastTgl.split('-').reverse().join('/') : 'avg GH/hari';
 
+  // GH Belum Sanitasi — cross-ref dengan RAW (existing GH)
+  if (RAW.length) {
+    const lastMap2 = {};
+    rows.filter(r=>r.tgl).forEach(r => { if (!lastMap2[r.gh] || r.tgl > lastMap2[r.gh]) lastMap2[r.gh] = r.tgl; });
+    const belum = RAW.filter(r => !lastMap2[r.gh]).length;
+    document.getElementById('sntSc6').textContent  = belum;
+    document.getElementById('sntSc6n').textContent = 'dari ' + RAW.length + ' GH existing';
+  }
+
   document.getElementById('sntSc1').closest('.sc').querySelector('.sc-lbl').textContent = 'Total Jml Sanitasi';
 
   const n = new Date();
@@ -4157,46 +4178,83 @@ function renderSntKategori(rows) {
   }).join('');
 }
 
-// ── LAST SANITASI PER GH — berdasarkan PERIODE yang dipilih ──
+// ── STATUS SANITASI GH EXISTING — cross-ref RAW (Populasi & Gramasi) vs RAW_SNT ──
 function renderSntLastTable(rows) {
   const body  = document.getElementById('sntLastBody');
   const subEl = document.getElementById('sntLastSub');
   if (!body) return;
 
-  // Latest per GH dari semua rows yang sudah difilter periode
+  const periodTo   = (document.getElementById('sntDateTo')||{}).value   || new Date().toISOString().slice(0,10);
+  const periodFrom = (document.getElementById('sntDateFrom')||{}).value || '';
+
+  // Ambil GH existing dari RAW (Populasi & Gramasi) — satu baris per GH aktif
+  // RAW sudah di-deduplicate oleh GAS, berisi GH yang belum panen
+  const existingGH = RAW.length
+    ? RAW.map(r => ({ gh: r.gh, periode: r.periode, hst: r.hst }))
+    : [...new Set(RAW_SNT.map(r=>r.gh))].map(gh => ({ gh, periode: '—', hst: 0 }));
+
+  if (!existingGH.length) {
+    body.innerHTML = `<tr><td colspan="4" class="es">Data GH belum tersedia — buka Dashboard dulu</td></tr>`;
+    return;
+  }
+
+  // Build lastMap: GH → tanggal sanitasi terakhir (dari RAW_SNT yang sudah difilter periode)
   const lastMap = {};
   rows.filter(r=>r.tgl).forEach(r => {
     if (!lastMap[r.gh] || r.tgl > lastMap[r.gh]) lastMap[r.gh] = r.tgl;
   });
 
-  // Ambil batas akhir periode yang dipilih sebagai "today" referensi
-  const periodTo = (document.getElementById('sntDateTo')||{}).value || new Date().toISOString().slice(0,10);
+  // Gabungkan
+  const combined = existingGH.map(g => ({
+    gh: g.gh, periode: g.periode, hst: g.hst,
+    lastTgl: lastMap[g.gh] || null,
+  }));
 
-  const entries = Object.entries(lastMap).sort((a,b) => a[1].localeCompare(b[1])); // oldest first
+  // Sort: belum sanitasi (null) dulu, lalu terlama
+  combined.sort((a,b) => {
+    if (!a.lastTgl && !b.lastTgl) return a.gh.localeCompare(b.gh);
+    if (!a.lastTgl) return -1;
+    if (!b.lastTgl) return 1;
+    return a.lastTgl.localeCompare(b.lastTgl);
+  });
 
-  if (!entries.length) { body.innerHTML='<tr><td colspan="3" class="es">Tidak ada data</td></tr>'; return; }
+  const belumCount = combined.filter(r => !r.lastTgl).length;
+  const sudahCount = combined.length - belumCount;
+  if (subEl) subEl.textContent =
+    combined.length + ' GH existing · ' + sudahCount + ' sudah · ' + belumCount + ' belum sanitasi';
 
-  const from = (document.getElementById('sntDateFrom')||{}).value || '';
-  const to   = periodTo;
-  if (subEl) subEl.textContent = entries.length + ' GH · periode ' +
-    (from ? from.split('-').reverse().join('/') : '—') + ' – ' + to.split('-').reverse().join('/');
+  body.innerHTML = combined.map(r => {
+    const dot = CC[clOf(r.gh)] || '#999';
 
-  body.innerHTML = entries.map(([gh, lastTgl]) => {
-    const dot      = CC[clOf(gh)] || '#999';
-    const diffMs   = new Date(periodTo) - new Date(lastTgl);
+    if (!r.lastTgl) {
+      return `<tr style="background:rgba(91,33,182,.04)">
+        <td style="padding:7px 12px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+            <span style="font-size:12px;font-weight:600">${r.gh}</span>
+          </div>
+        </td>
+        <td style="padding:7px 12px;text-align:center;font-size:11px;color:var(--text3)">${r.periode || '—'}</td>
+        <td style="padding:7px 12px;text-align:center;font-size:11px;color:var(--text4)">—</td>
+        <td style="padding:7px 12px;text-align:center">
+          <span style="background:#f3f0ff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:20px;padding:2px 8px;font-size:10px;font-weight:700">— Belum</span>
+        </td>
+      </tr>`;
+    }
+
+    const diffMs   = new Date(periodTo) - new Date(r.lastTgl);
     const diffDays = Math.round(diffMs / 86400000);
-    const cls   = diffDays <= 3 ? 'snt-last-ok' : diffDays <= 7 ? 'snt-last-w' : 'snt-last-b';
-    const icon  = diffDays <= 3 ? '✓' : diffDays <= 7 ? '⚠' : '🔴';
+    const cls  = diffDays <= 3 ? 'snt-last-ok' : diffDays <= 7 ? 'snt-last-w' : 'snt-last-b';
+    const icon = diffDays <= 3 ? '✓' : diffDays <= 7 ? '⚠' : '🔴';
     return `<tr>
       <td style="padding:7px 12px">
         <div style="display:flex;align-items:center;gap:6px">
           <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>
-          <span style="font-size:12px;font-weight:600">${gh}</span>
+          <span style="font-size:12px;font-weight:600">${r.gh}</span>
         </div>
       </td>
-      <td style="padding:7px 12px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)">
-        ${lastTgl.split('-').reverse().join('/')}
-      </td>
+      <td style="padding:7px 12px;text-align:center;font-size:11px;color:var(--text3)">${r.periode || '—'}</td>
+      <td style="padding:7px 12px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2)">${r.lastTgl.split('-').reverse().join('/')}</td>
       <td style="padding:7px 12px;text-align:center">
         <span class="pill ${cls}" style="font-size:10px">${icon} ${diffDays}h lalu</span>
       </td>
