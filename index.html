@@ -6,6 +6,7 @@
 <title>FarmTrack Pro — Overview</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍈</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root {
   --bg:#f0f4f0; --surface:#fff; --surface2:#f7faf7;
@@ -497,7 +498,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
-    <div class="nav-item soon"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag">soon</span></div>
+    <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="showHptMaintenance()"><span class="nav-icon">🐛</span> HPT <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item" id="nav-penyiraman" onclick="showPenyiramanMaintenance()"><span class="nav-icon">💧</span> Penyiraman <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
@@ -1270,6 +1271,151 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
     </div><!-- /view-semai -->
 
+    <!-- ═══════════ VIEW: SANITASI ═══════════ -->
+    <div id="view-sanitasi" style="display:none">
+      <!-- PAGE HEADER -->
+      <div class="ph">
+        <div>
+          <div class="ph-title">🧹 Monitoring Sanitasi</div>
+          <div class="ph-sub" id="sntSubtitle">Menghubungkan ke Google Sheets…</div>
+        </div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <!-- Trend Toggle: Harian / Mingguan -->
+          <div style="display:flex;gap:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+            <button class="fbtn active" id="sntBtnHarian"  onclick="setSntPeriode('harian',this)"  style="padding:4px 13px;border:none;border-radius:6px;font-size:11px">📅 Harian</button>
+            <button class="fbtn"        id="sntBtnMingguan" onclick="setSntPeriode('mingguan',this)" style="padding:4px 13px;border:none;border-radius:6px;font-size:11px">📆 Mingguan</button>
+          </div>
+          <!-- Date Range -->
+          <input type="date" id="sntDateFrom" onchange="rebuildSnt()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <span style="font-size:12px;color:var(--text3)">—</span>
+          <input type="date" id="sntDateTo" onchange="rebuildSnt()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <button class="fbtn" onclick="fetchSnt(true)">🔄 Refresh</button>
+        </div>
+      </div>
+
+      <!-- ERROR BANNER -->
+      <div class="err-banner" id="sntErrBanner" style="display:none;margin-bottom:14px">
+        <span style="font-size:20px;flex-shrink:0">⚠️</span>
+        <div><b>Gagal memuat data Sanitasi</b><br><span id="sntErrMsg">Periksa koneksi atau akses sheet.</span></div>
+      </div>
+
+      <!-- UPDATED STRIP -->
+      <div class="up-strip" id="sntUpStrip">
+        <span>📡 Data Sanitasi dari Google Sheets · Diperbarui: <b id="sntUpAt">—</b></span>
+        <span id="sntCnt" style="color:var(--text2);font-weight:600">— entri</span>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px">
+        <div class="sc g">
+          <div class="sc-lbl">Total Sanitasi</div>
+          <div class="sc-val g" id="sntSc1">—</div>
+          <div class="sc-note" id="sntSc1n">Jumlah sanitasi tercatat</div>
+        </div>
+        <div class="sc b">
+          <div class="sc-lbl">GH Terpantau</div>
+          <div class="sc-val b" id="sntSc2">—</div>
+          <div class="sc-note" id="sntSc2n">GH dengan data sanitasi</div>
+        </div>
+        <div class="sc y">
+          <div class="sc-lbl">Team Aktif</div>
+          <div class="sc-val y" id="sntSc3">—</div>
+          <div class="sc-note" id="sntSc3n">Tim yang melaporkan</div>
+        </div>
+        <div class="sc">
+          <div class="sc-lbl">Entri Terbaru</div>
+          <div class="sc-val" id="sntSc4" style="color:#7b2d8b;font-size:22px">—</div>
+          <div class="sc-note" id="sntSc4n">Tanggal input terakhir</div>
+        </div>
+      </div>
+
+      <!-- ROW 1: Trend Chart + Pie Chart Team -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:18px">
+
+        <!-- TREND CHART (Harian / Mingguan) -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title" id="sntTrendTitle">📈 Trend Harian Sanitasi</div>
+              <div class="card-sub" id="sntTrendSub">Jumlah sanitasi per hari</div>
+            </div>
+          </div>
+          <div style="padding:16px 20px;overflow-x:auto">
+            <canvas id="sntTrendChart" height="200"></canvas>
+            <div id="sntTrendEmpty" class="es" style="display:none">Tidak ada data untuk periode ini</div>
+          </div>
+        </div>
+
+        <!-- PIE CHART PER TEAM -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🍩 Kontribusi per Team</div>
+              <div class="card-sub">Berdasarkan Jumlah Sanitasi</div>
+            </div>
+          </div>
+          <div style="padding:16px;display:flex;flex-direction:column;align-items:center">
+            <canvas id="sntPieChart" width="200" height="200"></canvas>
+            <div id="sntPieLegend" style="margin-top:12px;width:100%;font-size:11px"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ROW 2: Bar Chart per GH -->
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📊 Sanitasi per Greenhouse</div>
+            <div class="card-sub" id="sntBarSub">Total sanitasi & status per GH</div>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center">
+            <input class="si" type="text" id="sntSrchGH" placeholder="Cari GH…" oninput="rebuildSnt()" style="width:140px">
+          </div>
+        </div>
+        <div style="padding:14px 18px;overflow-x:auto">
+          <canvas id="sntBarChart" height="220"></canvas>
+          <div id="sntBarEmpty" class="es" style="display:none">Tidak ada data untuk filter ini</div>
+        </div>
+      </div>
+
+      <!-- ROW 3: Tabel Detail -->
+      <div class="card">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📋 Detail Data Sanitasi</div>
+            <div class="card-sub" id="sntTblSub">Semua entri sanitasi</div>
+          </div>
+          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+            <select class="si" id="sntSelGH" onchange="rebuildSnt()" style="width:160px;padding-left:10px;background-image:none">
+              <option value="">Semua GH</option>
+            </select>
+            <select class="si" id="sntSelTeam" onchange="rebuildSnt()" style="width:145px;padding-left:10px;background-image:none">
+              <option value="">Semua Team</option>
+            </select>
+          </div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:28px">#</th>
+                <th>Tanggal</th>
+                <th>Greenhouse</th>
+                <th>Team</th>
+                <th class="r">Jumlah Sanitasi</th>
+                <th>Keterangan</th>
+              </tr>
+            </thead>
+            <tbody id="sntBody"><tr><td colspan="6" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /view-sanitasi -->
+
   </main>
 </div>
 
@@ -1844,7 +1990,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -1869,6 +2015,7 @@ function switchPage(page) {
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
   if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
+  if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
 
   if(document.getElementById('pgSub'))  {
     const n = new Date();
@@ -3248,7 +3395,7 @@ function checkPnyCode() {
     closePenyiramanMaintenance();
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('nav-penyiraman').classList.add('active');
-    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai'].forEach(id => {
+    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -3280,7 +3427,7 @@ function checkSemaiCode() {
     closeSemaiMaintenance();
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('nav-semai').classList.add('active');
-    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai'].forEach(id => {
+    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -3314,7 +3461,7 @@ function checkHptCode() {
     // Set nav active manually since we bypass switchPage
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     document.getElementById('nav-hpt').classList.add('active');
-    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai'].forEach(id => {
+    ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -3329,6 +3476,427 @@ function checkHptCode() {
 document.getElementById('maintModal').addEventListener('click', function(e){
   if (e.target === this) closeHptMaintenance();
 });
+
+// ══════════════════════════════════════════════
+//  SANITASI MODULE
+// ══════════════════════════════════════════════
+const SNT_SHEET_ID = '1YG2tCI4HLsJlueLv9iRx0_Ep-ub1rNFTDIaG2nUAn08';
+const SNT_GID      = '1342320262';
+const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
+
+let RAW_SNT  = [];
+let SNT_PERIODE = 'harian';
+let sntTrendChartObj = null;
+let sntPieChartObj   = null;
+let sntBarChartObj   = null;
+
+// Palette warna untuk chart
+const SNT_COLORS = [
+  '#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020',
+  '#2ca354','#388bfd','#d4820a','#ab47bc','#e57373',
+  '#43a047','#1565c0','#f57c00','#6a1b9a','#b71c1c',
+];
+
+// ── INIT DATE RANGE ──
+function sntInitDates() {
+  const today = new Date().toISOString().slice(0,10);
+  const df = document.getElementById('sntDateFrom');
+  const dt = document.getElementById('sntDateTo');
+  if (df && !df.value) {
+    // Default: 30 hari ke belakang
+    const d30 = new Date(); d30.setDate(d30.getDate() - 29);
+    df.value = d30.toISOString().slice(0,10);
+  }
+  if (dt && !dt.value) dt.value = today;
+}
+
+// ── FETCH ──
+async function fetchSnt(silent) {
+  sntInitDates();
+  if (!silent) {
+    document.getElementById('sntBody').innerHTML = '<tr><td colspan="6" class="es">Memuat data sanitasi…</td></tr>';
+  }
+  try {
+    const resp = await fetch(SNT_CSV_URL + '&t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    RAW_SNT = parseSntCsv(await resp.text());
+    populateSntFilters();
+    rebuildSnt();
+    document.getElementById('sntErrBanner').style.display = 'none';
+    document.getElementById('sntUpStrip').classList.add('show');
+    const now = new Date();
+    document.getElementById('sntUpAt').textContent =
+      now.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
+      now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    document.getElementById('sntCnt').textContent = RAW_SNT.length + ' entri';
+  } catch(e) {
+    document.getElementById('sntErrBanner').style.display = 'flex';
+    document.getElementById('sntErrMsg').textContent = e.message;
+  }
+}
+
+// ── PARSE CSV ──
+// Kolom sheet SANTIASI: Timestamp, GH, Team, Jumlah Sanitasi, Keterangan (dan mungkin lainnya)
+// Kita pakai header baris 1 secara dinamis
+function parseSntCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  // Parse header
+  const headers = splitCsvLine(lines[0]).map(h => h.trim().toLowerCase());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = splitCsvLine(lines[i]);
+    if (cols.length < 2) continue;
+    const row = {};
+    headers.forEach((h, idx) => { row[h] = (cols[idx] || '').trim(); });
+
+    // Normalisasi field-field kunci
+    const tgl   = findCol(row, ['timestamp','tanggal','tgl','date']) || '';
+    const gh    = findCol(row, ['gh','greenhouse','nama gh','nama greenhouse']) || '—';
+    const team  = findCol(row, ['team','tim','nama tim','nama team']) || '—';
+    const jml   = parseFloat(findCol(row, ['jumlah sanitasi','jumlah','qty','total','count']) || '0') || 0;
+    const ket   = findCol(row, ['keterangan','catatan','notes','note','remarks']) || '';
+
+    // Normalise tanggal ke ISO yyyy-mm-dd
+    let tglIso = '';
+    if (tgl) {
+      const d = new Date(tgl);
+      if (!isNaN(d)) tglIso = d.toISOString().slice(0,10);
+      else {
+        // coba format dd/mm/yyyy
+        const m = tgl.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+        if (m) tglIso = `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+        else tglIso = tgl.slice(0,10);
+      }
+    }
+
+    if (!gh || gh === '—') continue;
+    rows.push({ tgl: tglIso, tglRaw: tgl, gh: gh.trim(), team: team.trim(), jml, ket });
+  }
+  return rows;
+}
+
+function findCol(row, keys) {
+  for (const key of keys) {
+    const k = Object.keys(row).find(col => col.toLowerCase().includes(key.toLowerCase()));
+    if (k && row[k]) return row[k];
+  }
+  return null;
+}
+
+// ── POPULATE FILTERS ──
+function populateSntFilters() {
+  const ghSel   = document.getElementById('sntSelGH');
+  const teamSel = document.getElementById('sntSelTeam');
+  if (!ghSel || !teamSel) return;
+
+  const ghs   = [...new Set(RAW_SNT.map(r=>r.gh))].filter(Boolean).sort();
+  const teams = [...new Set(RAW_SNT.map(r=>r.team))].filter(Boolean).sort();
+
+  const prevGH   = ghSel.value;
+  const prevTeam = teamSel.value;
+
+  ghSel.innerHTML   = '<option value="">Semua GH</option>'   + ghs.map(g=>`<option value="${g}"${g===prevGH?  ' selected':''}>${g}</option>`).join('');
+  teamSel.innerHTML = '<option value="">Semua Team</option>' + teams.map(t=>`<option value="${t}"${t===prevTeam?' selected':''}>${t}</option>`).join('');
+}
+
+// ── DATE FILTER ──
+function sntDateFilter(rows) {
+  const from = (document.getElementById('sntDateFrom')||{}).value || '';
+  const to   = (document.getElementById('sntDateTo')||{}).value   || '';
+  if (!from && !to) return rows;
+  return rows.filter(r => {
+    if (!r.tgl) return true;
+    if (from && r.tgl < from) return false;
+    if (to   && r.tgl > to)   return false;
+    return true;
+  });
+}
+
+// ── TOGGLE PERIODE ──
+function setSntPeriode(mode, el) {
+  SNT_PERIODE = mode;
+  document.querySelectorAll('#sntBtnHarian,#sntBtnMingguan').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildSnt();
+}
+
+// ── REBUILD ──
+function rebuildSnt() {
+  const ghVal   = (document.getElementById('sntSelGH')||{}).value   || '';
+  const teamVal = (document.getElementById('sntSelTeam')||{}).value || '';
+  const qGH     = ((document.getElementById('sntSrchGH')||{}).value || '').toLowerCase().trim();
+
+  let rows = [...RAW_SNT];
+  rows = sntDateFilter(rows);
+  if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
+  if (teamVal) rows = rows.filter(r => r.team === teamVal);
+
+  // KPI Stats
+  const totalJml = rows.reduce((s,r) => s + r.jml, 0);
+  const ghUniq   = new Set(rows.map(r=>r.gh)).size;
+  const teamUniq = new Set(rows.map(r=>r.team)).size;
+  const lastTgl  = rows.length ? [...rows].filter(r=>r.tgl).sort((a,b)=>b.tgl.localeCompare(a.tgl))[0]?.tgl : '—';
+
+  document.getElementById('sntSc1').textContent = totalJml.toLocaleString('id-ID');
+  document.getElementById('sntSc1n').textContent = rows.length + ' entri tercatat';
+  document.getElementById('sntSc2').textContent = ghUniq;
+  document.getElementById('sntSc2n').textContent = 'dari ' + new Set(RAW_SNT.map(r=>r.gh)).size + ' GH total';
+  document.getElementById('sntSc3').textContent = teamUniq;
+  document.getElementById('sntSc3n').textContent = 'tim melaporkan';
+  document.getElementById('sntSc4').textContent = lastTgl ? lastTgl.split('-').reverse().join('/') : '—';
+  document.getElementById('sntSc4n').textContent = 'input terakhir';
+
+  // Subtitle
+  const n = new Date();
+  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
+  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+  const el = document.getElementById('sntSubtitle');
+  if (el) el.textContent = `Data Sanitasi · ${hr}, ${tg} · ${rows.length} entri ditampilkan`;
+
+  renderSntTrend(rows);
+  renderSntBar(rows, qGH);
+  renderSntPie(rows);
+  renderSntTable(rows);
+}
+
+// ── RENDER TREND CHART ──
+function renderSntTrend(rows) {
+  const isMin = SNT_PERIODE === 'mingguan';
+  const titleEl = document.getElementById('sntTrendTitle');
+  const subEl   = document.getElementById('sntTrendSub');
+  if (titleEl) titleEl.textContent = isMin ? '📈 Trend Mingguan Sanitasi' : '📈 Trend Harian Sanitasi';
+  if (subEl)   subEl.textContent   = isMin ? 'Jumlah sanitasi per minggu' : 'Jumlah sanitasi per hari';
+
+  // Group by period
+  const grouped = {};
+  rows.filter(r=>r.tgl).forEach(r => {
+    let key;
+    if (isMin) {
+      // Ambil Senin minggu ini
+      const d = new Date(r.tgl);
+      const day = d.getDay() || 7;
+      d.setDate(d.getDate() - day + 1);
+      key = d.toISOString().slice(0,10);
+    } else {
+      key = r.tgl.slice(0,10);
+    }
+    grouped[key] = (grouped[key] || 0) + r.jml;
+  });
+
+  const sortedKeys = Object.keys(grouped).sort();
+  const labels = sortedKeys.map(k => {
+    if (isMin) {
+      const d = new Date(k);
+      return `W${getWeekNumber(d)} (${d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})})`;
+    }
+    return k.split('-').reverse().join('/').slice(0,5); // dd/mm
+  });
+  const data = sortedKeys.map(k => grouped[k]);
+
+  const empty = document.getElementById('sntTrendEmpty');
+  const canvas = document.getElementById('sntTrendChart');
+
+  if (!sortedKeys.length) {
+    canvas.style.display = 'none';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  canvas.style.display = '';
+  if (empty) empty.style.display = 'none';
+
+  if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
+
+  const ctx = canvas.getContext('2d');
+  sntTrendChartObj = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Jumlah Sanitasi',
+        data,
+        borderColor: '#1a7a3a',
+        backgroundColor: 'rgba(26,122,58,0.08)',
+        pointBackgroundColor: '#2ca354',
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        tension: 0.3,
+        fill: true,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.raw.toLocaleString('id-ID')} sanitasi`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { font: { size: 10 }, maxRotation: 45 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.06)' }, ticks: { font: { size: 10 }, precision: 0 } }
+      }
+    }
+  });
+}
+
+function getWeekNumber(d) {
+  const onejan = new Date(d.getFullYear(), 0, 1);
+  return Math.ceil((((d - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+}
+
+// ── RENDER BAR CHART PER GH ──
+function renderSntBar(rows, qGH) {
+  // Aggregate per GH
+  const ghMap = {};
+  rows.forEach(r => {
+    if (qGH && !r.gh.toLowerCase().includes(qGH)) return;
+    ghMap[r.gh] = (ghMap[r.gh] || 0) + r.jml;
+  });
+
+  const entries = Object.entries(ghMap).sort((a,b) => b[1]-a[1]);
+  const empty = document.getElementById('sntBarEmpty');
+  const canvas = document.getElementById('sntBarChart');
+  const subEl  = document.getElementById('sntBarSub');
+
+  if (!entries.length) {
+    canvas.style.display = 'none';
+    if (empty) empty.style.display = '';
+    return;
+  }
+  canvas.style.display = '';
+  if (empty) empty.style.display = 'none';
+  if (subEl) subEl.textContent = entries.length + ' GH · diurutkan jumlah sanitasi tertinggi';
+
+  if (sntBarChartObj) { sntBarChartObj.destroy(); sntBarChartObj = null; }
+
+  const labels = entries.map(([gh]) => gh.length > 18 ? gh.slice(0,16)+'…' : gh);
+  const data   = entries.map(([,v]) => v);
+  const colors = entries.map((_,i) => SNT_COLORS[i % SNT_COLORS.length]);
+
+  const ctx = canvas.getContext('2d');
+  sntBarChartObj = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Jumlah Sanitasi',
+        data,
+        backgroundColor: colors,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.raw.toLocaleString('id-ID')} sanitasi`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 40 } },
+        y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,.06)' }, ticks: { font: { size: 10 }, precision: 0 } }
+      }
+    }
+  });
+}
+
+// ── RENDER PIE CHART PER TEAM ──
+function renderSntPie(rows) {
+  const teamMap = {};
+  rows.forEach(r => {
+    const t = r.team || 'Unknown';
+    teamMap[t] = (teamMap[t] || 0) + r.jml;
+  });
+
+  const entries = Object.entries(teamMap).sort((a,b) => b[1]-a[1]);
+  const canvas  = document.getElementById('sntPieChart');
+  const legend  = document.getElementById('sntPieLegend');
+
+  if (!entries.length) {
+    if (legend) legend.innerHTML = '<div class="es">Tidak ada data</div>';
+    return;
+  }
+
+  if (sntPieChartObj) { sntPieChartObj.destroy(); sntPieChartObj = null; }
+
+  const labels = entries.map(([t]) => t);
+  const data   = entries.map(([,v]) => v);
+  const colors = entries.map((_,i) => SNT_COLORS[i % SNT_COLORS.length]);
+  const total  = data.reduce((s,v) => s+v, 0);
+
+  const ctx = canvas.getContext('2d');
+  sntPieChartObj = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: false,
+      cutout: '58%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.raw.toLocaleString('id-ID')} (${(ctx.raw/total*100).toFixed(1)}%)`
+          }
+        }
+      }
+    }
+  });
+
+  // Custom legend
+  if (legend) {
+    legend.innerHTML = entries.map(([t, v], i) =>
+      `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0;display:inline-block"></span>
+          <span style="color:var(--text2)">${t}</span>
+        </div>
+        <span style="font-weight:700;font-family:'JetBrains Mono',monospace">${v.toLocaleString('id-ID')} <span style="font-size:9px;color:var(--text3)">${(v/total*100).toFixed(1)}%</span></span>
+      </div>`
+    ).join('');
+  }
+}
+
+// ── RENDER TABLE ──
+function renderSntTable(rows) {
+  const body   = document.getElementById('sntBody');
+  const subEl  = document.getElementById('sntTblSub');
+  if (subEl) subEl.textContent = rows.length + ' entri · diurutkan terbaru';
+
+  const sorted = [...rows].sort((a,b) => (b.tgl||'').localeCompare(a.tgl||''));
+
+  if (!sorted.length) {
+    body.innerHTML = '<tr><td colspan="6" class="es">Tidak ada data untuk filter ini</td></tr>';
+    return;
+  }
+
+  body.innerHTML = sorted.map((r, i) => {
+    const dot = CC[clOf(r.gh)] || '#999';
+    const tglDisp = r.tgl ? r.tgl.split('-').reverse().join('/') : (r.tglRaw || '—');
+    const teamColor = r.team && r.team !== '—'
+      ? 'background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0'
+      : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)';
+    return `<tr>
+      <td class="no-col">${i+1}</td>
+      <td class="mono" style="font-size:11.5px">${tglDisp}</td>
+      <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+      <td><span style="border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;${teamColor}">${r.team || '—'}</span></td>
+      <td class="r mono" style="font-weight:700;font-size:14px;color:var(--green)">${r.jml.toLocaleString('id-ID')}</td>
+      <td style="font-size:12px;color:var(--text3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ket || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
 </script>
 
 <!-- ══ PENYIRAMAN MAINTENANCE MODAL ══ -->
