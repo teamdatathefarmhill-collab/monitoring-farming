@@ -1276,22 +1276,17 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
       <!-- ── STYLES SANITASI ── -->
       <style>
-        /* Heatmap calendar */
         .snt-cal-wrap{overflow-x:auto;padding:4px 0}
         .snt-cal{display:flex;gap:3px;align-items:flex-start}
         .snt-col{display:flex;flex-direction:column;gap:3px}
         .snt-cell{width:13px;height:13px;border-radius:2px;cursor:pointer;transition:transform .1s,box-shadow .1s;flex-shrink:0}
         .snt-cell:hover{transform:scale(1.4);box-shadow:0 2px 6px rgba(0,0,0,.25);z-index:10;position:relative}
-        .snt-day-lbl{font-size:8px;color:var(--text4);text-align:center;height:13px;line-height:13px}
-        .snt-month-strip{display:flex;gap:3px;margin-bottom:4px;padding-left:22px}
+        .snt-day-lbl{font-size:8px;color:var(--text4);text-align:right;padding-right:4px;height:13px;line-height:13px;width:20px;flex-shrink:0}
+        .snt-month-strip{display:flex;gap:3px;margin-bottom:4px;padding-left:26px}
         .snt-month-lbl{font-size:9px;color:var(--text3);font-weight:600;white-space:nowrap}
-
-        /* Last sanitasi badge */
         .snt-last-ok{background:var(--green-lt);color:var(--green-txt);border:1px solid #b8dfc4}
         .snt-last-w {background:var(--yellow-lt);color:var(--yellow-txt);border:1px solid #f5d08a}
         .snt-last-b {background:var(--red-lt);color:var(--red-txt);border:1px solid #f0b0b0}
-
-        /* Drill panel */
         #sntDrillPanel{
           background:var(--surface);border:1.5px solid var(--border2);border-radius:11px;
           padding:14px 18px;margin-bottom:16px;display:none;
@@ -1308,12 +1303,10 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="ph-sub" id="sntSubtitle">Menghubungkan ke Google Sheets…</div>
         </div>
         <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-          <!-- Harian / Mingguan toggle -->
           <div style="display:flex;gap:0;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
             <button class="fbtn active" id="sntBtnHarian"   onclick="setSntPeriode('harian',this)"   style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">📅 Harian</button>
             <button class="fbtn"        id="sntBtnMingguan" onclick="setSntPeriode('mingguan',this)" style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">📆 Mingguan</button>
           </div>
-          <!-- Date range -->
           <input type="date" id="sntDateFrom" onchange="rebuildSnt()"
             style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
           <span style="font-size:12px;color:var(--text3)">—</span>
@@ -1335,7 +1328,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <span id="sntCnt" style="color:var(--text2);font-weight:600">— entri</span>
       </div>
 
-      <!-- ── KPI CARDS (5 kolom) ── -->
+      <!-- KPI CARDS -->
       <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px">
         <div class="sc g">
           <div class="sc-lbl">True Sanitasi</div>
@@ -1364,7 +1357,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- ── DRILL PANEL (muncul saat klik titik trend) ── -->
+      <!-- DRILL PANEL -->
       <div id="sntDrillPanel">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
           <div>
@@ -1376,92 +1369,81 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div id="sntDrillBody" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px"></div>
       </div>
 
-      <!-- ── ROW 1: Trend + Pie ── -->
-      <div style="display:grid;grid-template-columns:3fr 1fr;gap:16px;margin-bottom:18px;align-items:stretch">
-
-        <!-- TREND CHART -->
-        <div class="card" style="margin-bottom:0;display:flex;flex-direction:column">
-          <div class="card-hd">
-            <div>
-              <div class="card-title" id="sntTrendTitle">📈 Trend Harian — True Sanitasi per GH</div>
-              <div class="card-sub" id="sntTrendSub">Klik titik untuk lihat detail GH · Jumlah GH tersanitasi per hari</div>
-            </div>
-          </div>
-          <div style="padding:16px 20px;flex:1;min-height:0;position:relative">
-            <canvas id="sntTrendChart" style="width:100%!important;height:220px!important"></canvas>
-            <div id="sntTrendEmpty" class="es" style="display:none">Tidak ada data untuk periode ini</div>
-          </div>
-        </div>
-
-        <!-- PIE CHART PER TEAM -->
-        <div class="card" style="margin-bottom:0;display:flex;flex-direction:column">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">🍩 Kontribusi per Team</div>
-              <div class="card-sub">True Sanitasi per tim</div>
-            </div>
-          </div>
-          <div style="padding:14px 16px;flex:1;display:flex;flex-direction:column;justify-content:flex-start">
-            <div style="display:flex;justify-content:center;margin-bottom:10px">
-              <canvas id="sntPieChart" width="160" height="160"></canvas>
-            </div>
-            <div id="sntPieLegend" style="font-size:11px"></div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- ── ROW 2: Heatmap Kalender ── -->
+      <!-- ROW 1: Trend (lebar penuh) -->
       <div class="card" style="margin-bottom:18px">
         <div class="card-hd">
           <div>
-            <div class="card-title">🗓️ Heatmap Aktivitas Sanitasi</div>
-            <div class="card-sub" id="sntHeatSub">Intensitas sanitasi per hari · klik untuk detail</div>
+            <div class="card-title" id="sntTrendTitle">📈 Trend Harian — True Sanitasi per GH</div>
+            <div class="card-sub" id="sntTrendSub">Klik titik untuk lihat detail GH</div>
+          </div>
+        </div>
+        <div style="padding:16px 20px;position:relative">
+          <canvas id="sntTrendChart" style="width:100%!important;height:220px!important"></canvas>
+          <div id="sntTrendEmpty" class="es" style="display:none">Tidak ada data untuk periode ini</div>
+        </div>
+      </div>
+
+      <!-- ROW 2: Pie + Heatmap dalam 1 card -->
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📊 Distribusi & Aktivitas Sanitasi</div>
+            <div class="card-sub">Kontribusi tim · Heatmap kalender aktivitas</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text3)">
             <span>Sedikit</span>
             <div style="display:flex;gap:2px">
-              <div style="width:11px;height:11px;border-radius:2px;background:#ebedf0"></div>
-              <div style="width:11px;height:11px;border-radius:2px;background:#c6e48b"></div>
-              <div style="width:11px;height:11px;border-radius:2px;background:#7bc96f"></div>
-              <div style="width:11px;height:11px;border-radius:2px;background:#239a3b"></div>
-              <div style="width:11px;height:11px;border-radius:2px;background:#196127"></div>
+              <div style="width:10px;height:10px;border-radius:2px;background:#ebedf0"></div>
+              <div style="width:10px;height:10px;border-radius:2px;background:#c6e48b"></div>
+              <div style="width:10px;height:10px;border-radius:2px;background:#7bc96f"></div>
+              <div style="width:10px;height:10px;border-radius:2px;background:#239a3b"></div>
+              <div style="width:10px;height:10px;border-radius:2px;background:#196127"></div>
             </div>
             <span>Banyak</span>
           </div>
         </div>
-        <div style="padding:14px 18px">
-          <div id="sntHeatmap"><div class="es">Memuat…</div></div>
+        <div style="display:grid;grid-template-columns:220px 1fr;gap:0;min-height:0">
+          <!-- Pie kiri -->
+          <div style="padding:14px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.7px">Per Team</div>
+            <canvas id="sntPieChart" width="140" height="140"></canvas>
+            <div id="sntPieLegend" style="font-size:11px;margin-top:10px;width:100%"></div>
+          </div>
+          <!-- Heatmap kanan -->
+          <div style="padding:14px 18px">
+            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.7px" id="sntHeatSub">Kalender Aktivitas</div>
+            <div id="sntHeatmap"><div class="es">Memuat…</div></div>
+          </div>
         </div>
       </div>
 
-      <!-- ── ROW 3: Bar per GH + Last Sanitasi Table ── -->
+      <!-- ROW 3: Bar per GH + Status Terakhir per GH -->
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:18px">
 
-        <!-- BAR CHART TRUE SANITASI PER GH -->
+        <!-- BAR TRUE SANITASI PER GH -->
         <div class="card" style="margin-bottom:0">
           <div class="card-hd">
             <div>
               <div class="card-title">📊 True Sanitasi per Greenhouse</div>
-              <div class="card-sub" id="sntBarSub">Jumlah hari ada sanitasi · diurutkan tertinggi</div>
+              <div class="card-sub" id="sntBarSub">Hari unik ada sanitasi · periode aktif</div>
             </div>
             <input class="si" type="text" id="sntSrchGH" placeholder="Cari GH…" oninput="rebuildSnt()" style="width:130px">
           </div>
           <div style="padding:14px 18px">
-            <canvas id="sntBarChart" style="width:100%!important;height:240px!important"></canvas>
+            <canvas id="sntBarChart" style="width:100%!important;height:260px!important"></canvas>
             <div id="sntBarEmpty" class="es" style="display:none">Tidak ada data</div>
           </div>
         </div>
 
-        <!-- LAST SANITASI PER GH (status kapan terakhir kali) -->
+        <!-- STATUS TERAKHIR PER GH — berdasarkan periode aktif -->
         <div class="card" style="margin-bottom:0;overflow:hidden">
           <div class="card-hd">
             <div>
               <div class="card-title">⏱️ Status Terakhir per GH</div>
-              <div class="card-sub" id="sntLastSub">Kapan terakhir kali tiap GH disanitasi</div>
+              <div class="card-sub" id="sntLastSub">Berdasarkan periode yang dipilih</div>
             </div>
           </div>
-          <div style="max-height:340px;overflow-y:auto">
+          <div style="max-height:360px;overflow-y:auto">
             <table style="width:100%;border-collapse:collapse;font-size:12px">
               <thead>
                 <tr style="background:var(--hdr)">
@@ -1475,39 +1457,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           </div>
         </div>
 
-      </div>
-
-      <!-- ── ROW 4: Detail Table ── -->
-      <div class="card">
-        <div class="card-hd">
-          <div>
-            <div class="card-title">📋 Detail Data Sanitasi</div>
-            <div class="card-sub" id="sntTblSub">Semua entri · diurutkan terbaru</div>
-          </div>
-          <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-            <select class="si" id="sntSelGH" onchange="rebuildSnt()" style="width:155px;padding-left:10px;background-image:none">
-              <option value="">Semua GH</option>
-            </select>
-            <select class="si" id="sntSelTeam" onchange="rebuildSnt()" style="width:140px;padding-left:10px;background-image:none">
-              <option value="">Semua Team</option>
-            </select>
-          </div>
-        </div>
-        <div class="tw">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:28px">#</th>
-                <th>Tanggal</th>
-                <th>Greenhouse</th>
-                <th>Team</th>
-                <th class="r">Jml Sanitasi</th>
-                <th>Keterangan</th>
-              </tr>
-            </thead>
-            <tbody id="sntBody"><tr><td colspan="6" class="es">Memuat…</td></tr></tbody>
-          </table>
-        </div>
       </div>
 
     </div><!-- /view-sanitasi -->
@@ -3596,7 +3545,10 @@ function sntInitDates() {
 // ── FETCH ──
 async function fetchSnt(silent) {
   sntInitDates();
-  if (!silent) document.getElementById('sntBody').innerHTML = '<tr><td colspan="6" class="es">Memuat data sanitasi…</td></tr>';
+  if (!silent) {
+    const b = document.getElementById('sntLastBody');
+    if (b) b.innerHTML = '<tr><td colspan="3" class="es">Memuat data sanitasi…</td></tr>';
+  }
   try {
     const resp = await fetch(SNT_CSV_URL + '&t=' + Date.now());
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -3658,16 +3610,9 @@ function findSntCol(row, keys) {
   return null;
 }
 
-// ── POPULATE FILTERS ──
+// ── POPULATE FILTERS (only search GH remains) ──
 function populateSntFilters() {
-  const ghSel = document.getElementById('sntSelGH');
-  const tmSel = document.getElementById('sntSelTeam');
-  if (!ghSel || !tmSel) return;
-  const ghs   = [...new Set(RAW_SNT.map(r=>r.gh))].filter(Boolean).sort();
-  const teams = [...new Set(RAW_SNT.map(r=>r.team))].filter(Boolean).sort();
-  const pGH = ghSel.value, pTm = tmSel.value;
-  ghSel.innerHTML = '<option value="">Semua GH</option>'   + ghs.map(g=>`<option value="${g}"${g===pGH?' selected':''}>${g}</option>`).join('');
-  tmSel.innerHTML = '<option value="">Semua Team</option>' + teams.map(t=>`<option value="${t}"${t===pTm?' selected':''}>${t}</option>`).join('');
+  // filters tabel sudah dihapus, tidak perlu populate dropdown
 }
 
 // ── DATE FILTER ──
@@ -3694,14 +3639,10 @@ function setSntPeriode(mode, el) {
 // ── REBUILD ──
 function rebuildSnt() {
   closeSntDrill();
-  const ghVal  = (document.getElementById('sntSelGH')||{}).value  || '';
-  const tmVal  = (document.getElementById('sntSelTeam')||{}).value || '';
-  const qGH    = ((document.getElementById('sntSrchGH')||{}).value || '').toLowerCase().trim();
+  const qGH = ((document.getElementById('sntSrchGH')||{}).value || '').toLowerCase().trim();
 
   let rows = [...RAW_SNT];
   rows = sntDateFilter(rows);
-  if (ghVal) rows = rows.filter(r => r.gh === ghVal);
-  if (tmVal) rows = rows.filter(r => r.team === tmVal);
 
   // ── TRUE SANITASI = hari unik yang ada record ──
   const activeDays = new Set(rows.filter(r=>r.tgl).map(r=>r.tgl));
@@ -3737,7 +3678,7 @@ function rebuildSnt() {
   const el = document.getElementById('sntSubtitle');
   if (el) el.textContent = `Data Sanitasi · ${['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()]}, ${n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})} · ${rows.length} entri`;
 
-  // Build grouped-by-date index for drill-down
+  // Build grouped-by-date index for drill-down (snapshot per rebuild)
   SNT_GROUPED_BY_DATE = {};
   rows.filter(r=>r.tgl).forEach(r => {
     if (!SNT_GROUPED_BY_DATE[r.tgl]) SNT_GROUPED_BY_DATE[r.tgl] = [];
@@ -3749,10 +3690,9 @@ function rebuildSnt() {
   renderSntHeatmap(rows);
   renderSntBar(rows, qGH);
   renderSntLastTable(rows);
-  renderSntTable(rows);
 }
 
-// ── TREND CHART (TRUE SANITASI = GH unik per hari/minggu) ──
+// ── TREND CHART — fix: store keys on chart instance to avoid stale closure ──
 function renderSntTrend(rows) {
   const isMin = RAW_SNT_PERIODE === 'mingguan';
   document.getElementById('sntTrendTitle').textContent = isMin
@@ -3762,8 +3702,7 @@ function renderSntTrend(rows) {
     (isMin ? 'Jumlah GH unik tersanitasi per minggu' : 'Jumlah GH unik tersanitasi per hari');
 
   // Group: key → Set of GH
-  const grouped = {};
-  // Also store iso date → period key for drill-down
+  const grouped   = {};
   const dateToKey = {};
   rows.filter(r=>r.tgl).forEach(r => {
     let key;
@@ -3776,8 +3715,13 @@ function renderSntTrend(rows) {
     dateToKey[r.tgl] = key;
   });
 
-  const sortedKeys = Object.keys(grouped).sort();
-  if (!sortedKeys.length) {
+  // Snapshot keys at render time (not a closure over outer variable)
+  const _keys      = Object.keys(grouped).sort();
+  const _d2k       = { ...dateToKey };
+  const _grouped   = { ...SNT_GROUPED_BY_DATE }; // snapshot of current drill data
+  const _isMin     = isMin;
+
+  if (!_keys.length) {
     document.getElementById('sntTrendChart').style.display = 'none';
     document.getElementById('sntTrendEmpty').style.display = '';
     return;
@@ -3785,14 +3729,14 @@ function renderSntTrend(rows) {
   document.getElementById('sntTrendChart').style.display = '';
   document.getElementById('sntTrendEmpty').style.display = 'none';
 
-  const labels = sortedKeys.map(k => {
-    if (isMin) {
+  const labels = _keys.map(k => {
+    if (_isMin) {
       const d = new Date(k);
       return `W${sntWeekNum(d)} (${d.toLocaleDateString('id-ID',{day:'2-digit',month:'short'})})`;
     }
-    return k.slice(5).replace('-','/'); // MM/DD → show as dd/mm
+    return k.slice(5).replace('-','/');
   });
-  const data = sortedKeys.map(k => grouped[k].size);
+  const data = _keys.map(k => grouped[k].size);
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
@@ -3805,7 +3749,7 @@ function renderSntTrend(rows) {
         data,
         borderColor: '#1a7a3a',
         backgroundColor: 'rgba(26,122,58,0.09)',
-        pointBackgroundColor: sortedKeys.map(k => SNT_GROUPED_BY_DATE[k] ? '#2ca354' : '#b0c4b0'),
+        pointBackgroundColor: _keys.map(k => (_grouped[k] && _grouped[k].length) ? '#2ca354' : '#c6dfc8'),
         pointRadius: 5, pointHoverRadius: 8,
         tension: 0.3, fill: true, borderWidth: 2.5,
       }]
@@ -3813,26 +3757,26 @@ function renderSntTrend(rows) {
     options: {
       responsive: false,
       maintainAspectRatio: false,
-      onClick(evt) {
-        const pts = sntTrendChartObj.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
+      onClick(evt, _, chart) {
+        // Use keys captured at render time — immune to rebuildSnt re-runs
+        const pts = chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
         if (!pts.length) return;
         const idx = pts[0].index;
-        const key = sortedKeys[idx];
-        // Collect all rows for that period
+        const key = _keys[idx];
         let periodRows = [];
-        if (isMin) {
-          Object.keys(SNT_GROUPED_BY_DATE).forEach(d => { if (dateToKey[d]===key) periodRows.push(...SNT_GROUPED_BY_DATE[d]); });
+        if (_isMin) {
+          Object.keys(_grouped).forEach(d => { if (_d2k[d]===key) periodRows.push(...(_grouped[d]||[])); });
         } else {
-          periodRows = SNT_GROUPED_BY_DATE[key] || [];
+          periodRows = _grouped[key] || [];
         }
-        showSntDrill(key, periodRows, isMin);
+        showSntDrill(key, periodRows, _isMin);
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: ctx => isMin ? `Minggu mulai ${ctx[0].label}` : ctx[0].label,
-            label: ctx => ` ${ctx.raw} GH tersanitasi`
+            title: c => _isMin ? `Minggu mulai ${c[0].label}` : c[0].label,
+            label: c => ` ${c.raw} GH tersanitasi`
           }
         }
       },
@@ -4111,30 +4055,36 @@ function renderSntBar(rows, qGH) {
   });
 }
 
-// ── LAST SANITASI PER GH ──
+// ── LAST SANITASI PER GH — berdasarkan PERIODE yang dipilih ──
 function renderSntLastTable(rows) {
   const body  = document.getElementById('sntLastBody');
   const subEl = document.getElementById('sntLastSub');
   if (!body) return;
 
-  // Latest per GH from ALL RAW_SNT (not just filtered), to show absolute last date
+  // Latest per GH dari rows yang sudah difilter (periode aktif)
   const lastMap = {};
-  RAW_SNT.filter(r=>r.tgl).forEach(r => {
+  rows.filter(r=>r.tgl).forEach(r => {
     if (!lastMap[r.gh] || r.tgl > lastMap[r.gh]) lastMap[r.gh] = r.tgl;
   });
 
-  const today = new Date().toISOString().slice(0,10);
-  const entries = Object.entries(lastMap).sort((a,b)=>a[1].localeCompare(b[1])); // oldest first = most urgent
+  // Ambil batas akhir periode yang dipilih sebagai "today" referensi
+  const periodTo = (document.getElementById('sntDateTo')||{}).value || new Date().toISOString().slice(0,10);
+
+  const entries = Object.entries(lastMap).sort((a,b) => a[1].localeCompare(b[1])); // oldest first
 
   if (!entries.length) { body.innerHTML='<tr><td colspan="3" class="es">Tidak ada data</td></tr>'; return; }
-  if (subEl) subEl.textContent = entries.length + ' GH · diurutkan paling lama tidak sanitasi';
+
+  const from = (document.getElementById('sntDateFrom')||{}).value || '';
+  const to   = periodTo;
+  if (subEl) subEl.textContent = entries.length + ' GH · periode ' +
+    (from ? from.split('-').reverse().join('/') : '—') + ' – ' + to.split('-').reverse().join('/');
 
   body.innerHTML = entries.map(([gh, lastTgl]) => {
     const dot      = CC[clOf(gh)] || '#999';
-    const diffMs   = new Date(today) - new Date(lastTgl);
+    const diffMs   = new Date(periodTo) - new Date(lastTgl);
     const diffDays = Math.round(diffMs / 86400000);
-    const cls = diffDays <= 3 ? 'snt-last-ok' : diffDays <= 7 ? 'snt-last-w' : 'snt-last-b';
-    const label = diffDays <= 3 ? '✓' : diffDays <= 7 ? '⚠' : '🔴';
+    const cls   = diffDays <= 3 ? 'snt-last-ok' : diffDays <= 7 ? 'snt-last-w' : 'snt-last-b';
+    const icon  = diffDays <= 3 ? '✓' : diffDays <= 7 ? '⚠' : '🔴';
     return `<tr>
       <td style="padding:7px 12px">
         <div style="display:flex;align-items:center;gap:6px">
@@ -4146,37 +4096,14 @@ function renderSntLastTable(rows) {
         ${lastTgl.split('-').reverse().join('/')}
       </td>
       <td style="padding:7px 12px;text-align:center">
-        <span class="pill ${cls}" style="font-size:10px">${label} ${diffDays} hari lalu</span>
+        <span class="pill ${cls}" style="font-size:10px">${icon} ${diffDays}h lalu</span>
       </td>
     </tr>`;
   }).join('');
 }
 
-// ── RENDER TABLE DETAIL ──
-function renderSntTable(rows) {
-  const body  = document.getElementById('sntBody');
-  const subEl = document.getElementById('sntTblSub');
-  if (subEl) subEl.textContent = rows.length + ' entri · diurutkan terbaru';
 
-  const sorted = [...rows].sort((a,b)=>(b.tgl||'').localeCompare(a.tgl||''));
-  if (!sorted.length) { body.innerHTML='<tr><td colspan="6" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
 
-  body.innerHTML = sorted.map((r,i) => {
-    const dot = CC[clOf(r.gh)] || '#999';
-    const tglDisp = r.tgl ? r.tgl.split('-').reverse().join('/') : (r.tglRaw||'—');
-    const tmStyle = r.team && r.team!=='—'
-      ? 'background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0'
-      : 'background:var(--surface2);color:var(--text3);border:1px solid var(--border)';
-    return `<tr>
-      <td class="no-col">${i+1}</td>
-      <td class="mono" style="font-size:11.5px">${tglDisp}</td>
-      <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-      <td><span style="border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700;${tmStyle}">${r.team||'—'}</span></td>
-      <td class="r mono" style="font-weight:700;font-size:14px;color:var(--green)">${r.jml.toLocaleString('id-ID')}</td>
-      <td style="font-size:12px;color:var(--text3);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ket||'—'}</td>
-    </tr>`;
-  }).join('');
-}
 
 </script>
 
