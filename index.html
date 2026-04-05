@@ -3733,19 +3733,14 @@ function rebuildSnt() {
   document.getElementById('sntSc5').textContent  = avgGHPerDay;
   document.getElementById('sntSc5n').textContent = lastTgl ? 'Terakhir: ' + lastTgl.split('-').reverse().join('/') : 'avg GH/hari';
 
-  // GH Belum Sanitasi — hanya hitung yang tidak ada sanitasi >= tglAwalTanam
+  // GH Belum Sanitasi — match by GH+Periode
   if (RAW.length) {
-    const allSntByGH = {};
-    RAW_SNT.filter(r=>r.tgl&&r.gh).forEach(r => {
-      if (!allSntByGH[r.gh]) allSntByGH[r.gh] = [];
-      allSntByGH[r.gh].push(r.tgl);
-    });
-    const belum = RAW.filter(r => {
-      const tglAwal = r.tglAwalTanam || r.tgl || '';
-      if (!tglAwal) return true;
-      const snts = allSntByGH[r.gh] || [];
-      return !snts.some(tgl => tgl >= tglAwal);
-    }).length;
+    const normP = s => String(s||'').trim().toLowerCase();
+    const sntKeys = new Set(
+      RAW_SNT.filter(r=>r.tgl&&r.gh&&r.periode)
+             .map(r => r.gh+'||'+normP(r.periode))
+    );
+    const belum = RAW.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode))).length;
     document.getElementById('sntSc6').textContent  = belum;
     document.getElementById('sntSc6n').textContent = 'dari ' + RAW.length + ' GH existing';
   }
@@ -4186,8 +4181,8 @@ function renderSntKategori(rows) {
   }).join('');
 }
 
-// ── STATUS SANITASI GH EXISTING — cross-ref RAW vs RAW_SNT ──
-// Rule: sanitasi dihitung hanya jika tanggalnya >= tglAwalTanam periode aktif GH
+// ── STATUS SANITASI GH EXISTING — cross-ref RAW vs RAW_SNT by GH+Periode ──
+// Rule: sanitasi valid = GH sama DAN Periode sama dengan periode aktif di RAW
 function renderSntLastTable(rows) {
   const body  = document.getElementById('sntLastBody');
   const subEl = document.getElementById('sntLastSub');
@@ -4195,7 +4190,7 @@ function renderSntLastTable(rows) {
 
   const periodTo = (document.getElementById('sntDateTo')||{}).value || new Date().toISOString().slice(0,10);
 
-  // GH existing dari RAW (Populasi & Gramasi)
+  // GH existing dari RAW — periode aktif saat ini
   const existingGH = RAW.length
     ? RAW.map(r => ({
         gh          : r.gh,
@@ -4210,23 +4205,20 @@ function renderSntLastTable(rows) {
     return;
   }
 
-  // Build lastMap dari SEMUA RAW_SNT: GH → tanggal terbaru
-  const allSntByGH = {};
-  RAW_SNT.filter(r=>r.tgl && r.gh).forEach(r => {
-    if (!allSntByGH[r.gh]) allSntByGH[r.gh] = [];
-    allSntByGH[r.gh].push(r.tgl);
+  // Normalize periode untuk matching (trim whitespace, lowercase)
+  const normP = s => String(s||'').trim().toLowerCase();
+
+  // Build lookup: "GH||periode_norm" → tanggal sanitasi terbaru
+  const sntLookup = {};
+  RAW_SNT.filter(r => r.tgl && r.gh && r.periode).forEach(r => {
+    const key = r.gh + '||' + normP(r.periode);
+    if (!sntLookup[key] || r.tgl > sntLookup[key]) sntLookup[key] = r.tgl;
   });
 
-  // Gabungkan: cari sanitasi yang tanggalnya >= tglAwalTanam periode aktif
+  // Gabungkan: tiap GH existing → cek ada sanitasi di periode yang sama
   const combined = existingGH.map(g => {
-    let lastTgl = null;
-    if (g.tglAwalTanam && allSntByGH[g.gh]) {
-      // Filter hanya sanitasi di periode aktif ini
-      const valid = allSntByGH[g.gh]
-        .filter(tgl => tgl >= g.tglAwalTanam)
-        .sort((a,b) => b.localeCompare(a));
-      if (valid.length) lastTgl = valid[0];
-    }
+    const key    = g.gh + '||' + normP(g.periode);
+    const lastTgl = sntLookup[key] || null;
     return { gh: g.gh, periode: g.periode, hst: g.hst, lastTgl };
   });
 
