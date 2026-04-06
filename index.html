@@ -4783,12 +4783,20 @@ function ccFilteredSNT() {
 
 function ccFilteredPNY() {
   let d = [...RAW_PNY];
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+  if (from) d = d.filter(r => (r.tgl||'') >= from);
+  if (to)   d = d.filter(r => (r.tgl||'') <= to);
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
   return d;
 }
 
 function ccFilteredHPT() {
   let d = [...RAW_HPT];
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+  if (from) d = d.filter(r => (r.tgl||'') >= from);
+  if (to)   d = d.filter(r => (r.tgl||'') <= to);
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
   return d;
 }
@@ -4956,15 +4964,27 @@ function ccRenderCards() {
 
 // ── RENDER KPI ──
 function ccRenderKPI() {
-  const d = ccFilteredRAW();
+  const d   = ccFilteredRAW();
   const snt = ccFilteredSNT();
-  const totPop  = d.reduce((s,r)=>s+r.popAkhir,0);
-  const wGr     = d.filter(hasGr);
-  const avgGr   = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
-  const onTr    = d.filter(r=>popOk(r)&&grOk(r)).length;
-  const krit    = d.filter(isCrit).length;
-  const totSnt  = snt.reduce((s,r)=>s+(r.jml||0),0);
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+
+  // Populasi & gramasi: snapshot kondisi saat ini (RAW tidak punya history harian)
+  const totPop = d.reduce((s,r)=>s+r.popAkhir,0);
+  const wGr    = d.filter(hasGr);
+  const avgGr  = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
+  const onTr   = d.filter(r=>popOk(r)&&grOk(r)).length;
+  const krit   = d.filter(isCrit).length;
+
+  // Sanitasi: ikut date range
+  const totSnt     = snt.reduce((s,r)=>s+(r.jml||0),0);
   const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
+
+  // Label range
+  const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
+  const rangeLabel = (from && to && from !== to)
+    ? `${fmtD(from)} – ${fmtD(to)}`
+    : from ? fmtD(from) : 'hari ini';
 
   const el1 = document.getElementById('ccKpi1'); if(el1) el1.textContent = ccFmt(totPop);
   const el1n= document.getElementById('ccKpi1n');if(el1n) el1n.textContent = 'pop akhir · '+d.length+' GH aktif';
@@ -4973,7 +4993,7 @@ function ccRenderKPI() {
   const el3 = document.getElementById('ccKpi3'); if(el3) el3.textContent = d.length;
   const el3n= document.getElementById('ccKpi3n');if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
   const el4 = document.getElementById('ccKpi4'); if(el4) el4.textContent = ccFmt(totSnt);
-  const el4n= document.getElementById('ccKpi4n');if(el4n) el4n.textContent = activeDays+' hari aktif sanitasi';
+  const el4n= document.getElementById('ccKpi4n');if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
 }
 
 // ── DETAIL RENDERERS ──
@@ -5245,20 +5265,17 @@ function rebuildCC() {
 
 // ── INIT (dipanggil saat switch ke halaman ini) ──
 function initCC() {
-  // Set default date range (30 hari terakhir)
-  const today = new Date();
-  const from  = new Date(today); from.setDate(from.getDate() - 30);
-  const toStr   = today.toISOString().slice(0,10);
-  const fromStr = from.toISOString().slice(0,10);
+  // Default date range: today
+  const today = new Date().toISOString().slice(0,10);
   const dfEl = document.getElementById('ccDateFrom');
   const dtEl = document.getElementById('ccDateTo');
-  if (dfEl && !dfEl.value) dfEl.value = fromStr;
-  if (dtEl && !dtEl.value) dtEl.value = toStr;
+  if (dfEl) dfEl.value = today;
+  if (dtEl) dtEl.value = today;
 
   // Pastikan semua data tersedia
-  if (!RAW_SNT.length)  fetchSnt(true);
-  if (!RAW_PNY.length)  fetchPny(true);
-  if (!RAW_HPT.length)  fetchHpt(true);
+  if (!RAW_SNT.length)   fetchSnt(true);
+  if (!RAW_PNY.length)   fetchPny(true);
+  if (!RAW_HPT.length)   fetchHpt(true);
   if (!RAW_SEMAI.length) fetchSemai(true);
 
   rebuildCC();
