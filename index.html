@@ -5281,34 +5281,50 @@ function ccRenderDetail(id, panel) {
   }
 
   else if (id === 'cc-estpanen') {
-    const rows = [...d].sort((a,b)=>b.popAkhir-a.popAkhir);
+    // Sort by HST ascending
+    const rows = [...d].sort((a,b) => a.hst - b.hst);
     const totalEst = rows.reduce((s,r)=>s+Math.round(r.popAkhir*(r.avgGramasi>0?r.avgGramasi:1000)/1000),0);
-    const noGr = rows.filter(r=>r.avgGramasi<=0).length;
+    const noGr   = rows.filter(r=>r.avgGramasi<=0).length;
     const withGr = rows.length - noGr;
-    const badge = `<span class="pill p-ok">${(totalEst/1000).toFixed(1)} ton estimasi</span>`;
+    const badge  = `<span class="pill p-ok">${(totalEst/1000).toFixed(1)} ton estimasi</span>`;
+
     const tableRows = rows.map(r => {
-      const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
-      const est = Math.round(r.popAkhir * grUsed / 1000);
-      const srcColor = r.avgGramasi > 0 ? 'var(--green-mid)' : 'var(--yellow)';
-      const srcLabel = r.avgGramasi > 0 ? r.avgGramasi+'g aktual' : '1.000g asumsi';
-      return `<tr>
-        <td style="padding:6px 8px;font-size:12px;font-weight:700">${r.gh}</td>
-        <td style="padding:6px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right">${ccFmt(r.popAkhir)}</td>
-        <td style="padding:6px 8px;font-size:11px;color:${srcColor}">${srcLabel}</td>
-        <td style="padding:6px 8px;font-size:12px;font-family:'JetBrains Mono',monospace;text-align:right;font-weight:700">${ccFmt(est)} kg</td>
+      const grUsed   = r.avgGramasi > 0 ? r.avgGramasi : 1000;
+      const est      = Math.round(r.popAkhir * grUsed / 1000);
+      const grColor  = r.avgGramasi > 0 ? 'var(--green-mid)' : 'var(--yellow)';
+      const grLabel  = r.avgGramasi > 0 ? Math.round(r.avgGramasi)+'g aktual' : '1.000g asumsi';
+      const dot      = CC[clOf(r.gh)] || '#999';
+      const hstColor = r.hst >= 55 ? 'var(--red-txt)' : r.hst >= 36 ? 'var(--yellow-txt)' : 'var(--text2)';
+      const hstBg    = r.hst >= 55 ? 'var(--red-lt)'  : r.hst >= 36 ? 'var(--yellow-lt)'  : 'var(--surface2)';
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 8px;font-size:12px;font-weight:700">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+            ${r.gh}
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px;padding-left:13px">${r.periode || '—'}</div>
+        </td>
+        <td style="padding:7px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;background:${hstBg};color:${hstColor};font-family:'JetBrains Mono',monospace">HST ${r.hst}</span>
+        </td>
+        <td style="padding:7px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right">${ccFmt(r.popAkhir)}</td>
+        <td style="padding:7px 8px;font-size:11px;color:${grColor};font-weight:600">${grLabel}</td>
+        <td style="padding:7px 8px;font-size:12px;font-family:'JetBrains Mono',monospace;text-align:right;font-weight:700">${ccFmt(est)} kg</td>
       </tr>`;
     }).join('');
+
     html = ccShell('📦','Estimasi Panen', badge,'dep',`
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
         ${ccMini('Total estimasi', (totalEst/1000).toFixed(1)+' ton', 'var(--green)')}
         ${ccMini('Pakai gramasi aktual', withGr, 'var(--green-mid)')}
         ${ccMini('Pakai asumsi 1 kg', noGr, noGr?'var(--yellow)':'var(--text)')}
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Detail per GH</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Detail per GH — diurutkan HST</div>
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse">
           <thead><tr style="background:var(--hdr)">
-            <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">GH</th>
+            <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">GH · Periode</th>
+            <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">HST</th>
             <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Pop Akhir</th>
             <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Gramasi</th>
             <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Est. Panen</th>
@@ -5317,7 +5333,9 @@ function ccRenderDetail(id, panel) {
         </table>
       </div>
       <div style="font-size:10px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
-        Rumus: pop akhir × avg gramasi (aktual) atau × 1.000g (jika belum ada data gramasi)
+        Rumus: pop akhir × avg gramasi (aktual) atau × 1.000g (jika belum ada data gramasi) · 
+        <span style="color:var(--red-txt)">HST ≥55 = fase panen</span> · 
+        <span style="color:var(--yellow-txt)">HST 36–54 = generatif</span>
       </div>
     `);
   }
