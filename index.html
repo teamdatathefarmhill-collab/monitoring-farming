@@ -580,7 +580,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8f4fb;border:1px solid #b0cef0;margin-right:3px;vertical-align:middle"></span>Ok</span>
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;margin-right:3px;vertical-align:middle"></span>Poor</span>
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;margin-right:3px;vertical-align:middle"></span>Bad</span>
-          <span style="color:var(--text4);font-style:italic">· Pop Akhir: Good ≥100% · Ok 95% · Poor 90% · Bad &lt;90% &nbsp;|&nbsp; Avg Gramasi: Good &gt;105% · Ok 100% · Poor 95% · Bad &lt;95%</span>
+          <span style="color:var(--text4);font-style:italic">· Pop Akhir: % vs standar HST (sheet Standar) — Good ≥100% · Ok ≥97% · Poor ≥90% · Bad &lt;90% &nbsp;|&nbsp; Avg Gramasi: Good &gt;105% · Ok 100% · Poor 95% · Bad &lt;95%</span>
         </div>
         <table>
           <thead>
@@ -1515,16 +1515,43 @@ let rTimer = null, cdTimer = null, nextAt = null;
 const clOf = gh => String(gh).split(' ')[0].toUpperCase();
 const CC = { TOHUDAN:'#1a5fa0', SAWAHAN:'#1a7a3a', COLOMADU:'#a06000', BERGAS:'#8b1515' };
 
+// ── STANDAR POPULASI per HST (dari sheet Standar) ──
+// Qty = persentase Pop Akhir yang harus tersisa vs Pop Awal Tanam
+const POP_STD_HST = {
+   1:1.00,  2:1.00,  3:1.00,  4:1.00,  5:1.00,
+   6:1.00,  7:1.00,  8:1.00,  9:1.00, 10:1.00,
+  11:0.97, 12:0.97, 13:0.97, 14:0.97, 15:0.97,
+  16:0.97, 17:0.97, 18:0.97, 19:0.97, 20:0.97,
+  21:0.94, 22:0.94, 23:0.94, 24:0.94, 25:0.94,
+  26:0.94, 27:0.94, 28:0.94, 29:0.94, 30:0.94,
+  31:0.92, 32:0.92,
+};
+
+// Ambil faktor standar untuk HST tertentu (fallback 0.92 jika HST > 32)
+function popStdFaktor(hst) {
+  const h = Math.round(hst);
+  return POP_STD_HST[h] !== undefined ? POP_STD_HST[h] : 0.92;
+}
+
+// Hitung % Pop Akhir vs standar HST:
+// pctPopVsStd = popAkhir / (popAwal × stdFaktor(HST)) × 100
+// Contoh: TOHUDAN 15, HST 12 → 3.958 / (3.962 × 0.97) × 100 = 102.99%
+function pctPopVsStd(r) {
+  if (!r.popAwal || r.popAwal === 0) return r.pctTarget; // fallback ke GAS
+  const targetMin = r.popAwal * popStdFaktor(r.hst);    // populasi minimum standar
+  return (r.popAkhir / targetMin) * 100;
+}
+
 // ── STATUS HELPERS ──
-const hasGr   = r => r.targetGramasi > 0 && r.avgGramasi !== -1;  // -1 = belum saatnya
+const hasGr   = r => r.targetGramasi > 0 && r.avgGramasi !== -1;
 const grOk    = r => !hasGr(r) || r.avgGramasi >= r.targetGramasi;
 const grWarn  = r => hasGr(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
-const grKrit  = r => hasGr(r) && r.avgGramasi === 0;  // sudah HST>=35 tapi belum ada gramasi
-const belumGr = r => r.avgGramasi === -1;              // HST < 35, belum saatnya
-const popOk   = r => r.pctTarget >= 100;
-const popWarn = r => r.pctTarget >= 90 && r.pctTarget < 100;
-const popBad  = r => r.pctTarget < 90;
-const isCrit  = r => grKrit(r) || r.pctTarget < 75;
+const grKrit  = r => hasGr(r) && r.avgGramasi === 0;
+const belumGr = r => r.avgGramasi === -1;
+const popOk   = r => pctPopVsStd(r) >= 100;
+const popWarn = r => { const p = pctPopVsStd(r); return p >= 90 && p < 100; };
+const popBad  = r => pctPopVsStd(r) < 90;
+const isCrit  = r => grKrit(r) || pctPopVsStd(r) < 75;
 const grBawah = r => hasGr(r) && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi;
 
 const fmt = n => Number(n).toLocaleString('id-ID');
@@ -1743,19 +1770,24 @@ function semaiCell(r) {
   return `<td class="r mono" style="font-size:12px">${qty.toLocaleString('id-ID')}</td>`;
 }
 
-// ── POP AKHIR CELL dengan warna standar (Good ≥100%, Ok 95%, Poor 90%, Bad <90%) ──
+// ── POP AKHIR CELL — % vs standar HST dari sheet Standar ──
+// pctPopVsStd = (popAkhir/popAwal) / stdFaktor(HST) × 100
 function popAkhirCell(r) {
-  const pct = r.pctTarget;
-  let col, bg, border;
-  if (pct >= 100) { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; border = '#b8dfc4'; }
-  else if (pct >= 95) { col = 'var(--blue-txt)'; bg = 'var(--blue-lt)'; border = '#b0cef0'; }
-  else if (pct >= 90) { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; border = '#f5d08a'; }
-  else { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; border = '#f0b0b0'; }
-  const pctBadge = `<span style="font-size:10px;font-weight:600;opacity:.75;margin-left:4px">(${pct.toFixed(1)}%)</span>`;
+  const pct = pctPopVsStd(r);
+  const std = popStdFaktor(r.hst);
+  const stdPop = r.popAwal ? Math.round(r.popAwal * std) : 0;  // angka standar minimum
+
+  let col, bg, border, label;
+  if (pct >= 100)      { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; border = '#b8dfc4'; label = 'Good'; }
+  else if (pct >= 97)  { col = 'var(--blue-txt)';  bg = 'var(--blue-lt)';  border = '#b0cef0'; label = 'Ok'; }
+  else if (pct >= 90)  { col = 'var(--yellow-txt)';bg = 'var(--yellow-lt)';border = '#f5d08a'; label = 'Poor'; }
+  else                 { col = 'var(--red-txt)';   bg = 'var(--red-lt)';   border = '#f0b0b0'; label = 'Bad'; }
+
+  const tooltip = `Std HST-${r.hst}: min ${(std*100).toFixed(0)}% dari pop awal = ${fmt(stdPop)} | Aktual: ${fmt(r.popAkhir)} / ${fmt(stdPop)} = ${pct.toFixed(2)}%`;
   return `<td class="r" style="padding:6px 10px">
-    <div style="display:inline-flex;flex-direction:column;align-items:flex-end;background:${bg};border:1px solid ${border};border-radius:6px;padding:3px 8px">
+    <div style="display:inline-flex;flex-direction:column;align-items:flex-end;background:${bg};border:1px solid ${border};border-radius:6px;padding:3px 8px;cursor:help" title="${tooltip}">
       <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${col}">${fmt(r.popAkhir)}</span>
-      <span style="font-size:10px;font-weight:600;color:${col};opacity:.8">${pct.toFixed(1)}% target</span>
+      <span style="font-size:10px;font-weight:600;color:${col};opacity:.85">${pct.toFixed(1)}% · ${label}</span>
     </div>
   </td>`;
 }
@@ -1774,11 +1806,12 @@ function avgCell(r) {
 }
 
 function statusPill(r) {
-  if (grKrit(r))        return '<span class="pill p-b">⚠ Gramasi Kritis</span>';
-  if (r.pctTarget < 75) return '<span class="pill p-b">⚠ Pop Kritis</span>';
-  if (grWarn(r))        return '<span class="pill p-w">Gramasi ↓</span>';
-  if (popWarn(r))       return '<span class="pill p-w">Pop Monitor</span>';
-  if (popBad(r))        return '<span class="pill p-w">Pop ↓</span>';
+  const pct = pctPopVsStd(r);
+  if (grKrit(r))   return '<span class="pill p-b">⚠ Gramasi Kritis</span>';
+  if (pct < 75)    return '<span class="pill p-b">⚠ Pop Kritis</span>';
+  if (grWarn(r))   return '<span class="pill p-w">Gramasi ↓</span>';
+  if (pct < 97 && pct >= 90) return '<span class="pill p-w">Pop Monitor</span>';
+  if (pct < 90)    return '<span class="pill p-w">Pop ↓</span>';
   return '<span class="pill p-ok">✓ On Track</span>';
 }
 
@@ -1815,21 +1848,29 @@ function renderAlerts(d) {
     title:`${r.gh} — Gramasi Belum Tercatat`,
     desc:`HST ${r.hst} · avg gramasi 0 dari target ${r.targetGramasi}g. Lakukan pengukuran & pencatatan segera.`
   }));
-  d.filter(r => r.pctTarget < 75 && !grKrit(r)).forEach(r => items.push({
-    ico:'🔴',
-    title:`${r.gh} — Populasi Kritis`,
-    desc:`Pop akhir ${fmt(r.popAkhir)} (${r.pctTarget.toFixed(1)}% dari target ${fmt(r.targetPop)}). HST ${r.hst} · cek sanitasi massal.`
-  }));
+  d.filter(r => pctPopVsStd(r) < 75 && !grKrit(r)).forEach(r => {
+    const pct = pctPopVsStd(r);
+    const stdMin = Math.round(r.popAwal * popStdFaktor(r.hst));
+    items.push({
+      ico:'🔴',
+      title:`${r.gh} — Populasi Kritis`,
+      desc:`Pop akhir ${fmt(r.popAkhir)} (${pct.toFixed(1)}% vs std HST-${r.hst}, min ${fmt(stdMin)}). HST ${r.hst} · cek sanitasi massal.`
+    });
+  });
   d.filter(grWarn).forEach(r => items.push({
     ico:'🟡',
     title:`${r.gh} — Gramasi Di Bawah Target`,
     desc:`Avg ${Math.round(r.avgGramasi)}g (${r.pctGramasi.toFixed(1)}% dari ${r.targetGramasi}g). HST ${r.hst} · evaluasi nutrisi.`
   }));
-  d.filter(r => r.pctTarget>=75 && r.pctTarget<90 && !grKrit(r)).slice(0,3).forEach(r => items.push({
-    ico:'🟡',
-    title:`${r.gh} — Populasi Di Bawah Standar`,
-    desc:`Pop ${fmt(r.popAkhir)} (${r.pctTarget.toFixed(1)}% target). HST ${r.hst} · monitor ketat.`
-  }));
+  d.filter(r => { const p=pctPopVsStd(r); return p>=75 && p<90 && !grKrit(r); }).slice(0,3).forEach(r => {
+    const pct = pctPopVsStd(r);
+    const stdMin = Math.round(r.popAwal * popStdFaktor(r.hst));
+    items.push({
+      ico:'🟡',
+      title:`${r.gh} — Populasi Di Bawah Standar`,
+      desc:`Pop ${fmt(r.popAkhir)} (${pct.toFixed(1)}% vs std HST-${r.hst}, min ${fmt(stdMin)}). Monitor ketat.`
+    });
+  });
 
   document.getElementById('alertBadge').textContent = `${items.length} aktif`;
   document.getElementById('alertList').innerHTML = items.length
@@ -1843,10 +1884,11 @@ function renderBar(d) {
   const sorted = [...d].sort((a,b)=>a.hst-b.hst);
   document.getElementById('barChart').innerHTML = sorted.length
     ? sorted.map(r => {
-        const w = (Math.min(r.pctTarget,MAX)/MAX*100).toFixed(1);
-        const c = r.pctTarget>=100?'bf-g':r.pctTarget>=90?'bf-y':'bf-r';
+        const pct = pctPopVsStd(r);
+        const w = (Math.min(pct,MAX)/MAX*100).toFixed(1);
+        const c = pct>=100?'bf-g':pct>=90?'bf-y':'bf-r';
         const l = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
-        return `<div class="br"><div class="bl" title="${r.gh}">${l}</div><div class="bt"><div class="bf ${c}" style="width:${w}%">${r.pctTarget.toFixed(1)}%</div><div class="pt" style="left:${tl}%"></div></div></div>`;
+        return `<div class="br"><div class="bl" title="${r.gh}">${l}</div><div class="bt"><div class="bf ${c}" style="width:${w}%">${pct.toFixed(1)}%</div><div class="pt" style="left:${tl}%"></div></div></div>`;
       }).join('')
     : '<div class="es">Tidak ada data</div>';
 }
