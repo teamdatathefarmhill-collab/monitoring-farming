@@ -496,6 +496,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Overview</div>
     <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
     <div class="nav-item" id="nav-commandcenter" onclick="switchPage('commandcenter')"><span class="nav-icon">🎯</span> Command Center</div>
+    <div class="nav-item" id="nav-timeline" onclick="switchPage('timeline')"><span class="nav-icon">🗺️</span> Timeline GH</div>
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
@@ -727,6 +728,64 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
     </div><!-- /view-commandcenter -->
+
+    <!-- ═══════════ VIEW: TIMELINE ═══════════ -->
+    <div id="view-timeline" style="display:none">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🗺️ Timeline GH — Semai → Tanam → Panen</div>
+          <div class="ph-sub" id="tlSub">Posisi setiap GH berdasarkan HST · klik titik untuk detail kondisi</div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+          <button class="fbtn active" id="tlFiltSemua"    onclick="setTLFilter('semua',this)">Semua GH</button>
+          <button class="fbtn" id="tlFiltTohudan"  onclick="setTLFilter('tohudan',this)">Tohudan</button>
+          <button class="fbtn" id="tlFiltSawahan"  onclick="setTLFilter('sawahan',this)">Sawahan</button>
+          <button class="fbtn" id="tlFiltColomadu" onclick="setTLFilter('colomadu',this)">Colomadu</button>
+          <button class="fbtn" id="tlFiltBergas"   onclick="setTLFilter('bergas',this)">Bergas</button>
+        </div>
+      </div>
+
+      <!-- LEGEND -->
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-bottom:14px;padding:10px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:10px;font-size:11px">
+        <span style="font-weight:700;color:var(--text2)">Status:</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--green);display:inline-block"></span>On track</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#c87800;display:inline-block"></span>Monitor</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--red);display:inline-block"></span>Kritis</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block"></span>Semai aktif</span>
+        <span style="color:var(--text4)">|</span>
+        <span style="font-weight:700;color:var(--text2)">Zona:</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#E1F5EE;border:1px solid #9FE1CB;display:inline-block"></span>Semai</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green-lt);border:1px solid #b8dfc4;display:inline-block"></span>Fase Awal</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--blue-lt);border:1px solid #b0cef0;display:inline-block"></span>Vegetatif</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;display:inline-block"></span>Generatif</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;display:inline-block"></span>Panen</span>
+      </div>
+
+      <!-- TIMELINE CARD -->
+      <div class="card" style="overflow:hidden;margin-bottom:14px">
+        <div style="padding:12px 16px;border-bottom:1.5px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;font-weight:700;color:var(--text2)">Posisi GH saat ini</div>
+          <div style="font-size:11px;color:var(--text3)" id="tlKpiRow">—</div>
+        </div>
+        <div style="overflow-x:auto;padding:14px 16px 20px">
+          <!-- Phase labels -->
+          <div id="tlPhaseRow" style="display:flex;margin-bottom:5px;padding-left:80px;min-width:700px"></div>
+          <!-- Tracks per cluster -->
+          <div id="tlTracks" style="min-width:700px"></div>
+          <!-- Axis -->
+          <div id="tlAxis"   style="display:flex;margin-top:4px;min-width:700px"></div>
+        </div>
+      </div>
+
+      <!-- POPUP DETAIL -->
+      <div class="card" id="tlPopup" style="overflow:hidden">
+        <div style="padding:28px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">
+          Klik titik GH di atas untuk melihat detail kondisi<br>
+          <span style="font-size:11px">Warna merah = masalah kritis · kuning = perlu monitor</span>
+        </div>
+      </div>
+
+    </div><!-- /view-timeline -->
 
     <!-- VIEW: GRAMASI -->
     <div id="view-gramasi" style="display:none;">
@@ -2240,7 +2299,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -2267,6 +2326,7 @@ function switchPage(page) {
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
   if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
   if (page === 'commandcenter') initCC();
+  if (page === 'timeline') initTimeline();
 
   if(document.getElementById('pgSub'))  {
     const n = new Date();
@@ -4748,15 +4808,18 @@ let RAW_POP_HISTORY = []; // data historis dari endpoint populasi_history
 // ── FETCH POPULASI HISTORY ──
 async function fetchPopHistory(from, to) {
   try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000); // timeout 8 detik
     const url = GAS_URL + '?sheet=populasi_history&from=' + from + '&to=' + to + '&_t=' + Date.now();
-    const resp = await fetch(url);
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timer);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     RAW_POP_HISTORY = json.rows || [];
   } catch(e) {
-    console.warn('[CC] fetchPopHistory error:', e.message);
-    RAW_POP_HISTORY = [];
+    console.warn('[CC] fetchPopHistory error:', e.message, '→ fallback ke RAW');
+    RAW_POP_HISTORY = []; // fallback ke RAW snapshot
   }
 }
 
@@ -5307,20 +5370,22 @@ async function rebuildCC() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // Tampilkan loading di KPI sementara fetch
-  if (from && to) {
-    const kpis = ['ccKpi1','ccKpi2','ccKpi3','ccKpi4'];
-    kpis.forEach(id => { const el=document.getElementById(id); if(el) el.textContent='…'; });
-    await fetchPopHistory(from, to);
-  } else {
-    RAW_POP_HISTORY = [];
-  }
-
-  ccRenderKPI();
+  // Render kartu sub menu langsung (tidak perlu tunggu fetch)
   ccRenderCards();
-  if (CC_ACTIVE_ID) {
-    const panel = document.getElementById('ccDetailPanel');
-    if (panel) ccRenderDetail(CC_ACTIVE_ID, panel);
+
+  // Render KPI dulu pakai RAW (langsung tampil)
+  RAW_POP_HISTORY = [];
+  ccRenderKPI();
+
+  // Fetch history di background, lalu update KPI
+  if (from && to) {
+    await fetchPopHistory(from, to);
+    ccRenderKPI(); // update lagi setelah data history masuk
+    // Update detail panel jika sedang terbuka
+    if (CC_ACTIVE_ID) {
+      const panel = document.getElementById('ccDetailPanel');
+      if (panel) ccRenderDetail(CC_ACTIVE_ID, panel);
+    }
   }
 }
 
@@ -5340,5 +5405,344 @@ async function initCC() {
   if (!RAW_SEMAI.length) fetchSemai(true);
 
   await rebuildCC();
+}
+</script>
+
+<script>
+// ══════════════════════════════════════════════
+//  TIMELINE MODULE
+// ══════════════════════════════════════════════
+const HSS_MAX  = 14;
+const HST_MAX  = 65;
+const TL_TOTAL = HSS_MAX + HST_MAX; // 79 units total
+
+let TL_FILTER  = 'semua';
+let TL_ACTIVE  = null; // GH yang sedang dipilih
+
+// ── ZONE DEFINITIONS ──
+const TL_ZONES = [
+  { from:0,        to:HSS_MAX,       bg:'#E1F5EE', label:'Semai (HSS 1–14)',   labelColor:'#085041' },
+  { from:HSS_MAX,  to:HSS_MAX+10,    bg:'#e6f4ec', label:'Fase Awal',           labelColor:'#155c2c' },
+  { from:HSS_MAX+10,to:HSS_MAX+35,   bg:'#e8f0fb', label:'Vegetatif',           labelColor:'#134880' },
+  { from:HSS_MAX+35,to:HSS_MAX+54,   bg:'#fef3e2', label:'Generatif',           labelColor:'#7a4800' },
+  { from:HSS_MAX+54,to:HSS_MAX+65,   bg:'#fdecea', label:'Panen',               labelColor:'#8b1515' },
+];
+
+function tlU2P(u) { return (u / TL_TOTAL * 100).toFixed(3) + '%'; }
+
+// ── PINPOINT POSITION ──
+function tlPinPos(gh, semai) {
+  if (semai) return tlU2P(semai.hss || 1);
+  return tlU2P(HSS_MAX + (gh.hst - 0.5));
+}
+
+// ── STATUS COLOR ──
+function tlDotColor(status) {
+  if (status === 'ok')     return 'var(--green)';
+  if (status === 'warn')   return '#c87800';
+  if (status === 'kritis') return 'var(--red)';
+  if (status === 'siap')   return 'var(--blue)';
+  return 'var(--blue)'; // semai proses
+}
+
+// ── GET STATUS for a GH (tanam) ──
+function tlGHStatus(r) {
+  if (isCrit(r))                    return 'kritis';
+  if (grWarn(r) || popWarn(r) || popBad(r)) return 'warn';
+  return 'ok';
+}
+
+// ── GET SEMAI DATA for a GH (match by gh name, aktif = belum tanam) ──
+function tlGetSemai(ghName) {
+  if (!RAW_SEMAI.length) return null;
+  const rows = RAW_SEMAI.filter(s =>
+    s.gh && s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && !s.realTglTanam
+  );
+  if (!rows.length) return null;
+  // Ambil baris dengan HSS tertinggi
+  return rows.reduce((best, r) => (r.hss || 0) > (best.hss || 0) ? r : best, rows[0]);
+}
+
+// ── GET HPT STATUS for a GH ──
+function tlGetHPT(ghName) {
+  if (!RAW_HPT.length) return null;
+  const rows = RAW_HPT.filter(r => r.gh && r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!rows.length) return null;
+  const latest = rows.reduce((best, r) => (r.tgl||'') > (best.tgl||'') ? r : best, rows[0]);
+  return risikoGlobal ? risikoGlobal(latest) : 'low';
+}
+
+// ── GET PENYIRAMAN DEVIASI for a GH ──
+function tlGetPNY(ghName) {
+  if (!RAW_PNY.length) return 'ok';
+  const rows = RAW_PNY.filter(r => r.gh && r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!rows.length) return null;
+  const latest = rows.reduce((best, r) => (r.tgl||'') > (best.tgl||'') ? r : best, rows[0]);
+  const ecDev = latest.ecIn > 0 && (latest.ecIn < 2.5 || latest.ecIn > 3.2);
+  const phDev = latest.phIn > 0 && (latest.phIn < 5.8 || latest.phIn > 6.3);
+  return (ecDev || phDev) ? 'warn' : 'ok';
+}
+
+// ── GET SANITASI STATUS for a GH ──
+function tlGetSNT(ghName) {
+  const normP = s => String(s||'').trim().toLowerCase();
+  const r = RAW.find(x => x.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!r) return null;
+  const sntKeys = new Set(RAW_SNT.filter(s=>s.gh&&s.periode).map(s=>s.gh.trim().toUpperCase()+'||'+normP(s.periode)));
+  return sntKeys.has(r.gh.trim().toUpperCase()+'||'+normP(r.periode)) ? 'ok' : 'belum';
+}
+
+// ── FILTER DATA ──
+function tlFilteredData() {
+  let d = [...RAW];
+  if (TL_FILTER !== 'semua') d = d.filter(r => clOf(r.gh).toLowerCase() === TL_FILTER);
+  return d;
+}
+
+function tlFilteredSemai() {
+  let d = RAW_SEMAI.filter(r => !r.realTglTanam); // hanya yang belum tanam
+  if (TL_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === TL_FILTER);
+  // Deduplicate per GH — ambil HSS tertinggi
+  const ghMap = {};
+  d.forEach(r => { if (!ghMap[r.gh] || (r.hss||0) > (ghMap[r.gh].hss||0)) ghMap[r.gh] = r; });
+  return Object.values(ghMap);
+}
+
+// ── BUILD PHASE ROW ──
+function tlBuildPhaseRow() {
+  const el = document.getElementById('tlPhaseRow');
+  if (!el) return;
+  el.innerHTML = TL_ZONES.map(z =>
+    `<div style="width:${((z.to-z.from)/TL_TOTAL*100).toFixed(2)}%;background:${z.bg};color:${z.labelColor};text-align:center;font-size:9px;font-weight:700;padding:3px 0;border-radius:3px 3px 0 0;overflow:hidden;white-space:nowrap">${z.label}</div>`
+  ).join('');
+}
+
+// ── BUILD TRACKS ──
+function tlBuildTracks() {
+  const el = document.getElementById('tlTracks');
+  if (!el) return;
+
+  const tanamData = tlFilteredData();
+  const semaiData = tlFilteredSemai();
+
+  // Gabungkan semua GH per klaster
+  const clusters = [...new Set([
+    ...tanamData.map(r => clOf(r.gh)),
+    ...semaiData.map(r => clOf(r.gh||'')),
+  ])].filter(Boolean).sort();
+
+  if (!clusters.length) {
+    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text4);font-size:12px">Tidak ada data GH</div>`;
+    return;
+  }
+
+  const zoneBgs = TL_ZONES.map(z =>
+    `<div style="position:absolute;top:0;bottom:0;left:${tlU2P(z.from)};width:${tlU2P(z.to-z.from)};background:${z.bg}"></div>`
+  ).join('') + `<div style="position:absolute;top:0;bottom:0;left:${tlU2P(HSS_MAX)};width:2px;background:var(--border2);z-index:2"></div>`;
+
+  el.innerHTML = clusters.map(cl => {
+    // GH sudah tanam di klaster ini
+    const tanam = tanamData.filter(r => clOf(r.gh) === cl).sort((a,b) => a.hst - b.hst);
+    // GH masih semai di klaster ini
+    const semai = semaiData.filter(r => clOf(r.gh||'') === cl).sort((a,b) => (a.hss||0) - (b.hss||0));
+
+    const allGH = [
+      ...semai.map(s => ({ key: s.gh, isSemai: true, data: s })),
+      ...tanam.map(t => ({ key: t.gh, isSemai: false, data: t })),
+    ];
+
+    const pins = allGH.map((item, idx) => {
+      const ghName = item.key;
+      const isSemai = item.isSemai;
+      const status  = isSemai
+        ? (item.data.hss >= 14 ? 'siap' : item.data.pctSprout > 0 && item.data.pctSprout < 83.5 ? 'kritis' : item.data.pctSprout > 0 && item.data.pctSprout < 88.5 ? 'warn' : 'proses')
+        : tlGHStatus(item.data);
+      const col  = tlDotColor(status);
+      const pos  = isSemai ? tlU2P(item.data.hss || 1) : tlU2P(HSS_MAX + (item.data.hst - 0.5));
+      const sz   = status === 'kritis' ? 22 : 18;
+      const val  = isSemai ? (item.data.hss || 0) : item.data.hst;
+      const lbl  = ghName.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B');
+      const flip = idx % 2 === 1;
+      const isAct= TL_ACTIVE === ghName;
+      const ring = isAct ? `box-shadow:0 0 0 3px ${col.replace('var(--green)','rgba(26,122,58,.3)').replace('var(--red)','rgba(192,32,32,.3)').replace('#c87800','rgba(160,96,0,.3)').replace('var(--blue)','rgba(26,95,160,.3)')}` : '';
+
+      return `<div style="position:absolute;top:50%;left:${pos};transform:translate(-50%,-50%);cursor:pointer;z-index:10" onclick="tlSelectGH('${ghName.replace(/'/g,"\\'")}')">
+        <div style="position:absolute;${flip?'bottom:-17px':'top:-17px'};left:50%;transform:translateX(-50%);font-size:9px;color:var(--text3);white-space:nowrap;pointer-events:none">${lbl}</div>
+        <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};border:2px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;transition:transform .12s;${ring}">${val}</div>
+      </div>`;
+    }).join('');
+
+    return `<div style="display:flex;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text3);width:76px;flex-shrink:0;text-align:right;padding-right:6px">${cl}</div>
+      <div style="position:relative;flex:1;height:38px">${zoneBgs}${pins}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── BUILD AXIS ──
+function tlBuildAxis() {
+  const el = document.getElementById('tlAxis');
+  if (!el) return;
+  let inner = '<div style="width:76px;flex-shrink:0"></div><div style="flex:1;position:relative;height:16px">';
+  [1,4,7,10,14].forEach(t => {
+    inner += `<div style="position:absolute;left:${tlU2P(t)};transform:translateX(-50%);font-size:9px;color:var(--text3)">HSS${t}</div>`;
+  });
+  [1,5,10,15,20,25,30,35,40,45,50,55,60,65].forEach(t => {
+    inner += `<div style="position:absolute;left:${tlU2P(HSS_MAX+t)};transform:translateX(-50%);font-size:9px;color:var(--text3)">${t}</div>`;
+  });
+  inner += '</div>';
+  el.innerHTML = inner;
+}
+
+// ── BUILD KPI ROW ──
+function tlBuildKPI() {
+  const el = document.getElementById('tlKpiRow');
+  if (!el) return;
+  const d    = tlFilteredData();
+  const sem  = tlFilteredSemai();
+  const krit = d.filter(isCrit).length;
+  const warn = d.filter(r => !isCrit(r) && (grWarn(r)||popWarn(r)||popBad(r))).length;
+  const ok   = d.filter(r => !isCrit(r) && grOk(r) && popOk(r)).length;
+  const panen= d.filter(r => r.hst >= 55).length;
+  el.innerHTML = `
+    <span style="margin-right:12px">🌱 Semai aktif: <b>${sem.length}</b></span>
+    <span style="margin-right:12px;color:var(--green-mid)">✓ On track: <b>${ok}</b></span>
+    <span style="margin-right:12px;color:#c87800">⚠ Monitor: <b>${warn}</b></span>
+    <span style="margin-right:12px;color:var(--red)">🔴 Kritis: <b>${krit}</b></span>
+    <span style="color:var(--text3)">🌾 Fase panen: <b>${panen}</b></span>
+  `;
+}
+
+// ── SELECT GH → SHOW POPUP ──
+function tlSelectGH(ghName) {
+  TL_ACTIVE = TL_ACTIVE === ghName ? null : ghName;
+  tlBuildTracks(); // re-render to update active ring
+
+  const popup = document.getElementById('tlPopup');
+  if (!TL_ACTIVE) {
+    popup.innerHTML = '<div style="padding:28px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">Klik titik GH di atas untuk melihat detail kondisi<br><span style="font-size:11px">Warna merah = masalah kritis · kuning = perlu monitor</span></div>';
+    return;
+  }
+
+  // Cek apakah sedang semai atau tanam
+  const semaiRow = RAW_SEMAI.filter(s => s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && !s.realTglTanam);
+  const isSemaiPhase = semaiRow.length > 0 && !RAW.find(r => r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  const semBest = semaiRow.length ? semaiRow.reduce((b,r)=>(r.hss||0)>(b.hss||0)?r:b, semaiRow[0]) : null;
+  const raw = RAW.find(r => r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+
+  let cards = [];
+  let phaseLabel = '';
+  let statusColor = 'var(--green)';
+
+  if (semBest && !raw) {
+    // Fase semai
+    phaseLabel = `Semai · HSS ${semBest.hss || 0}`;
+    const spPct = semBest.pctSprout || 0;
+    const spCls = spPct <= 0 ? 'gray' : spPct >= 88.5 ? 'green' : spPct >= 83.5 ? 'amber' : 'red';
+    const stCls = semBest.hss >= 14 ? 'green' : spPct > 0 && spPct < 83.5 ? 'red' : spPct > 0 && spPct < 88.5 ? 'amber' : 'gray';
+    const stVal = semBest.hss >= 14 ? 'Siap tanam' : spPct > 0 && spPct < 83.5 ? 'Sprout rendah — kritis' : spPct > 0 && spPct < 88.5 ? 'Sprout low — monitor' : 'Proses normal';
+    statusColor = stCls==='green'?'var(--blue)':stCls==='red'?'var(--red)':'#c87800';
+    cards = [
+      { cat:'Sprout rate',    val: spPct > 0 ? spPct.toFixed(1)+'%' : 'Belum ada data', cls: spCls },
+      { cat:'Progress HSS',   val: `${semBest.hss||0} / 14 hari`, cls: (semBest.hss||0)>=14?'green':(semBest.hss||0)>=10?'amber':'gray' },
+      { cat:'Status semai',   val: stVal, cls: stCls },
+      { cat:'Bibit siap',     val: semBest.totalBibitSiap > 0 ? fmt(semBest.totalBibitSiap) : '—', cls: 'gray' },
+      { cat:'Populasi',       val: 'Belum tanam', cls: 'gray' },
+      { cat:'Gramasi',        val: 'Belum tanam', cls: 'gray' },
+    ];
+  } else if (raw) {
+    // Fase tanam
+    phaseLabel = `Tanam · HST ${raw.hst}`;
+    const popPct  = pctPopVsStd(raw);
+    const popCls  = popPct >= 100 ? 'green' : popPct >= 90 ? 'amber' : 'red';
+    const grCls   = raw.hst < 35 ? 'gray' : grKrit(raw) ? 'red' : grWarn(raw) ? 'amber' : 'green';
+    const grVal   = raw.hst < 35 ? 'Belum saatnya (HST<35)' : grKrit(raw) ? 'Belum tercatat — kritis' : raw.avgGramasi > 0 ? Math.round(raw.avgGramasi)+'g' : '—';
+
+    // Semai history (sudah tanam)
+    const semTanam = RAW_SEMAI.filter(s => s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && s.realTglTanam);
+    const pctBerhasil = semTanam.length ? semTanam.reduce((s,r)=>s+(r.pctKeberhasilan||0),0)/semTanam.length : 0;
+    const semCls = pctBerhasil <= 0 ? 'gray' : pctBerhasil >= 93.5 ? 'green' : pctBerhasil >= 83.5 ? 'amber' : 'red';
+
+    const hptStatus = tlGetHPT(ghName);
+    const hptCls = hptStatus==='high'?'red':hptStatus==='medium'?'amber':'green';
+    const hptVal = hptStatus==='high'?'Serangan tinggi':hptStatus==='medium'?'Medium risk':'Low risk';
+
+    const pnyStatus = tlGetPNY(ghName);
+    const pnyCls = pnyStatus==='warn'?'amber':pnyStatus==='ok'?'green':'gray';
+
+    const sntStatus = tlGetSNT(ghName);
+    const sntCls = sntStatus==='belum'?'red':sntStatus==='ok'?'green':'gray';
+    const sntVal = sntStatus==='belum'?'Belum periode ini':'Sanitasi ok';
+
+    const status = tlGHStatus(raw);
+    statusColor = status==='ok'?'var(--green)':status==='warn'?'#c87800':'var(--red)';
+
+    cards = [
+      { cat:'Populasi',           val: popPct.toFixed(1)+'% vs std · HST '+raw.hst, cls: popCls },
+      { cat:'Gramasi',            val: grVal, cls: grCls },
+      { cat:'Keberhasilan semai', val: pctBerhasil > 0 ? pctBerhasil.toFixed(1)+'%' : 'Tidak ada data', cls: semCls },
+      { cat:'Penyiraman',         val: pnyStatus==='warn'?'Deviasi EC/pH':pnyStatus==='ok'?'Normal':'Tidak ada data', cls: pnyCls },
+      { cat:'HPT',                val: hptVal, cls: hptCls },
+      { cat:'Sanitasi',           val: sntVal, cls: sntCls },
+    ];
+  } else {
+    popup.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text4);font-size:12px">Data tidak ditemukan</div>';
+    return;
+  }
+
+  const crits = cards.filter(c=>c.cls==='red').length;
+  const warns = cards.filter(c=>c.cls==='amber').length;
+  const bc    = crits?'red':warns?'amber':'green';
+  const bt    = crits ? crits+' masalah kritis' : warns ? warns+' perlu monitor' : 'semua ok';
+  const badgeBg = bc==='red'?'var(--red-lt)':bc==='amber'?'var(--yellow-lt)':'var(--green-lt)';
+  const badgeTx = bc==='red'?'var(--red-txt)':bc==='amber'?'var(--yellow-txt)':'var(--green-txt)';
+  const badgeBd = bc==='red'?'#f0b0b0':bc==='amber'?'#f5d08a':'#b8dfc4';
+
+  const dot = CC[clOf(ghName)] || '#999';
+  popup.innerHTML = `
+    <div style="padding:11px 16px;background:var(--surface2);border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        ${ghName} — ${phaseLabel}
+      </div>
+      <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:${badgeBg};color:${badgeTx};border:1px solid ${badgeBd}">${bt}</span>
+    </div>
+    <div style="padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+      ${cards.map(c => {
+        const bg = c.cls==='red'?'var(--red-lt)':c.cls==='amber'?'var(--yellow-lt)':c.cls==='green'?'var(--green-lt)':'var(--surface2)';
+        const bd = c.cls==='red'?'#f0b0b0':c.cls==='amber'?'#f5d08a':c.cls==='green'?'#b8dfc4':'var(--border)';
+        const tx = c.cls==='red'?'var(--red-txt)':c.cls==='amber'?'var(--yellow-txt)':c.cls==='green'?'var(--green-txt)':'var(--text2)';
+        const tl = c.cls==='red'?'var(--red)':c.cls==='amber'?'var(--yellow)':c.cls==='green'?'var(--green)':'var(--text3)';
+        return `<div style="background:${bg};border:1px solid ${bd};border-radius:9px;padding:8px 10px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:${tl};margin-bottom:3px">${c.cat}</div>
+          <div style="font-size:11px;font-weight:700;color:${tx}">${c.val}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  popup.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ── FILTER ──
+function setTLFilter(val, el) {
+  TL_FILTER = val;
+  TL_ACTIVE = null;
+  document.querySelectorAll('[id^="tlFilt"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  tlBuildKPI();
+  tlBuildTracks();
+  document.getElementById('tlPopup').innerHTML = '<div style="padding:28px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">Klik titik GH di atas untuk melihat detail kondisi<br><span style="font-size:11px">Warna merah = masalah kritis · kuning = perlu monitor</span></div>';
+}
+
+// ── INIT ──
+function initTimeline() {
+  if (!RAW_SEMAI.length) fetchSemai(true).then(() => { tlBuildKPI(); tlBuildTracks(); });
+  if (!RAW_HPT.length)   fetchHpt(true);
+  if (!RAW_PNY.length)   fetchPny(true);
+  TL_ACTIVE = null;
+  tlBuildPhaseRow();
+  tlBuildKPI();
+  tlBuildTracks();
+  tlBuildAxis();
 }
 </script>
