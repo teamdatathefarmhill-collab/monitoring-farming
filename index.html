@@ -4845,29 +4845,46 @@ const CC_DEP = [
 const ccFmt = n => Number(n).toLocaleString('id-ID');
 
 function ccFilteredRAW() {
-  // Jika ada data history (dari endpoint populasi_history), pakai itu
-  // Karena 1 GH bisa punya banyak baris (1 per tanggal), ambil baris terbaru per GH
-  const src = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : RAW;
   let d;
   if (RAW_POP_HISTORY.length) {
-    // Ambil baris dengan HST tertinggi per GH (kondisi akhir di range tsb)
+    // RAW_POP_HISTORY: 1 baris per GH×tanggal dari GAS
+    // Ambil baris HST tertinggi per GH dalam range (kondisi terbaru di range tsb)
     const ghMap = {};
     RAW_POP_HISTORY.forEach(r => {
       if (!ghMap[r.gh] || r.hst > ghMap[r.gh].hst) ghMap[r.gh] = r;
     });
-    d = Object.values(ghMap);
-    // Normalise field names agar kompatibel dengan helper yang pakai RAW
-    d = d.map(r => ({
-      ...r,
-      popAwal      : r.popAwal      || 0,
-      popAkhir     : r.popAkhir     || 0,
-      avgGramasi   : r.avgGramasi   || 0,
-      targetGramasi: r.targetGramasi|| 0,
-      targetPop    : r.targetPop    || 0,
-      pctTarget    : r.pctTarget    || 0,
-      pctGramasi   : r.pctGramasi   || 0,
-      hst          : r.hst          || 0,
-    }));
+
+    // Enrich dengan field dari RAW yang tidak ada di history
+    // (targetGramasi, targetPop, pctTarget — dihitung GAS dari sheet Standar)
+    const rawByGH = {};
+    RAW.forEach(r => { rawByGH[r.gh.trim().toUpperCase()] = r; });
+
+    d = Object.values(ghMap).map(r => {
+      const base = rawByGH[r.gh.trim().toUpperCase()] || {};
+      // Hitung pctTarget dari history menggunakan popStdFaktor yang sudah ada
+      const hst       = r.hst || 0;
+      const popAwal   = r.popAwal   || base.popAwal   || 0;
+      const popAkhir  = r.popAkhir  || base.popAkhir  || 0;
+      const stdFaktor = popStdFaktor(hst);
+      const targetPop = popAwal > 0 ? Math.round(popAwal * stdFaktor) : (base.targetPop || 0);
+      const pctTarget = targetPop > 0 ? Math.round(popAkhir / targetPop * 100 * 10) / 10 : (base.pctTarget || 0);
+      return {
+        ...base,              // inherit semua field RAW (termasuk targetGramasi, dll)
+        gh           : r.gh,
+        hst          : hst,
+        periode      : r.periode      || base.periode      || '',
+        popAwal      : popAwal,
+        popAkhir     : popAkhir,
+        avgGramasi   : r.avgGramasi   > 0 ? r.avgGramasi   : (base.avgGramasi   || 0),
+        targetGramasi: base.targetGramasi || 0,
+        targetPop    : targetPop,
+        pctTarget    : pctTarget,
+        pctGramasi   : base.pctGramasi    || 0,
+        sanitasi     : r.sanitasi         || 0,
+        tglAwalTanam : r.tglAwalTanam     || base.tglAwalTanam || '',
+        klasifikasi  : r.klasifikasi      || base.klasifikasi  || '—',
+      };
+    });
   } else {
     d = [...RAW];
   }
@@ -5073,13 +5090,17 @@ function ccRenderKPI() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  const totPop = d.reduce((s,r)=>s+(+r.popAkhir||0),0);
-  const wGr    = d.filter(r => (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1);
-  const avgGr  = wGr.length ? Math.round(wGr.reduce((s,r)=>s+(+r.avgGramasi),0)/wGr.length) : 0;
-  const onTr   = d.filter(r=>popOk(r)&&grOk(r)).length;
-  const krit   = d.filter(isCrit).length;
+  const totPop = d.reduce((s,r) => s + (+r.popAkhir||0), 0);
 
-  const totSnt     = snt.reduce((s,r)=>s+(r.jml||0),0);
+  // Avg gramasi: GH yang punya targetGramasi dan avgGramasi > 0
+  const wGr   = d.filter(r => (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1);
+  const avgGr = wGr.length ? Math.round(wGr.reduce((s,r) => s+(+r.avgGramasi),0) / wGr.length) : 0;
+
+  // on track & kritis pakai helper yang sudah ada (pctPopVsStd + gramasi)
+  const onTr = d.filter(r => popOk(r) && grOk(r)).length;
+  const krit = d.filter(isCrit).length;
+
+  const totSnt     = snt.reduce((s,r) => s+(r.jml||0), 0);
   const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
 
   const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
