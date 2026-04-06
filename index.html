@@ -4743,6 +4743,22 @@ function renderSntLastTable(rows) {
 // ══════════════════════════════════════════════
 let CC_ACTIVE_ID  = null;
 let CC_GH_FILTER  = 'semua';
+let RAW_POP_HISTORY = []; // data historis dari endpoint populasi_history
+
+// ── FETCH POPULASI HISTORY ──
+async function fetchPopHistory(from, to) {
+  try {
+    const url = GAS_URL + '?sheet=populasi_history&from=' + from + '&to=' + to + '&_t=' + Date.now();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    RAW_POP_HISTORY = json.rows || [];
+  } catch(e) {
+    console.warn('[CC] fetchPopHistory error:', e.message);
+    RAW_POP_HISTORY = [];
+  }
+}
 
 // ── SUB MENU DEFINITIONS ──
 const CC_IND = [
@@ -4766,8 +4782,33 @@ const CC_DEP = [
 const ccFmt = n => Number(n).toLocaleString('id-ID');
 
 function ccFilteredRAW() {
-  let d = [...RAW];
-  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh).toLowerCase() === CC_GH_FILTER);
+  // Jika ada data history (dari endpoint populasi_history), pakai itu
+  // Karena 1 GH bisa punya banyak baris (1 per tanggal), ambil baris terbaru per GH
+  const src = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : RAW;
+  let d;
+  if (RAW_POP_HISTORY.length) {
+    // Ambil baris dengan HST tertinggi per GH (kondisi akhir di range tsb)
+    const ghMap = {};
+    RAW_POP_HISTORY.forEach(r => {
+      if (!ghMap[r.gh] || r.hst > ghMap[r.gh].hst) ghMap[r.gh] = r;
+    });
+    d = Object.values(ghMap);
+    // Normalise field names agar kompatibel dengan helper yang pakai RAW
+    d = d.map(r => ({
+      ...r,
+      popAwal      : r.popAwal      || 0,
+      popAkhir     : r.popAkhir     || 0,
+      avgGramasi   : r.avgGramasi   || 0,
+      targetGramasi: r.targetGramasi|| 0,
+      targetPop    : r.targetPop    || 0,
+      pctTarget    : r.pctTarget    || 0,
+      pctGramasi   : r.pctGramasi   || 0,
+      hst          : r.hst          || 0,
+    }));
+  } else {
+    d = [...RAW];
+  }
+  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
   return d;
 }
 
@@ -4969,27 +5010,27 @@ function ccRenderKPI() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // Populasi & gramasi: snapshot kondisi saat ini (RAW tidak punya history harian)
-  const totPop = d.reduce((s,r)=>s+r.popAkhir,0);
-  const wGr    = d.filter(hasGr);
-  const avgGr  = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
+  const totPop = d.reduce((s,r)=>s+(+r.popAkhir||0),0);
+  const wGr    = d.filter(r => (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1);
+  const avgGr  = wGr.length ? Math.round(wGr.reduce((s,r)=>s+(+r.avgGramasi),0)/wGr.length) : 0;
   const onTr   = d.filter(r=>popOk(r)&&grOk(r)).length;
   const krit   = d.filter(isCrit).length;
 
-  // Sanitasi: ikut date range
   const totSnt     = snt.reduce((s,r)=>s+(r.jml||0),0);
   const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
 
-  // Label range
   const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
   const rangeLabel = (from && to && from !== to)
     ? `${fmtD(from)} – ${fmtD(to)}`
     : from ? fmtD(from) : 'hari ini';
 
+  const usingHistory = RAW_POP_HISTORY.length > 0;
+  const dataNote = usingHistory ? rangeLabel : 'kondisi terkini';
+
   const el1 = document.getElementById('ccKpi1'); if(el1) el1.textContent = ccFmt(totPop);
-  const el1n= document.getElementById('ccKpi1n');if(el1n) el1n.textContent = 'pop akhir · '+d.length+' GH aktif';
+  const el1n= document.getElementById('ccKpi1n');if(el1n) el1n.textContent = 'pop akhir · '+d.length+' GH · '+dataNote;
   const el2 = document.getElementById('ccKpi2'); if(el2) el2.textContent = avgGr ? avgGr+'g' : '—';
-  const el2n= document.getElementById('ccKpi2n');if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur' : 'belum ada data';
+  const el2n= document.getElementById('ccKpi2n');if(el2n) el2n.textContent = (wGr.length ? 'dari '+wGr.length+' GH diukur' : 'belum ada data')+' · '+dataNote;
   const el3 = document.getElementById('ccKpi3'); if(el3) el3.textContent = d.length;
   const el3n= document.getElementById('ccKpi3n');if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
   const el4 = document.getElementById('ccKpi4'); if(el4) el4.textContent = ccFmt(totSnt);
@@ -5254,7 +5295,27 @@ function setCCFilter(val, el) {
   rebuildCC();
 }
 
-function rebuildCC() {
+// ── FILTER & REBUILD ──
+function setCCFilter(val, el) {
+  CC_GH_FILTER = val;
+  document.querySelectorAll('[id^="ccFilt"]').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildCC();
+}
+
+async function rebuildCC() {
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+
+  // Tampilkan loading di KPI sementara fetch
+  if (from && to) {
+    const kpis = ['ccKpi1','ccKpi2','ccKpi3','ccKpi4'];
+    kpis.forEach(id => { const el=document.getElementById(id); if(el) el.textContent='…'; });
+    await fetchPopHistory(from, to);
+  } else {
+    RAW_POP_HISTORY = [];
+  }
+
   ccRenderKPI();
   ccRenderCards();
   if (CC_ACTIVE_ID) {
@@ -5264,7 +5325,7 @@ function rebuildCC() {
 }
 
 // ── INIT (dipanggil saat switch ke halaman ini) ──
-function initCC() {
+async function initCC() {
   // Default date range: today
   const today = new Date().toISOString().slice(0,10);
   const dfEl = document.getElementById('ccDateFrom');
@@ -5278,6 +5339,6 @@ function initCC() {
   if (!RAW_HPT.length)   fetchHpt(true);
   if (!RAW_SEMAI.length) fetchSemai(true);
 
-  rebuildCC();
+  await rebuildCC();
 }
 </script>
