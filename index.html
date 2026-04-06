@@ -495,6 +495,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
   <nav class="sidebar">
     <div class="nav-section">Overview</div>
     <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
+    <div class="nav-item" id="nav-commandcenter" onclick="switchPage('commandcenter')"><span class="nav-icon">🎯</span> Command Center</div>
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
@@ -644,6 +645,88 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     </div>
     </div>
+
+    <!-- ═══════════ VIEW: COMMAND CENTER ═══════════ -->
+    <div id="view-commandcenter" style="display:none">
+
+      <!-- PAGE HEADER -->
+      <div class="ph">
+        <div>
+          <div class="ph-title">🎯 Command Center</div>
+          <div class="ph-sub" id="ccSub">Ringkasan kondisi seluruh GH — pilih sub menu untuk detail</div>
+        </div>
+      </div>
+
+      <!-- KPI CARDS -->
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)" id="ccKpiGrid">
+        <div class="sc g">
+          <div class="sc-lbl">Total Populasi</div>
+          <div class="sc-val g" id="ccKpi1">—</div>
+          <div class="sc-note" id="ccKpi1n">pop akhir seluruh GH aktif</div>
+        </div>
+        <div class="sc y">
+          <div class="sc-lbl">Avg Gramasi</div>
+          <div class="sc-val y" id="ccKpi2">—</div>
+          <div class="sc-note" id="ccKpi2n">dari GH aktif diukur</div>
+        </div>
+        <div class="sc b">
+          <div class="sc-lbl">GH Aktif</div>
+          <div class="sc-val b" id="ccKpi3">—</div>
+          <div class="sc-note" id="ccKpi3n">on track vs kritis</div>
+        </div>
+        <div class="sc" style="border-top:4px solid #0F6E56">
+          <div class="sc-lbl">Total Sanitasi</div>
+          <div class="sc-val" style="color:#0F6E56" id="ccKpi4">—</div>
+          <div class="sc-note" id="ccKpi4n">hari aktif sanitasi</div>
+        </div>
+      </div>
+
+      <!-- FILTER BAR -->
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
+        <span style="font-size:11px;color:var(--text3);font-weight:600">Filter GH:</span>
+        <button class="fbtn active" id="ccFiltSemua"    onclick="setCCFilter('semua',this)">Semua GH</button>
+        <button class="fbtn" id="ccFiltTohudan"  onclick="setCCFilter('tohudan',this)">Tohudan</button>
+        <button class="fbtn" id="ccFiltSawahan"  onclick="setCCFilter('sawahan',this)">Sawahan</button>
+        <button class="fbtn" id="ccFiltColomadu" onclick="setCCFilter('colomadu',this)">Colomadu</button>
+        <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+          <span style="font-size:11px;color:var(--text3)">Periode:</span>
+          <input type="date" id="ccDateFrom" onchange="rebuildCC()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <span style="font-size:12px;color:var(--text3)">—</span>
+          <input type="date" id="ccDateTo" onchange="rebuildCC()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+        </div>
+      </div>
+
+      <!-- INDEPENDEN GROUP -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 12px;border-radius:20px;background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0;white-space:nowrap">Independen</span>
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">tidak bergantung data lain</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:4px" id="ccRowInd"></div>
+      </div>
+
+      <!-- DEPENDEN GROUP -->
+      <div style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 12px;border-radius:20px;background:var(--yellow-lt);color:var(--yellow-txt);border:1px solid #f5d08a;white-space:nowrap">Dependen</span>
+          <span style="font-size:10px;color:var(--text3);white-space:nowrap">bergantung pada populasi & gramasi</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:4px" id="ccRowDep"></div>
+      </div>
+
+      <!-- DETAIL PANEL -->
+      <div class="card" id="ccDetailPanel" style="min-height:80px">
+        <div style="padding:32px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">
+          Pilih sub menu di atas untuk melihat detail<br>
+          <span style="font-size:11px">Kartu <i>coming soon</i> belum tersedia datanya</span>
+        </div>
+      </div>
+
+    </div><!-- /view-commandcenter -->
 
     <!-- VIEW: GRAMASI -->
     <div id="view-gramasi" style="display:none;">
@@ -2157,7 +2240,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -2183,6 +2266,7 @@ function switchPage(page) {
   if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
   if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
+  if (page === 'commandcenter') initCC();
 
   if(document.getElementById('pgSub'))  {
     const n = new Date();
@@ -4651,4 +4735,532 @@ function renderSntLastTable(rows) {
   };
   el.addEventListener('click', function(e){ if(e.target === this) closeFns[id](); });
 });
+</script>
+
+<script>
+// ══════════════════════════════════════════════
+//  COMMAND CENTER MODULE
+// ══════════════════════════════════════════════
+let CC_ACTIVE_ID  = null;
+let CC_GH_FILTER  = 'semua';
+
+// ── SUB MENU DEFINITIONS ──
+const CC_IND = [
+  { id:'cc-sanitasi',    icon:'🧹', name:'Sanitasi',           desc:'Tren & aktivitas GH',    grp:'ind' },
+  { id:'cc-fasilitas',   icon:'🏗',  name:'Fasilitas',          desc:'Kondisi fasilitas GH',   grp:'ind', soon:true },
+  { id:'cc-cuaca',       icon:'🌤', name:'Cuaca',              desc:'Suhu & RH hari ini',     grp:'ind' },
+  { id:'cc-penyemprotan',icon:'🌿', name:'Penyemprotan',       desc:'Jadwal & realisasi',     grp:'ind', soon:true },
+  { id:'cc-hpt',         icon:'🔍', name:'HPT',                desc:'Hama & penyakit',        grp:'ind' },
+  { id:'cc-penyiraman',  icon:'💧', name:'Penyiraman',         desc:'EC, pH & deviasi',       grp:'ind' },
+  { id:'cc-tanam',       icon:'🌱', name:'Keberhasilan Tanam', desc:'Semai & sprout rate',    grp:'ind', soon:true },
+];
+const CC_DEP = [
+  { id:'cc-vigor',    icon:'⚡', name:'Vigor',             desc:'Kondisi pertumbuhan',    grp:'dep', soon:true },
+  { id:'cc-gramasi',  icon:'⚖️', name:'Gramasi & Populasi',desc:'Avg gramasi per GH',     grp:'dep' },
+  { id:'cc-estpanen', icon:'📦', name:'Est. Panen',        desc:'Pop × avg gramasi',      grp:'dep' },
+  { id:'cc-status',   icon:'📊', name:'Status GH',         desc:'Ringkasan kondisi',      grp:'dep' },
+  { id:'cc-estimasi', icon:'📈', name:'Estimasi Pasti',    desc:'Dari estimasi bergerak', grp:'dep', soon:true },
+];
+
+// ── HELPERS ──
+const ccFmt = n => Number(n).toLocaleString('id-ID');
+
+function ccFilteredRAW() {
+  let d = [...RAW];
+  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh).toLowerCase() === CC_GH_FILTER);
+  return d;
+}
+
+function ccFilteredSNT() {
+  let d = [...RAW_SNT];
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+  if (from) d = d.filter(r => r.tgl >= from);
+  if (to)   d = d.filter(r => r.tgl <= to);
+  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  return d;
+}
+
+function ccFilteredPNY() {
+  let d = [...RAW_PNY];
+  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  return d;
+}
+
+function ccFilteredHPT() {
+  let d = [...RAW_HPT];
+  if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  return d;
+}
+
+// ── BADGE GENERATOR per sub menu ──
+function ccBadge(id) {
+  const d = ccFilteredRAW();
+  const snt = ccFilteredSNT();
+  switch(id) {
+    case 'cc-sanitasi': {
+      // GH aktif yang belum sanitasi periode ini
+      const normP = s => String(s||'').trim().toLowerCase();
+      const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
+      const belum = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode))).length;
+      return belum > 0 ? {text: belum+' belum', cls:'p-w'} : {text:'ok', cls:'p-ok'};
+    }
+    case 'cc-hpt': {
+      const hptD = ccFilteredHPT();
+      const latestByGH = {};
+      hptD.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+      const high = Object.values(latestByGH).filter(r => risikoGlobal && risikoGlobal(r)==='high').length;
+      return high > 0 ? {text: high+' high risk', cls:'p-b'} : {text:'ok', cls:'p-ok'};
+    }
+    case 'cc-penyiraman': {
+      const pny = ccFilteredPNY();
+      const latestByGH = {};
+      pny.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+      const dev = Object.values(latestByGH).filter(r => (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))).length;
+      return dev > 0 ? {text: dev+' deviasi', cls:'p-w'} : {text:'ok', cls:'p-ok'};
+    }
+    case 'cc-gramasi': {
+      const kritis = d.filter(grKrit).length;
+      const bawah  = d.filter(grWarn).length;
+      if (kritis > 0) return {text: kritis+' kritis', cls:'p-b'};
+      if (bawah  > 0) return {text: bawah+' di bawah', cls:'p-w'};
+      return {text:'ok', cls:'p-ok'};
+    }
+    case 'cc-estpanen': {
+      const totalEst = d.reduce((s,r) => s + r.popAkhir * (r.avgGramasi > 0 ? r.avgGramasi : 1000) / 1000, 0);
+      return {text: (totalEst/1000).toFixed(1)+' ton', cls:'p-ok'};
+    }
+    case 'cc-status': {
+      const onTr = d.filter(r => popOk(r) && grOk(r)).length;
+      const krit = d.filter(isCrit).length;
+      if (krit > 0) return {text: krit+' kritis', cls:'p-b'};
+      return {text: onTr+' on track', cls:'p-ok'};
+    }
+    default: return null;
+  }
+}
+
+// ── ALERT ITEMS per sub menu ──
+function ccAlerts(id) {
+  const d = ccFilteredRAW();
+  switch(id) {
+    case 'cc-sanitasi': {
+      const normP = s => String(s||'').trim().toLowerCase();
+      const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
+      const belum = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode)));
+      const snt = ccFilteredSNT();
+      const ghJml = {};
+      snt.forEach(r => { ghJml[r.gh] = (ghJml[r.gh]||0) + r.jml; });
+      const topGH = Object.entries(ghJml).sort((a,b)=>b[1]-a[1])[0];
+      const res = [];
+      if (belum.length) res.push({dot:'dot-amber', text: belum.slice(0,2).map(r=>r.gh).join(', ')+' belum sanitasi'});
+      if (topGH) res.push({dot:'dot-green', text: topGH[0]+' terbanyak '+ccFmt(topGH[1])});
+      return res;
+    }
+    case 'cc-hpt': {
+      const hptD = ccFilteredHPT();
+      const latestByGH = {};
+      hptD.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+      const high = Object.values(latestByGH).filter(r => risikoGlobal && risikoGlobal(r)==='high');
+      const med  = Object.values(latestByGH).filter(r => risikoGlobal && risikoGlobal(r)==='medium');
+      const res = [];
+      if (high.length) res.push({dot:'dot-red',   text: high[0].gh + (high.length>1?' +'+(high.length-1)+' lainnya':'')+' — high risk'});
+      if (med.length)  res.push({dot:'dot-amber', text: med.length+' GH medium risk'});
+      return res.length ? res : [{dot:'dot-green', text:'Semua GH low risk'}];
+    }
+    case 'cc-cuaca':
+      return [{dot:'dot-amber', text:'Data dari API cuaca realtime'}];
+    case 'cc-penyiraman': {
+      const pny = ccFilteredPNY();
+      const latestByGH = {};
+      pny.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+      const dev = Object.values(latestByGH).filter(r => (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3)));
+      if (!dev.length) return [{dot:'dot-green', text:'Semua EC & pH normal'}];
+      return dev.slice(0,2).map(r => ({dot:'dot-amber', text: r.gh+' — deviasi EC/pH'}));
+    }
+    case 'cc-gramasi': {
+      const krit = d.filter(grKrit);
+      const warn = d.filter(grWarn);
+      const res = [];
+      if (krit.length) res.push({dot:'dot-red',   text: krit[0].gh+' — gramasi kritis'});
+      if (warn.length) res.push({dot:'dot-amber', text: warn.length+' GH di bawah target gramasi'});
+      return res.length ? res : [{dot:'dot-green', text:'Semua gramasi on track'}];
+    }
+    case 'cc-estpanen': {
+      const noGr = d.filter(r => r.avgGramasi <= 0).length;
+      const totalEst = d.reduce((s,r) => s + r.popAkhir * (r.avgGramasi > 0 ? r.avgGramasi : 1000) / 1000, 0);
+      return [
+        {dot:'dot-green', text: 'Estimasi total '+(totalEst/1000).toFixed(1)+' ton'},
+        ...(noGr > 0 ? [{dot:'dot-amber', text: noGr+' GH pakai asumsi 1 kg'}] : []),
+      ];
+    }
+    case 'cc-status': {
+      const krit = d.filter(isCrit);
+      const onTr = d.filter(r => popOk(r) && grOk(r));
+      return [
+        {dot:'dot-green', text: onTr.length+' GH on track'},
+        ...(krit.length ? [{dot:'dot-red', text: krit.length+' GH kritis'}] : []),
+      ];
+    }
+    default: return [];
+  }
+}
+
+// ── RENDER CARD ──
+function ccCardHTML(m) {
+  const isAct = CC_ACTIVE_ID === m.id;
+  const actStyle = isAct
+    ? (m.grp==='ind'
+        ? 'border:2px solid var(--blue);background:var(--blue-lt);'
+        : 'border:2px solid var(--yellow);background:var(--yellow-lt);')
+    : 'border:0.5px solid var(--border);background:var(--surface);';
+  const soonStyle = m.soon ? 'opacity:.5;cursor:default;' : 'cursor:pointer;';
+  const badge = m.soon ? {text:'coming soon', cls:'p-w'} : ccBadge(m.id);
+  const alerts = m.soon ? [] : ccAlerts(m.id);
+  const pillCls = badge ? (badge.cls||'') : '';
+
+  return `<div style="flex-shrink:0;width:138px;${actStyle}${soonStyle}border-radius:11px;padding:11px 12px;position:relative;transition:border .12s,background .12s"
+    ${m.soon ? '' : `onclick="toggleCCMenu('${m.id}')"`}>
+    ${badge ? `<span class="pill ${pillCls}" style="position:absolute;top:8px;right:8px;font-size:9px;padding:2px 6px">${badge.text}</span>` : ''}
+    <div style="font-size:15px;margin-bottom:6px">${m.icon}</div>
+    <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:3px;line-height:1.3;padding-right:44px">${m.name}</div>
+    <div style="font-size:10px;color:var(--text3);line-height:1.4">${m.desc}</div>
+    ${alerts.length ? `<div style="margin-top:7px;padding-top:7px;border-top:1px solid var(--border)">
+      ${alerts.map(a=>`<div style="display:flex;align-items:flex-start;gap:4px;margin-top:3px;font-size:10px;color:var(--text3);line-height:1.35">
+        <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0;margin-top:3px;background:${a.dot==='dot-red'?'var(--red)':a.dot==='dot-amber'?'#d4820a':'var(--green-mid)'}"></span>${a.text}
+      </div>`).join('')}
+    </div>` : ''}
+  </div>`;
+}
+
+// ── TOGGLE MENU ──
+function toggleCCMenu(id) {
+  CC_ACTIVE_ID = CC_ACTIVE_ID === id ? null : id;
+  ccRenderCards();
+  const panel = document.getElementById('ccDetailPanel');
+  if (!CC_ACTIVE_ID) {
+    panel.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">Pilih sub menu di atas untuk melihat detail<br><span style="font-size:11px">Kartu coming soon belum tersedia datanya</span></div>';
+    return;
+  }
+  ccRenderDetail(id, panel);
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ── RENDER CARDS ──
+function ccRenderCards() {
+  const rowInd = document.getElementById('ccRowInd');
+  const rowDep = document.getElementById('ccRowDep');
+  if (rowInd) rowInd.innerHTML = CC_IND.map(ccCardHTML).join('');
+  if (rowDep) rowDep.innerHTML = CC_DEP.map(ccCardHTML).join('');
+}
+
+// ── RENDER KPI ──
+function ccRenderKPI() {
+  const d = ccFilteredRAW();
+  const snt = ccFilteredSNT();
+  const totPop  = d.reduce((s,r)=>s+r.popAkhir,0);
+  const wGr     = d.filter(hasGr);
+  const avgGr   = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
+  const onTr    = d.filter(r=>popOk(r)&&grOk(r)).length;
+  const krit    = d.filter(isCrit).length;
+  const totSnt  = snt.reduce((s,r)=>s+(r.jml||0),0);
+  const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
+
+  const el1 = document.getElementById('ccKpi1'); if(el1) el1.textContent = ccFmt(totPop);
+  const el1n= document.getElementById('ccKpi1n');if(el1n) el1n.textContent = 'pop akhir · '+d.length+' GH aktif';
+  const el2 = document.getElementById('ccKpi2'); if(el2) el2.textContent = avgGr ? avgGr+'g' : '—';
+  const el2n= document.getElementById('ccKpi2n');if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur' : 'belum ada data';
+  const el3 = document.getElementById('ccKpi3'); if(el3) el3.textContent = d.length;
+  const el3n= document.getElementById('ccKpi3n');if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
+  const el4 = document.getElementById('ccKpi4'); if(el4) el4.textContent = ccFmt(totSnt);
+  const el4n= document.getElementById('ccKpi4n');if(el4n) el4n.textContent = activeDays+' hari aktif sanitasi';
+}
+
+// ── DETAIL RENDERERS ──
+function ccBar(lbl, val, max, col, suffix) {
+  const w = Math.round(Math.min(val,max)/max*100);
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <div style="font-size:11px;color:var(--text3);width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}</div>
+    <div style="flex:1;height:14px;background:var(--surface2);border-radius:3px;overflow:hidden">
+      <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:6px;font-size:10px;color:#fff;font-weight:700">${w>18?ccFmt(val)+(suffix||''):''}</div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);width:50px;text-align:right;font-family:'JetBrains Mono',monospace">${ccFmt(val)}${suffix||''}</div>
+  </div>`;
+}
+
+function ccMini(lbl, val, col) {
+  return `<div style="background:var(--surface2);border-radius:9px;padding:10px 12px">
+    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">${lbl}</div>
+    <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col||'var(--text)'}">${val}</div>
+  </div>`;
+}
+
+function ccAlertItem(ico, title, desc) {
+  return `<div style="display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border-radius:9px;background:var(--surface2);font-size:12px;margin-bottom:6px">
+    <span style="font-size:13px;flex-shrink:0;margin-top:1px">${ico}</span>
+    <div><b>${title}</b>${desc?`<div style="font-size:11px;color:var(--text3);margin-top:2px">${desc}</div>`:''}</div>
+  </div>`;
+}
+
+function ccShell(icon, name, badgeHtml, grp, body) {
+  const borderCol = grp==='ind' ? 'var(--blue)' : 'var(--yellow)';
+  return `<div class="card-hd" style="border-left:3px solid ${borderCol}">
+    <div class="card-title"><span style="font-size:15px">${icon}</span> ${name}</div>
+    ${badgeHtml||''}
+  </div><div style="padding:14px 16px">${body}</div>`;
+}
+
+function ccSoonShell(name) {
+  return `<div class="card-hd"><div class="card-title">🔧 ${name} — Coming Soon</div></div>
+  <div style="padding:32px;text-align:center;color:var(--text4);font-size:13px">
+    🚧 Fitur ini sedang dalam pengembangan<br><span style="font-size:11px">Data akan tersedia setelah integrasi sheet selesai</span>
+  </div>`;
+}
+
+function ccRenderDetail(id, panel) {
+  const d   = ccFilteredRAW();
+  const snt = ccFilteredSNT();
+  const pny = ccFilteredPNY();
+  const hpt = ccFilteredHPT();
+
+  let html = '';
+
+  if (id === 'cc-sanitasi') {
+    // Tren harian
+    const ghPerDay = {};
+    snt.filter(r=>r.tgl).forEach(r => { if(!ghPerDay[r.tgl]) ghPerDay[r.tgl]=new Set(); ghPerDay[r.tgl].add(r.gh); });
+    const days = Object.keys(ghPerDay).sort().slice(-10);
+    const vals = days.map(d => ghPerDay[d].size);
+    const mx = Math.max(...vals, 1);
+    const trend = days.map((day,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+      <div style="width:100%;border-radius:2px 2px 0 0;background:${vals[i]===mx?'var(--green)':'var(--green-lt)'};height:${Math.round(vals[i]/mx*44)}px"></div>
+      <div style="font-size:9px;color:var(--text3)">${day.slice(5).split('-').reverse().join('/')}</div>
+    </div>`).join('');
+
+    // GH terbanyak
+    const ghJml = {};
+    snt.forEach(r => { ghJml[r.gh] = (ghJml[r.gh]||0) + r.jml; });
+    const topGH = Object.entries(ghJml).sort((a,b)=>b[1]-a[1]).slice(0,5);
+    const maxJml = topGH[0]?.[1] || 1;
+
+    // GH belum sanitasi
+    const normP = s => String(s||'').trim().toLowerCase();
+    const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
+    const belum = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode)));
+
+    const totSnt = snt.reduce((s,r)=>s+(r.jml||0),0);
+    const actDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
+    const badge = belum.length ? `<span class="pill p-w">${belum.length} GH belum sanitasi</span>` : `<span class="pill p-ok">Semua tersanitasi</span>`;
+
+    html = ccShell('🧹','Sanitasi', badge,'ind',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('Total sanitasi', ccFmt(totSnt))}
+        ${ccMini('GH belum', belum.length||'0', belum.length?'var(--yellow)':'var(--green-mid)')}
+        ${ccMini('Hari aktif', actDays)}
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Tren GH tersanitasi harian (10 hari terakhir)</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px">${trend.length ? trend : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">GH sanitasi terbanyak</div>
+      ${topGH.map(([gh,jml]) => ccBar(gh, jml, maxJml, 'var(--green)')).join('')}
+      ${belum.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH belum sanitasi periode ini</div>
+        ${ccAlertItem('⚠️', belum.map(r=>r.gh).join(', '), 'Belum ada data sanitasi pada periode aktif — jadwalkan segera')}` : ''}
+    `);
+  }
+
+  else if (id === 'cc-cuaca') {
+    html = ccShell('🌤','Cuaca — Kondisi Hari Ini','','ind',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+        ${ccMini('Suhu','31°C')}
+        ${ccMini('Kelembaban','88%','var(--yellow)')}
+        ${ccMini('Kondisi','Berawan')}
+      </div>
+      ${ccAlertItem('⚠️','RH 88% — di atas normal (target &lt;80%)','Risiko penyakit jamur meningkat · pantau DM & PM')}
+      ${ccAlertItem('✅','Suhu 31°C dalam rentang optimal (28–34°C)','Kondisi pertumbuhan mendukung')}
+    `);
+  }
+
+  else if (id === 'cc-hpt') {
+    const latestByGH = {};
+    hpt.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+    const all = Object.values(latestByGH);
+    const high = all.filter(r => risikoGlobal && risikoGlobal(r)==='high');
+    const med  = all.filter(r => risikoGlobal && risikoGlobal(r)==='medium');
+    const low  = all.filter(r => !risikoGlobal || risikoGlobal(r)==='low');
+    const badge = high.length ? `<span class="pill p-b">${high.length} high risk</span>` : `<span class="pill p-ok">Aman</span>`;
+    html = ccShell('🔍','HPT — Hama & Penyakit', badge,'ind',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('High risk', high.length, high.length?'var(--red)':'var(--text)')}
+        ${ccMini('Medium risk', med.length, med.length?'var(--yellow)':'var(--text)')}
+        ${ccMini('Low risk', low.length, 'var(--green-mid)')}
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">GH perlu tindakan</div>
+      ${high.map(r => ccAlertItem('🔴', r.gh+' — serangan tinggi', 'HST '+r.hst+' · tindak lanjut segera')).join('')}
+      ${med.map(r  => ccAlertItem('🟡', r.gh+' — medium risk', 'Monitor ketat')).join('')}
+      ${!high.length && !med.length ? ccAlertItem('✅','Semua GH low risk','Tidak ada serangan signifikan saat ini') : ''}
+    `);
+  }
+
+  else if (id === 'cc-penyiraman') {
+    const latestByGH = {};
+    pny.forEach(r => { if(!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
+    const all = Object.values(latestByGH);
+    const ecArr = all.filter(r=>r.ecIn>0).map(r=>r.ecIn);
+    const phArr = all.filter(r=>r.phIn>0).map(r=>r.phIn);
+    const avgEC = ecArr.length ? (ecArr.reduce((s,v)=>s+v,0)/ecArr.length).toFixed(2) : '—';
+    const avgPH = phArr.length ? (phArr.reduce((s,v)=>s+v,0)/phArr.length).toFixed(2) : '—';
+    const devEC = all.filter(r=>r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2));
+    const devPH = all.filter(r=>r.phIn&&(r.phIn<5.8||r.phIn>6.3));
+    const devAll = [...new Set([...devEC,...devPH].map(r=>r.gh))];
+    const badge = devAll.length ? `<span class="pill p-w">${devAll.length} deviasi</span>` : `<span class="pill p-ok">EC & pH normal</span>`;
+    html = ccShell('💧','Penyiraman', badge,'ind',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('Avg EC in', avgEC)}
+        ${ccMini('Avg pH in', avgPH)}
+        ${ccMini('GH deviasi', devAll.length, devAll.length?'var(--yellow)':'var(--green-mid)')}
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">GH dengan deviasi</div>
+      ${devAll.length
+        ? devAll.map(gh => {
+            const r = latestByGH[gh];
+            const issues = [];
+            if(r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2)) issues.push('EC in '+r.ecIn+' (std 2.5–3.2)');
+            if(r.phIn&&(r.phIn<5.8||r.phIn>6.3)) issues.push('pH in '+r.phIn+' (std 5.8–6.3)');
+            return ccAlertItem('⚠️', gh, issues.join(' · '));
+          }).join('')
+        : ccAlertItem('✅','Semua EC & pH dalam batas normal','')}
+    `);
+  }
+
+  else if (id === 'cc-gramasi') {
+    const wGr   = d.filter(hasGr);
+    const avgGr = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
+    const kritis = d.filter(grKrit);
+    const bawah  = d.filter(grWarn);
+    const sorted = [...d].sort((a,b)=>pctPopVsStd(b)-pctPopVsStd(a));
+    const maxPct = Math.max(...d.map(r=>pctPopVsStd(r)), 1);
+    const badge  = kritis.length ? `<span class="pill p-b">${kritis.length} kritis</span>` : bawah.length ? `<span class="pill p-w">${bawah.length} di bawah target</span>` : `<span class="pill p-ok">On track</span>`;
+    html = ccShell('⚖️','Gramasi & Populasi', badge,'dep',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('Avg gramasi', avgGr ? avgGr+'g' : '—')}
+        ${ccMini('Di bawah target', bawah.length, bawah.length?'var(--yellow)':'var(--text)')}
+        ${ccMini('Kritis', kritis.length, kritis.length?'var(--red)':'var(--text)')}
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">% Pop akhir vs standar HST (semua GH)</div>
+      ${sorted.slice(0,6).map(r => {
+        const pct = pctPopVsStd(r);
+        const col = pct>=100?'var(--green)':pct>=90?'#c87800':'var(--red)';
+        return ccBar(r.gh, Math.round(pct), Math.max(Math.round(maxPct)+5,115), col, '%');
+      }).join('')}
+      ${kritis.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH gramasi kritis</div>
+        ${kritis.map(r => ccAlertItem('🔴', r.gh+' — HST '+r.hst+' gramasi belum tercatat','Input data gramasi segera')).join('')}` : ''}
+    `);
+  }
+
+  else if (id === 'cc-estpanen') {
+    const rows = [...d].sort((a,b)=>b.popAkhir-a.popAkhir);
+    const totalEst = rows.reduce((s,r)=>s+Math.round(r.popAkhir*(r.avgGramasi>0?r.avgGramasi:1000)/1000),0);
+    const noGr = rows.filter(r=>r.avgGramasi<=0).length;
+    const withGr = rows.length - noGr;
+    const badge = `<span class="pill p-ok">${(totalEst/1000).toFixed(1)} ton estimasi</span>`;
+    const tableRows = rows.map(r => {
+      const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
+      const est = Math.round(r.popAkhir * grUsed / 1000);
+      const srcColor = r.avgGramasi > 0 ? 'var(--green-mid)' : 'var(--yellow)';
+      const srcLabel = r.avgGramasi > 0 ? r.avgGramasi+'g aktual' : '1.000g asumsi';
+      return `<tr>
+        <td style="padding:6px 8px;font-size:12px;font-weight:700">${r.gh}</td>
+        <td style="padding:6px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right">${ccFmt(r.popAkhir)}</td>
+        <td style="padding:6px 8px;font-size:11px;color:${srcColor}">${srcLabel}</td>
+        <td style="padding:6px 8px;font-size:12px;font-family:'JetBrains Mono',monospace;text-align:right;font-weight:700">${ccFmt(est)} kg</td>
+      </tr>`;
+    }).join('');
+    html = ccShell('📦','Estimasi Panen', badge,'dep',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('Total estimasi', (totalEst/1000).toFixed(1)+' ton', 'var(--green)')}
+        ${ccMini('Pakai gramasi aktual', withGr, 'var(--green-mid)')}
+        ${ccMini('Pakai asumsi 1 kg', noGr, noGr?'var(--yellow)':'var(--text)')}
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Detail per GH</div>
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr style="background:var(--hdr)">
+            <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">GH</th>
+            <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Pop Akhir</th>
+            <th style="padding:7px 8px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Gramasi</th>
+            <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Est. Panen</th>
+          </tr></thead>
+          <tbody>${tableRows}</tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+        Rumus: pop akhir × avg gramasi (aktual) atau × 1.000g (jika belum ada data gramasi)
+      </div>
+    `);
+  }
+
+  else if (id === 'cc-status') {
+    const onTr = d.filter(r=>popOk(r)&&grOk(r));
+    const warn = d.filter(r=>!isCrit(r)&&!(popOk(r)&&grOk(r)));
+    const krit = d.filter(isCrit);
+    const maxN = Math.max(onTr.length, warn.length, krit.length, 1);
+    const badge = krit.length ? `<span class="pill p-b">${krit.length} kritis</span>` : `<span class="pill p-ok">${onTr.length} on track</span>`;
+    html = ccShell('📊','Status GH — Ringkasan', badge,'dep',`
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+        ${ccMini('On track', onTr.length, 'var(--green-mid)')}
+        ${ccMini('Monitor', warn.length, warn.length?'var(--yellow)':'var(--text)')}
+        ${ccMini('Kritis', krit.length, krit.length?'var(--red)':'var(--text)')}
+      </div>
+      ${ccBar('On Track', onTr.length, d.length, 'var(--green)', '')}
+      ${ccBar('Monitor', warn.length, d.length, '#c87800', '')}
+      ${ccBar('Kritis', krit.length, d.length, 'var(--red)', '')}
+      ${krit.length||warn.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH perlu perhatian</div>` : ''}
+      ${krit.map(r => ccAlertItem('🔴', r.gh, 'HST '+r.hst+' · '+statusPill(r).replace(/<[^>]*>/g,''))).join('')}
+      ${warn.slice(0,4).map(r => ccAlertItem('🟡', r.gh, 'HST '+r.hst+' · '+statusPill(r).replace(/<[^>]*>/g,''))).join('')}
+    `);
+  }
+
+  else {
+    html = ccSoonShell([...CC_IND,...CC_DEP].find(m=>m.id===id)?.name || id);
+  }
+
+  panel.innerHTML = html;
+}
+
+// ── FILTER & REBUILD ──
+function setCCFilter(val, el) {
+  CC_GH_FILTER = val;
+  document.querySelectorAll('[id^="ccFilt"]').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildCC();
+}
+
+function rebuildCC() {
+  ccRenderKPI();
+  ccRenderCards();
+  if (CC_ACTIVE_ID) {
+    const panel = document.getElementById('ccDetailPanel');
+    if (panel) ccRenderDetail(CC_ACTIVE_ID, panel);
+  }
+}
+
+// ── INIT (dipanggil saat switch ke halaman ini) ──
+function initCC() {
+  // Set default date range (30 hari terakhir)
+  const today = new Date();
+  const from  = new Date(today); from.setDate(from.getDate() - 30);
+  const toStr   = today.toISOString().slice(0,10);
+  const fromStr = from.toISOString().slice(0,10);
+  const dfEl = document.getElementById('ccDateFrom');
+  const dtEl = document.getElementById('ccDateTo');
+  if (dfEl && !dfEl.value) dfEl.value = fromStr;
+  if (dtEl && !dtEl.value) dtEl.value = toStr;
+
+  // Pastikan semua data tersedia
+  if (!RAW_SNT.length)  fetchSnt(true);
+  if (!RAW_PNY.length)  fetchPny(true);
+  if (!RAW_HPT.length)  fetchHpt(true);
+  if (!RAW_SEMAI.length) fetchSemai(true);
+
+  rebuildCC();
+}
 </script>
