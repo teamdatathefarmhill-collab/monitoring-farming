@@ -4809,12 +4809,9 @@ let RAW_POP_HISTORY = []; // data historis dari endpoint populasi_history
 // ── FETCH POPULASI HISTORY ──
 async function fetchPopHistory(from, to) {
   try {
-    const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 15000); // timeout 15 detik
     const url = GAS_URL + '?sheet=populasi_history&from=' + from + '&to=' + to + '&_t=' + Date.now();
     console.log('[CC] fetchPopHistory URL:', url);
-    const resp = await fetch(url, { signal: ctrl.signal });
-    clearTimeout(timer);
+    const resp = await fetch(url);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const json = await resp.json();
     console.log('[CC] fetchPopHistory response:', json.rows ? json.rows.length + ' rows' : 'error: '+json.error);
