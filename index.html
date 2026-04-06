@@ -1524,13 +1524,19 @@ const POP_STD_HST = {
   16:0.97, 17:0.97, 18:0.97, 19:0.97, 20:0.97,
   21:0.94, 22:0.94, 23:0.94, 24:0.94, 25:0.94,
   26:0.94, 27:0.94, 28:0.94, 29:0.94, 30:0.94,
-  31:0.92, 32:0.92,
+  31:0.92, 32:0.92, 33:0.92, 34:0.92, 35:0.92,
+  36:0.92, 37:0.92, 38:0.92, 39:0.92, 40:0.92,
+  41:0.90, 42:0.90, 43:0.90, 44:0.90, 45:0.90,
+  46:0.90, 47:0.90, 48:0.90, 49:0.90, 50:0.90,
+  51:0.90, 52:0.90, 53:0.90, 54:0.90, 55:0.90,
+  56:0.90, 57:0.90, 58:0.90, 59:0.90, 60:0.90,
+  61:0.90, 62:0.90, 63:0.90, 64:0.90, 65:0.90,
 };
 
-// Ambil faktor standar untuk HST tertentu (fallback 0.92 jika HST > 32)
+// Ambil faktor standar (fallback 0.90 jika HST > 65)
 function popStdFaktor(hst) {
   const h = Math.round(hst);
-  return POP_STD_HST[h] !== undefined ? POP_STD_HST[h] : 0.92;
+  return POP_STD_HST[h] !== undefined ? POP_STD_HST[h] : 0.90;
 }
 
 // Hitung % Pop Akhir vs standar HST:
