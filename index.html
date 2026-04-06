@@ -574,6 +574,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
       <div class="tw">
+        <div style="display:flex;gap:14px;padding:6px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;color:var(--text3);flex-wrap:wrap;align-items:center">
+          <span style="font-weight:700;color:var(--text2)">Keterangan warna:</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--green-lt);border:1px solid #b8dfc4;margin-right:3px;vertical-align:middle"></span>Good</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8f4fb;border:1px solid #b0cef0;margin-right:3px;vertical-align:middle"></span>Ok</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;margin-right:3px;vertical-align:middle"></span>Poor</span>
+          <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;margin-right:3px;vertical-align:middle"></span>Bad</span>
+          <span style="color:var(--text4);font-style:italic">· Pop: Good ≥100% · Ok 95% · Poor 90% · Bad &lt;90% &nbsp;|&nbsp; Gramasi: Good &gt;105% · Ok 100% · Poor 95% · Bad &lt;95%</span>
+        </div>
         <table>
           <thead>
             <tr>
@@ -581,6 +589,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <th>Greenhouse</th>
               <th class="c">Periode</th>
               <th class="c" onclick="doSort('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
+              <th class="r" title="Real Qty Benih dari data Semai">Semai</th>
               <th class="r" title="Populasi Awal Tanam">Pop Awal Tanam</th>
               <th class="r" title="Populasi Akhir HST Max">Pop Akhir</th>
               <th style="min-width:145px">% Target Populasi</th>
@@ -589,7 +598,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             </tr>
           </thead>
           <tbody id="tBody">
-            <tr><td colspan="9" class="es">
+            <tr><td colspan="10" class="es">
               <span class="sk" style="width:200px;height:13px;display:block;margin:0 auto 8px"></span>
               <span class="sk" style="width:140px;height:13px;display:block;margin:0 auto"></span>
             </td></tr>
@@ -1717,11 +1726,46 @@ function progBar(p) {
   return `<div class="pw"><div class="pb"><div class="pf" style="width:${w}%;background:${c}"></div><div class="pt" style="left:${t}%"></div></div><span class="pv" style="color:${vc}">${p.toFixed(1)}%</span></div>`;
 }
 
+// ── SEMAI HELPERS (berdasarkan tabel standar: Good >93.5%, Ok 88.5%, Poor 83.5%, Bad <83.5%) ──
+function getSemaiQty(r) {
+  if (!RAW_SEMAI.length) return null;
+  // Match by GH dan periode
+  const match = RAW_SEMAI.filter(s =>
+    s.gh && s.gh.trim().toUpperCase() === r.gh.trim().toUpperCase() &&
+    s.periode && s.periode.trim() === r.periode.trim()
+  );
+  if (!match.length) return null;
+  return match.reduce((sum, s) => sum + (s.realQtyBenih || s.qty || 0), 0);
+}
+
+function semaiCell(r) {
+  const qty = getSemaiQty(r);
+  if (qty === null) return `<td class="r mono" style="color:var(--text4);font-style:italic;font-size:11px">—</td>`;
+  return `<td class="r mono" style="font-size:12px">${qty.toLocaleString('id-ID')}</td>`;
+}
+
+// ── POP AKHIR CELL dengan warna standar (Good ≥100%, Ok 95%, Poor 90%, Bad <90%) ──
+function popAkhirCell(r) {
+  const pct = r.pctTarget;
+  let col, bg;
+  if (pct >= 100) { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; }
+  else if (pct >= 95) { col = '#134880'; bg = '#e8f4fb'; }
+  else if (pct >= 90) { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; }
+  else { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; }
+  return `<td class="r mono" style="color:${col};background:${bg};font-weight:700;font-size:12px;border-radius:4px">${fmt(r.popAkhir)}</td>`;
+}
+
+// ── AVG GRAMASI CELL dengan warna standar (Good >105%, Ok 100%, Poor 95%, Bad <95%) ──
 function avgCell(r) {
   if (belumGr(r) || !hasGr(r)) return `<td class="av av-none r">—</td>`;
-  if (grKrit(r))   return `<td class="av av-bad r">0 <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
-  if (grWarn(r))   return `<td class="av av-w r">${Math.round(r.avgGramasi)}g <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
-  return `<td class="av av-ok r">${Math.round(r.avgGramasi)}g</td>`;
+  if (grKrit(r)) return `<td class="av av-bad r" style="background:var(--red-lt)">0 <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
+  const pctGr = r.targetGramasi > 0 ? (r.avgGramasi / r.targetGramasi * 100) : 0;
+  let col, bg;
+  if (pctGr > 105)      { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; }
+  else if (pctGr >= 100) { col = '#134880'; bg = '#e8f4fb'; }
+  else if (pctGr >= 95)  { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; }
+  else                   { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; }
+  return `<td class="av r" style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:${col};background:${bg};border-radius:4px">${Math.round(r.avgGramasi)}g <span style="font-size:10px;font-weight:400;opacity:.7">/ ${r.targetGramasi}g</span></td>`;
 }
 
 function statusPill(r) {
@@ -1735,7 +1779,7 @@ function statusPill(r) {
 
 function renderTable(d) {
   if (!d.length) {
-    document.getElementById('tBody').innerHTML = `<tr><td colspan="9" class="es">Tidak ada GH yang sesuai filter</td></tr>`;
+    document.getElementById('tBody').innerHTML = `<tr><td colspan="10" class="es">Tidak ada GH yang sesuai filter</td></tr>`;
     return;
   }
   document.getElementById('tBody').innerHTML = d.map((r,i) => {
@@ -1749,8 +1793,9 @@ function renderTable(d) {
       </td>
       <td class="c mono" style="color:var(--text3)">${r.periode}</td>
       <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
+      ${semaiCell(r)}
       <td class="r mono">${fmt(r.popAwal)}</td>
-      <td class="r mono">${fmt(r.popAkhir)}</td>
+      ${popAkhirCell(r)}
       <td>${progBar(r.pctTarget)}</td>
       ${avgCell(r)}
       <td class="c">${statusPill(r)}</td>
@@ -2757,6 +2802,8 @@ function setHptTab(tab, el) {
 tick();
 setInterval(tick, 1000);
 fetchData();
+// Fetch semai di background agar kolom Semai di dashboard langsung terisi
+setTimeout(() => fetchSemai(true), 1500);
 
 // ══════════════════════════════════════════════
 //  SEMAI MODULE
@@ -2772,9 +2819,12 @@ const SPROUT_BAD  = 70;  // % sprout kritis threshold
 // ── FETCH ──
 async function fetchSemai(silent) {
   if (!silent) {
-    document.getElementById('semBody').innerHTML      = '<tr><td colspan="13" class="es">Memuat data semai…</td></tr>';
-    document.getElementById('semAlertList').innerHTML = '<div class="es">Memuat…</div>';
-    document.getElementById('semProgList').innerHTML  = '<div class="es">Memuat…</div>';
+    const semBody = document.getElementById('semBody');
+    const semAlert = document.getElementById('semAlertList');
+    const semProg = document.getElementById('semProgList');
+    if (semBody) semBody.innerHTML = '<tr><td colspan="13" class="es">Memuat data semai…</td></tr>';
+    if (semAlert) semAlert.innerHTML = '<div class="es">Memuat…</div>';
+    if (semProg) semProg.innerHTML = '<div class="es">Memuat…</div>';
   }
   try {
     const resp = await fetch(SEMAI_GAS_URL + '&_t=' + Date.now());
@@ -2782,13 +2832,19 @@ async function fetchSemai(silent) {
     const json = await resp.json();
     if (json.error) throw new Error(json.error);
     RAW_SEMAI = json.rows || [];
-    populateSemaiFilters();
-    rebuildSemai();
-    document.getElementById('semaiErrBanner').style.display = 'none';
+    if (document.getElementById('semSelGH')) populateSemaiFilters();
+    if (document.getElementById('semBody'))  rebuildSemai();
+    // Re-render dashboard table agar kolom Semai ter-update
+    if (cur.length || RAW.length) rebuild();
+    const errBanner = document.getElementById('semaiErrBanner');
+    if (errBanner) errBanner.style.display = 'none';
   } catch(e) {
-    document.getElementById('semaiErrBanner').style.display = 'flex';
-    document.getElementById('semaiErrMsg').textContent = e.message;
-    document.getElementById('semBody').innerHTML = '<tr><td colspan="13" class="es">Gagal memuat data.</td></tr>';
+    const errBanner = document.getElementById('semaiErrBanner');
+    const errMsg    = document.getElementById('semaiErrMsg');
+    if (errBanner) errBanner.style.display = 'flex';
+    if (errMsg)    errMsg.textContent = e.message;
+    const semBody = document.getElementById('semBody');
+    if (semBody)   semBody.innerHTML = '<tr><td colspan="13" class="es">Gagal memuat data.</td></tr>';
   }
 }
 
