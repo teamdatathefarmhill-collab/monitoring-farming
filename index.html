@@ -580,7 +580,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:#e8f4fb;border:1px solid #b0cef0;margin-right:3px;vertical-align:middle"></span>Ok</span>
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;margin-right:3px;vertical-align:middle"></span>Poor</span>
           <span><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;margin-right:3px;vertical-align:middle"></span>Bad</span>
-          <span style="color:var(--text4);font-style:italic">· Pop: Good ≥100% · Ok 95% · Poor 90% · Bad &lt;90% &nbsp;|&nbsp; Gramasi: Good &gt;105% · Ok 100% · Poor 95% · Bad &lt;95%</span>
+          <span style="color:var(--text4);font-style:italic">· Pop Akhir: Good ≥100% · Ok 95% · Poor 90% · Bad &lt;90% &nbsp;|&nbsp; Avg Gramasi: Good &gt;105% · Ok 100% · Poor 95% · Bad &lt;95%</span>
         </div>
         <table>
           <thead>
@@ -591,14 +591,13 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <th class="c" onclick="doSort('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
               <th class="r" title="Real Qty Benih dari data Semai">Semai</th>
               <th class="r" title="Populasi Awal Tanam">Pop Awal Tanam</th>
-              <th class="r" title="Populasi Akhir HST Max">Pop Akhir</th>
-              <th style="min-width:145px">% Target Populasi</th>
+              <th class="r" title="Populasi Akhir · warna berdasarkan % vs target">Pop Akhir</th>
               <th class="r">Avg Gramasi</th>
               <th class="c">Status</th>
             </tr>
           </thead>
           <tbody id="tBody">
-            <tr><td colspan="10" class="es">
+            <tr><td colspan="9" class="es">
               <span class="sk" style="width:200px;height:13px;display:block;margin:0 auto 8px"></span>
               <span class="sk" style="width:140px;height:13px;display:block;margin:0 auto"></span>
             </td></tr>
@@ -1747,12 +1746,18 @@ function semaiCell(r) {
 // ── POP AKHIR CELL dengan warna standar (Good ≥100%, Ok 95%, Poor 90%, Bad <90%) ──
 function popAkhirCell(r) {
   const pct = r.pctTarget;
-  let col, bg;
-  if (pct >= 100) { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; }
-  else if (pct >= 95) { col = '#134880'; bg = '#e8f4fb'; }
-  else if (pct >= 90) { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; }
-  else { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; }
-  return `<td class="r mono" style="color:${col};background:${bg};font-weight:700;font-size:12px;border-radius:4px">${fmt(r.popAkhir)}</td>`;
+  let col, bg, border;
+  if (pct >= 100) { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; border = '#b8dfc4'; }
+  else if (pct >= 95) { col = 'var(--blue-txt)'; bg = 'var(--blue-lt)'; border = '#b0cef0'; }
+  else if (pct >= 90) { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; border = '#f5d08a'; }
+  else { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; border = '#f0b0b0'; }
+  const pctBadge = `<span style="font-size:10px;font-weight:600;opacity:.75;margin-left:4px">(${pct.toFixed(1)}%)</span>`;
+  return `<td class="r" style="padding:6px 10px">
+    <div style="display:inline-flex;flex-direction:column;align-items:flex-end;background:${bg};border:1px solid ${border};border-radius:6px;padding:3px 8px">
+      <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${col}">${fmt(r.popAkhir)}</span>
+      <span style="font-size:10px;font-weight:600;color:${col};opacity:.8">${pct.toFixed(1)}% target</span>
+    </div>
+  </td>`;
 }
 
 // ── AVG GRAMASI CELL dengan warna standar (Good >105%, Ok 100%, Poor 95%, Bad <95%) ──
@@ -1779,7 +1784,7 @@ function statusPill(r) {
 
 function renderTable(d) {
   if (!d.length) {
-    document.getElementById('tBody').innerHTML = `<tr><td colspan="10" class="es">Tidak ada GH yang sesuai filter</td></tr>`;
+    document.getElementById('tBody').innerHTML = `<tr><td colspan="9" class="es">Tidak ada GH yang sesuai filter</td></tr>`;
     return;
   }
   document.getElementById('tBody').innerHTML = d.map((r,i) => {
@@ -1796,7 +1801,6 @@ function renderTable(d) {
       ${semaiCell(r)}
       <td class="r mono">${fmt(r.popAwal)}</td>
       ${popAkhirCell(r)}
-      <td>${progBar(r.pctTarget)}</td>
       ${avgCell(r)}
       <td class="c">${statusPill(r)}</td>
     </tr>`;
