@@ -5376,30 +5376,21 @@ function setCCFilter(val, el) {
   rebuildCC();
 }
 
-// ── FILTER & REBUILD ──
-function setCCFilter(val, el) {
-  CC_GH_FILTER = val;
-  document.querySelectorAll('[id^="ccFilt"]').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  rebuildCC();
-}
-
 async function rebuildCC() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // Render kartu sub menu langsung (tidak perlu tunggu fetch)
+  // Render kartu sub menu langsung
   ccRenderCards();
 
-  // Render KPI dulu pakai RAW (langsung tampil)
+  // Render KPI pakai RAW dulu (instant)
   RAW_POP_HISTORY = [];
   ccRenderKPI();
 
-  // Fetch history di background, lalu update KPI
+  // Fetch history populasi sesuai range, update KPI setelah dapat data
   if (from && to) {
     await fetchPopHistory(from, to);
-    ccRenderKPI(); // update lagi setelah data history masuk
-    // Update detail panel jika sedang terbuka
+    ccRenderKPI();
     if (CC_ACTIVE_ID) {
       const panel = document.getElementById('ccDetailPanel');
       if (panel) ccRenderDetail(CC_ACTIVE_ID, panel);
@@ -5407,16 +5398,20 @@ async function rebuildCC() {
   }
 }
 
-// ── INIT (dipanggil saat switch ke halaman ini) ──
+// ── INIT ──
 async function initCC() {
-  // Default date range: today
-  const today = new Date().toISOString().slice(0,10);
+  // Default: from = 30 hari lalu, to = hari ini
+  // Ini agar Total Sanitasi tidak 0 (data sanitasi diinput harian)
+  const today = new Date();
+  const from30 = new Date(today); from30.setDate(from30.getDate() - 30);
+  const todayStr = today.toISOString().slice(0,10);
+  const fromStr  = from30.toISOString().slice(0,10);
+
   const dfEl = document.getElementById('ccDateFrom');
   const dtEl = document.getElementById('ccDateTo');
-  if (dfEl) dfEl.value = today;
-  if (dtEl) dtEl.value = today;
+  if (dfEl) dfEl.value = fromStr;
+  if (dtEl) dtEl.value = todayStr;
 
-  // Pastikan semua data tersedia
   if (!RAW_SNT.length)   fetchSnt(true);
   if (!RAW_PNY.length)   fetchPny(true);
   if (!RAW_HPT.length)   fetchHpt(true);
