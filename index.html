@@ -4007,42 +4007,120 @@ function sntWeekNum(d) {
 }
 
 // ── DRILL-DOWN PANEL ──
+let SNT_ACTIVE_GH = null; // track GH yang sedang di-expand
+
 function showSntDrill(key, rows, isMin) {
   const panel = document.getElementById('sntDrillPanel');
   const title = document.getElementById('sntDrillTitle');
   const sub   = document.getElementById('sntDrillSub');
   const body  = document.getElementById('sntDrillBody');
 
+  SNT_ACTIVE_GH = null; // reset expand saat drill baru
+
   const ghSet = new Set(rows.map(r=>r.gh));
   const tglDisp = isMin ? `Minggu ${key.split('-').reverse().slice(1).join('/')}` : key.split('-').reverse().join('/');
   title.textContent = `📅 Detail: ${tglDisp}`;
-  sub.textContent   = `${ghSet.size} GH tersanitasi · ${rows.length} entri`;
+  sub.textContent   = `${ghSet.size} GH tersanitasi · ${rows.length} entri · klik GH untuk detail kategori`;
 
   // Group by GH
   const ghMap = {};
   rows.forEach(r => {
-    if (!ghMap[r.gh]) ghMap[r.gh] = { jml: 0, teams: new Set(), ket: [] };
+    if (!ghMap[r.gh]) ghMap[r.gh] = { jml: 0, teams: new Set(), rows: [] };
     ghMap[r.gh].jml += r.jml;
     ghMap[r.gh].teams.add(r.team);
-    if (r.ket) ghMap[r.gh].ket.push(r.ket);
+    ghMap[r.gh].rows.push(r);
   });
 
-  body.innerHTML = Object.entries(ghMap)
-    .sort((a,b) => b[1].jml - a[1].jml)
-    .map(([gh, info]) => {
-      const dot = CC[clOf(gh)] || '#999';
-      const teams = [...info.teams].filter(t=>t&&t!=='—').join(', ') || '—';
-      return `<div style="background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 13px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
-          <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
-          <span style="font-weight:700;font-size:12px">${gh}</span>
-        </div>
-        <div style="font-size:10px;color:var(--text3)">Team: ${teams}</div>
-        <div style="font-size:20px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;margin-top:2px">${info.jml}</div>
-        ${info.ket.length ? `<div style="font-size:10px;color:var(--text3);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${info.ket[0]}</div>` : ''}
-      </div>`;
-    }).join('');
+  function renderCards(activeGH) {
+    const KAT_COLORS = {
+      'HPT':'#c02020','BUDIDAYA':'#1a7a3a','SEMAI':'#1a5fa0',
+      'PANEN':'#a06000','SEMAI HPT':'#7b2d8b','Lainnya':'#4a644a'
+    };
+    const getKatColor = k => KAT_COLORS[k] || '#4a644a';
 
+    body.innerHTML = Object.entries(ghMap)
+      .sort((a,b) => b[1].jml - a[1].jml)
+      .map(([gh, info]) => {
+        const dot   = CC[clOf(gh)] || '#999';
+        const teams = [...info.teams].filter(t=>t&&t!=='—').join(', ') || '—';
+        const isActive = gh === activeGH;
+
+        // Breakdown kategori untuk GH ini
+        const katMap = {};
+        info.rows.forEach(r => {
+          const k = (r.kat && r.kat.trim()) ? r.kat.trim() : 'Lainnya';
+          if (!katMap[k]) katMap[k] = { jml: 0, types: {} };
+          katMap[k].jml += (r.jmlSnt || r.jml || 0);
+          if (r.trueSnt && r.trueSnt.trim()) {
+            const ts = r.trueSnt.trim();
+            katMap[k].types[ts] = (katMap[k].types[ts] || 0) + (r.jmlSnt || r.jml || 0);
+          }
+        });
+
+        const katEntries = Object.entries(katMap).sort((a,b) => b[1].jml - a[1].jml);
+        const topKat = katEntries[0];
+
+        // Badge kategori tertinggi (selalu tampil di card)
+        const topKatBadge = topKat
+          ? `<div style="margin-top:5px;display:flex;align-items:center;gap:4px">
+              <span style="font-size:9px;font-weight:700;background:${getKatColor(topKat[0])}22;color:${getKatColor(topKat[0])};border-radius:4px;padding:2px 6px;text-transform:uppercase;letter-spacing:.5px">${topKat[0]}</span>
+              <span style="font-size:9px;color:var(--text4)">${topKat[1].jml.toLocaleString('id-ID')} terbanyak</span>
+            </div>`
+          : '';
+
+        // Expanded detail (hanya tampil jika GH ini active)
+        let expandHtml = '';
+        if (isActive) {
+          expandHtml = `<div style="margin-top:10px;padding-top:9px;border-top:1.5px solid var(--border);display:flex;flex-direction:column;gap:6px">
+            <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px">Breakdown Kategori</div>
+            ${katEntries.map(([kat, v]) => {
+              const col = getKatColor(kat);
+              const topTypes = Object.entries(v.types).sort((a,b)=>b[1]-a[1]).slice(0,3);
+              const total = katEntries.reduce((s,[,vv])=>s+vv.jml, 0);
+              const pct = total ? (v.jml/total*100).toFixed(0) : 0;
+              return `<div style="background:${col}0d;border:1px solid ${col}33;border-radius:7px;padding:7px 9px">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+                  <span style="font-size:10px;font-weight:800;color:${col};text-transform:uppercase;letter-spacing:.5px">${kat}</span>
+                  <span style="font-size:10px;font-weight:700;color:${col}">${v.jml.toLocaleString('id-ID')} <span style="font-weight:400;opacity:.7">(${pct}%)</span></span>
+                </div>
+                ${topTypes.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px">
+                  ${topTypes.map(([t,n])=>`<span style="font-size:9px;background:${col}22;color:${col};border-radius:3px;padding:1px 6px;font-weight:600">${t}: ${n.toLocaleString('id-ID')}</span>`).join('')}
+                </div>` : ''}
+              </div>`;
+            }).join('')}
+          </div>`;
+        }
+
+        const cardBorder = isActive ? `border:2px solid var(--green-mid);box-shadow:0 0 0 3px rgba(44,163,84,.12)` : `border:1px solid var(--border)`;
+        const chevron = isActive ? '▲' : '▼';
+
+        return `<div id="snt-gh-card-${gh.replace(/\s/g,'_')}"
+          style="background:var(--surface);${cardBorder};border-radius:9px;padding:10px 13px;cursor:pointer;transition:box-shadow .15s,border .15s;user-select:none"
+          onclick="toggleSntGhCard('${gh}')">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+            <span style="font-weight:700;font-size:12px;flex:1">${gh}</span>
+            <span style="font-size:10px;color:var(--text4)">${chevron}</span>
+          </div>
+          <div style="font-size:10px;color:var(--text3)">Team: ${teams}</div>
+          <div style="font-size:20px;font-weight:800;color:var(--green);font-family:'JetBrains Mono',monospace;margin-top:2px">${info.jml.toLocaleString('id-ID')}</div>
+          ${topKatBadge}
+          ${expandHtml}
+        </div>`;
+      }).join('');
+  }
+
+  // Expose toggle function ke window scope
+  window.toggleSntGhCard = function(gh) {
+    SNT_ACTIVE_GH = SNT_ACTIVE_GH === gh ? null : gh;
+    renderCards(SNT_ACTIVE_GH);
+    if (SNT_ACTIVE_GH) {
+      const el = document.getElementById('snt-gh-card-' + gh.replace(/\s/g,'_'));
+      if (el) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+    }
+  };
+
+  renderCards(null);
   panel.classList.add('show');
   panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
