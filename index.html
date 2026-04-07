@@ -659,32 +659,57 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI CARDS -->
-      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)" id="ccKpiGrid">
-        <div class="sc g">
-          <div class="sc-lbl">Total Populasi</div>
-          <div class="sc-val g" id="ccKpi1">—</div>
-          <div class="sc-note" id="ccKpi1n">pop akhir seluruh GH aktif</div>
-        </div>
-        <div class="sc y">
-          <div class="sc-lbl">Avg Gramasi</div>
-          <div class="sc-val y" id="ccKpi2">—</div>
-          <div class="sc-note" id="ccKpi2n">dari GH aktif diukur</div>
-        </div>
-        <div class="sc b">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px" id="ccKpiGrid">
+
+        <!-- 1. GH Aktif -->
+        <div class="sc b" style="border-top:3px solid #185FA5">
           <div class="sc-lbl">GH Aktif</div>
-          <div class="sc-val b" id="ccKpi3">—</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 3px">
+            <div class="sc-val b" id="ccKpi3" style="font-size:28px">—</div>
+            <div style="font-size:13px;color:var(--text3)" id="ccKpi3total">/ — total</div>
+          </div>
           <div class="sc-note" id="ccKpi3n">on track vs kritis</div>
         </div>
-        <div class="sc" style="border-top:4px solid #0F6E56">
+
+        <!-- 2. Populasi Akhir / Awal -->
+        <div class="sc g" style="border-top:3px solid #3B6D11">
+          <div class="sc-lbl">Populasi Akhir / Awal</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
+            <div class="sc-val g" id="ccKpi1" style="font-size:24px">—</div>
+          </div>
+          <div class="sc-note" id="ccKpi1n" style="margin-bottom:6px">dari — pop awal</div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
+            <div id="ccKpi1bar" style="height:100%;border-radius:2px;background:#3B6D11;width:0%;transition:width .6s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--text3)">survival rate</span>
+            <span id="ccKpi1pct" style="font-weight:700;color:var(--green)">—%</span>
+          </div>
+        </div>
+
+        <!-- 3. Loss Populasi -->
+        <div class="sc y" style="border-top:3px solid #BA7517">
+          <div class="sc-lbl">Loss Populasi</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
+            <div class="sc-val y" id="ccKpi_loss" style="font-size:24px">—</div>
+          </div>
+          <div class="sc-note" id="ccKpi_lossn" style="margin-bottom:6px">sanitasi / pop awal</div>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
+            <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:#BA7517;width:0%;transition:width .6s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--text3)">standar &lt;15%</span>
+            <span id="ccKpi_losspct" style="font-weight:700">—%</span>
+          </div>
+        </div>
+
+        <!-- 4. Total Sanitasi -->
+        <div class="sc" style="border-top:3px solid #0F6E56">
           <div class="sc-lbl">Total Sanitasi</div>
-          <div class="sc-val" style="color:#0F6E56" id="ccKpi4">—</div>
+          <div class="sc-val" style="color:#0F6E56;font-size:28px;margin:6px 0 3px" id="ccKpi4">—</div>
           <div class="sc-note" id="ccKpi4n">hari aktif sanitasi</div>
         </div>
-        <div class="sc" style="border-top:4px solid var(--red);cursor:pointer" onclick="toggleCCMenu('cc-status')" title="Klik untuk lihat detail GH perlu tanam baru">
-          <div class="sc-lbl" style="color:var(--red-txt)">⚠ Perlu Tanam Baru</div>
-          <div class="sc-val" style="color:var(--red)" id="ccKpi5">—</div>
-          <div class="sc-note" id="ccKpi5n">GH panen belum ada semai</div>
-        </div>
+
       </div>
 
       <!-- FILTER BAR -->
@@ -5213,51 +5238,64 @@ function ccRenderKPI() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  const totPop = d.reduce((s,r) => s + (+r.popAkhir||0), 0);
-
-  // Avg gramasi: GH yang punya targetGramasi dan avgGramasi > 0
-  const wGr   = d.filter(r => (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1);
-  const avgGr = wGr.length ? Math.round(wGr.reduce((s,r) => s+(+r.avgGramasi),0) / wGr.length) : 0;
-
-  // on track & kritis pakai helper yang sudah ada (pctPopVsStd + gramasi)
-  const onTr = d.filter(r => popOk(r) && grOk(r)).length;
-  const krit = d.filter(isCrit).length;
-
-  const totSnt     = snt.reduce((s,r) => s+(r.jml||0), 0);
-  const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
-
   const fmtD = s => s ? s.split('-').reverse().join('/') : '—';
   const rangeLabel = (from && to && from !== to)
     ? `${fmtD(from)} – ${fmtD(to)}`
     : from ? fmtD(from) : 'hari ini';
+  const dataNote = RAW_POP_HISTORY.length > 0 ? rangeLabel : 'kondisi terkini';
 
-  const usingHistory = RAW_POP_HISTORY.length > 0;
-  const dataNote = usingHistory ? rangeLabel : 'kondisi terkini';
+  // ── Kalkulasi ──
+  const totPopAkhir = d.reduce((s,r) => s+(+r.popAkhir||0), 0);
+  const totPopAwal  = d.reduce((s,r) => s+(+r.popAwal||0), 0);
+  const survivalPct = totPopAwal > 0 ? (totPopAkhir / totPopAwal * 100) : 0;
 
-  const el1 = document.getElementById('ccKpi1'); if(el1) el1.textContent = ccFmt(totPop);
-  const el1n= document.getElementById('ccKpi1n');if(el1n) el1n.textContent = 'pop akhir · '+d.length+' GH · '+dataNote;
-  const el2 = document.getElementById('ccKpi2'); if(el2) el2.textContent = avgGr ? avgGr+'g' : '—';
-  const el2n= document.getElementById('ccKpi2n');if(el2n) el2n.textContent = (wGr.length ? 'dari '+wGr.length+' GH diukur' : 'belum ada data')+' · '+dataNote;
-  const el3 = document.getElementById('ccKpi3'); if(el3) el3.textContent = d.length;
-  const el3n= document.getElementById('ccKpi3n');if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
-  const el4 = document.getElementById('ccKpi4'); if(el4) el4.textContent = ccFmt(totSnt);
-  const el4n= document.getElementById('ccKpi4n');if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
+  // Loss = total sanitasi dari RAW (kolom sanitasi per GH) dibagi pop awal
+  const totSanitasiRaw = d.reduce((s,r) => s+(+r.sanitasi||0), 0);
+  const lossPct = totPopAwal > 0 ? (totSanitasiRaw / totPopAwal * 100) : 0;
 
-  // KPI 5: GH perlu tanam baru
-  const tanamBaru = ccGetTanamBaru();
-  const el5  = document.getElementById('ccKpi5');
-  const el5n = document.getElementById('ccKpi5n');
-  const kpi5card = el5?.closest('.sc');
-  if (el5)  el5.textContent = tanamBaru.length || '0';
-  if (el5n) el5n.textContent = tanamBaru.length
-    ? tanamBaru.slice(0,2).map(r => r.gh.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B') + ' ~HST'+r.hstAktual).join(', ') + (tanamBaru.length>2?' +lainnya':'')
-    : 'Semua GH panen sudah ada semai';
-  if (kpi5card) {
-    kpi5card.style.borderTopColor = tanamBaru.length ? 'var(--red)' : 'var(--green-mid)';
-    const lbl = kpi5card.querySelector('.sc-lbl');
-    if (lbl) { lbl.textContent = tanamBaru.length ? '⚠ Perlu Tanam Baru' : '✓ Tanam Baru'; lbl.style.color = tanamBaru.length ? 'var(--red-txt)' : 'var(--green-txt)'; }
-    if (el5)  el5.style.color = tanamBaru.length ? 'var(--red)' : 'var(--green-mid)';
+  const onTr = d.filter(r => popOk(r) && grOk(r)).length;
+  const krit = d.filter(isCrit).length;
+
+  // Total GH unik yang pernah tercatat di semua RAW (tanpa filter klaster)
+  const allGHUniq = new Set(RAW.map(r => r.gh)).size;
+
+  // Total sanitasi dari RAW_SNT (ikut date range)
+  const totSnt     = snt.reduce((s,r) => s+(r.jml||0), 0);
+  const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
+
+  // ── GH Aktif ──
+  const el3  = document.getElementById('ccKpi3');      if(el3)  el3.textContent  = d.length;
+  const el3t = document.getElementById('ccKpi3total'); if(el3t) el3t.textContent = '/ '+allGHUniq+' total';
+  const el3n = document.getElementById('ccKpi3n');
+  if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
+
+  // ── Populasi Akhir / Awal ──
+  const el1  = document.getElementById('ccKpi1');    if(el1)  el1.textContent  = ccFmt(totPopAkhir);
+  const el1n = document.getElementById('ccKpi1n');   if(el1n) el1n.textContent = 'dari '+ccFmt(totPopAwal)+' pop awal · '+dataNote;
+  const el1b = document.getElementById('ccKpi1bar'); if(el1b) el1b.style.width = Math.min(survivalPct,100).toFixed(1)+'%';
+  const el1p = document.getElementById('ccKpi1pct');
+  if(el1p) {
+    el1p.textContent = survivalPct.toFixed(1)+'%';
+    el1p.style.color = survivalPct>=90?'var(--green)':survivalPct>=80?'#c87800':'var(--red)';
   }
+
+  // ── Loss Populasi ──
+  const elL  = document.getElementById('ccKpi_loss');    if(elL)  elL.textContent  = ccFmt(totSanitasiRaw);
+  const elLn = document.getElementById('ccKpi_lossn');   if(elLn) elLn.textContent = 'sanitasi / pop awal · '+dataNote;
+  const elLb = document.getElementById('ccKpi_lossbar');
+  if(elLb) {
+    elLb.style.width      = Math.min(lossPct/15*100,100).toFixed(1)+'%';
+    elLb.style.background = lossPct<=15?'#BA7517':'var(--red)';
+  }
+  const elLp = document.getElementById('ccKpi_losspct');
+  if(elLp) {
+    elLp.textContent = lossPct.toFixed(1)+'%';
+    elLp.style.color = lossPct<=15?'#BA7517':'var(--red)';
+  }
+
+  // ── Total Sanitasi (dari RAW_SNT, ikut date range) ──
+  const el4  = document.getElementById('ccKpi4');  if(el4)  el4.textContent  = ccFmt(totSnt);
+  const el4n = document.getElementById('ccKpi4n'); if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
 }
 
 // ── DETAIL RENDERERS ──
@@ -5314,7 +5352,7 @@ function ccRenderDetail(id, panel) {
     const ghPerDay = {};
     snt.filter(r=>r.tgl).forEach(r => { if(!ghPerDay[r.tgl]) ghPerDay[r.tgl]=new Set(); ghPerDay[r.tgl].add(r.gh); });
     const days = Object.keys(ghPerDay).sort().slice(-10);
-    const vals = days.map(d => ghPerDay[d].size);
+    const vals = days.map(day => ghPerDay[day].size);
     const mx = Math.max(...vals, 1);
     const trend = days.map((day,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
       <div style="width:100%;border-radius:2px 2px 0 0;background:${vals[i]===mx?'var(--green)':'var(--green-lt)'};height:${Math.round(vals[i]/mx*44)}px"></div>
@@ -5327,27 +5365,77 @@ function ccRenderDetail(id, panel) {
     const topGH = Object.entries(ghJml).sort((a,b)=>b[1]-a[1]).slice(0,5);
     const maxJml = topGH[0]?.[1] || 1;
 
-    // GH belum sanitasi
+    // ── Cara A: belum sanitasi di periode aktif (match by gh+periode) ──
     const normP = s => String(s||'').trim().toLowerCase();
     const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
-    const belum = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode)));
+    const belumPeriode = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode)));
 
-    const totSnt = snt.reduce((s,r)=>s+(r.jml||0),0);
+    // ── Cara B: belum sanitasi dalam date range yang dipilih ──
+    const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
+    const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
+    const sntInRange = new Set(
+      RAW_SNT.filter(r => r.gh && r.tgl && (!fromV||r.tgl>=fromV) && (!toV||r.tgl<=toV)).map(r=>r.gh.trim().toUpperCase())
+    );
+    const belumRange = d.filter(r => !sntInRange.has(r.gh.trim().toUpperCase()));
+
+    // ── Kategori sanitasi tertinggi (dari field trueSnt) ──
+    const katMap = {};
+    snt.forEach(r => {
+      const k = (r.trueSnt && r.trueSnt.trim()) ? r.trueSnt.trim() : null;
+      if (!k) return;
+      katMap[k] = (katMap[k]||0) + (r.jmlSnt || r.jml || 0);
+    });
+    const katEntries = Object.entries(katMap).sort((a,b)=>b[1]-a[1]);
+    const totKat = katEntries.reduce((s,[,v])=>s+v, 0) || 1;
+    const KAT_COLORS = ['#A32D2D','#854F0B','#3B6D11','#185FA5','#5F5E5A'];
+
+    const totSnt  = snt.reduce((s,r)=>s+(r.jml||0),0);
     const actDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
-    const badge = belum.length ? `<span class="pill p-w">${belum.length} GH belum sanitasi</span>` : `<span class="pill p-ok">Semua tersanitasi</span>`;
+    const badge   = belumPeriode.length ? `<span class="pill p-w">${belumPeriode.length} belum periode</span>` : `<span class="pill p-ok">Semua tersanitasi</span>`;
 
     html = ccShell('🧹','Sanitasi', badge,'ind',`
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
         ${ccMini('Total sanitasi', ccFmt(totSnt))}
-        ${ccMini('GH belum', belum.length||'0', belum.length?'var(--yellow)':'var(--green-mid)')}
+        ${ccMini('Belum (periode)', belumPeriode.length||'0', belumPeriode.length?'var(--yellow)':'var(--green-mid)')}
         ${ccMini('Hari aktif', actDays)}
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Tren GH tersanitasi harian (10 hari terakhir)</div>
+
+      ${katEntries.length ? `
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Kategori sanitasi tertinggi</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:14px">
+        ${katEntries.slice(0,6).map(([kat,jml],i) => {
+          const pct = (jml/totKat*100).toFixed(1);
+          const col = KAT_COLORS[i] || '#888';
+          return `<div style="background:var(--surface2);border:0.5px solid var(--border);border-radius:9px;padding:9px 11px;border-top:2px solid ${col}">
+            <div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${kat}</div>
+            <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)">${ccFmt(jml)}</div>
+            <div style="font-size:10px;color:var(--text3)">${pct}% dari total</div>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Tren GH tersanitasi (10 hari terakhir)</div>
       <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px">${trend.length ? trend : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
+
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">GH sanitasi terbanyak</div>
       ${topGH.map(([gh,jml]) => ccBar(gh, jml, maxJml, 'var(--green)')).join('')}
-      ${belum.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH belum sanitasi periode ini</div>
-        ${ccAlertItem('⚠️', belum.map(r=>r.gh).join(', '), 'Belum ada data sanitasi pada periode aktif — jadwalkan segera')}` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
+        <div style="padding:10px 12px;background:var(--surface2);border-radius:9px;border:0.5px solid var(--border)">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">⚠ Belum sanitasi — periode aktif</div>
+          ${belumPeriode.length
+            ? belumPeriode.map(r=>`<div style="font-size:11px;color:var(--yellow-txt);padding:2px 0;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${CC[clOf(r.gh)]||'#999'};flex-shrink:0;display:inline-block"></span>${r.gh}</div>`).join('')
+            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH sudah sanitasi</div>`
+          }
+        </div>
+        <div style="padding:10px 12px;background:var(--surface2);border-radius:9px;border:0.5px solid var(--border)">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">⚠ Belum sanitasi — date range ini</div>
+          ${belumRange.length
+            ? belumRange.map(r=>`<div style="font-size:11px;color:var(--yellow-txt);padding:2px 0;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${CC[clOf(r.gh)]||'#999'};flex-shrink:0;display:inline-block"></span>${r.gh}</div>`).join('')
+            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH aktif di range ini</div>`
+          }
+        </div>
+      </div>
     `);
   }
 
