@@ -689,6 +689,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <button class="fbtn" id="ccFiltTohudan"  onclick="setCCFilter('tohudan',this)">Tohudan</button>
         <button class="fbtn" id="ccFiltSawahan"  onclick="setCCFilter('sawahan',this)">Sawahan</button>
         <button class="fbtn" id="ccFiltColomadu" onclick="setCCFilter('colomadu',this)">Colomadu</button>
+        <button class="fbtn" id="ccFiltBergas"   onclick="setCCFilter('bergas',this)">Bergas</button>
         <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
           <span style="font-size:11px;color:var(--text3)">Periode:</span>
           <input type="date" id="ccDateFrom" onchange="rebuildCC()"
@@ -696,7 +697,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <span style="font-size:12px;color:var(--text3)">—</span>
           <input type="date" id="ccDateTo" onchange="rebuildCC()"
             style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
-          <button class="fbtn" onclick="rebuildCC()" title="Refresh data sesuai periode" style="font-size:11px;padding:5px 10px">↻ Terapkan</button>
         </div>
       </div>
 
@@ -4924,12 +4924,36 @@ function ccFilteredHPT() {
 }
 
 // ── BADGE GENERATOR per sub menu ──
+
+// Helper: ambil data cuaca dari RAW_PNY (sama sumber dengan menu Penyiraman)
+function ccGetWx() {
+  if (!RAW_PNY.length) return null;
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+  let rows = [...RAW_PNY];
+  if (from) rows = rows.filter(r => (r.tgl||'') >= from);
+  if (to)   rows = rows.filter(r => (r.tgl||'') <= to);
+  if (!rows.length) rows = [...RAW_PNY]; // fallback semua data
+  const withCuaca = rows.filter(r => r.cuaca);
+  const withSuhu  = rows.filter(r => r.suhu > 0);
+  const withRH    = rows.filter(r => r.rh   > 0);
+  if (!withSuhu.length && !withCuaca.length) return null;
+  // Modus kondisi cuaca
+  const freq = {};
+  withCuaca.forEach(r => { const k=(r.cuaca||'').toLowerCase().trim(); freq[k]=(freq[k]||0)+1; });
+  const kondisi = Object.keys(freq).sort((a,b)=>freq[b]-freq[a])[0] || '—';
+  const avgSuhu = withSuhu.length ? withSuhu.reduce((s,r)=>s+r.suhu,0)/withSuhu.length : 0;
+  const avgRH   = withRH.length   ? withRH.reduce((s,r)=>s+r.rh,0)/withRH.length       : 0;
+  // Ambil tgl terbaru
+  const latestTgl = rows.reduce((m,r)=>(r.tgl||'')>m?r.tgl:m,'');
+  return { kondisi, avgSuhu, avgRH, latestTgl, cnt: rows.length };
+}
+
 function ccBadge(id) {
   const d = ccFilteredRAW();
   const snt = ccFilteredSNT();
   switch(id) {
     case 'cc-sanitasi': {
-      // GH aktif yang belum sanitasi periode ini
       const normP = s => String(s||'').trim().toLowerCase();
       const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
       const belum = d.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode))).length;
@@ -4941,6 +4965,13 @@ function ccBadge(id) {
       hptD.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
       const high = Object.values(latestByGH).filter(r => risikoGlobal && risikoGlobal(r)==='high').length;
       return high > 0 ? {text: high+' high risk', cls:'p-b'} : {text:'ok', cls:'p-ok'};
+    }
+    case 'cc-cuaca': {
+      const wx = ccGetWx();
+      if (!wx) return {text:'tidak ada data', cls:'p-w'};
+      const rh = wx.avgRH;
+      if (rh > 85) return {text:'RH '+Math.round(rh)+'% — tinggi', cls:'p-w'};
+      return {text: wx.kondisi || 'ok', cls:'p-ok'};
     }
     case 'cc-penyiraman': {
       const pny = ccFilteredPNY();
@@ -4998,8 +5029,17 @@ function ccAlerts(id) {
       if (med.length)  res.push({dot:'dot-amber', text: med.length+' GH medium risk'});
       return res.length ? res : [{dot:'dot-green', text:'Semua GH low risk'}];
     }
-    case 'cc-cuaca':
-      return [{dot:'dot-amber', text:'Data dari API cuaca realtime'}];
+    case 'cc-cuaca': {
+      const wx = ccGetWx();
+      if (!wx) return [{dot:'dot-gray', text:'Data cuaca belum tersedia'}];
+      const alerts = [];
+      if (wx.avgRH > 85)  alerts.push({dot:'dot-amber', text:`RH ${Math.round(wx.avgRH)}% — risiko penyakit jamur`});
+      if (wx.avgRH > 90)  alerts.push({dot:'dot-red',   text:'RH sangat tinggi — pantau DM & PM ketat'});
+      if (wx.avgSuhu > 35) alerts.push({dot:'dot-amber', text:`Suhu ${wx.avgSuhu.toFixed(1)}°C — di atas optimal`});
+      if (wx.avgSuhu < 24) alerts.push({dot:'dot-amber', text:`Suhu ${wx.avgSuhu.toFixed(1)}°C — di bawah optimal`});
+      if (!alerts.length)  alerts.push({dot:'dot-green', text:`${wx.kondisi} · Suhu & RH normal`});
+      return alerts;
+    }
     case 'cc-penyiraman': {
       const pny = ccFilteredPNY();
       const latestByGH = {};
@@ -5214,15 +5254,85 @@ function ccRenderDetail(id, panel) {
   }
 
   else if (id === 'cc-cuaca') {
-    html = ccShell('🌤','Cuaca — Kondisi Hari Ini','','ind',`
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
-        ${ccMini('Suhu','31°C')}
-        ${ccMini('Kelembaban','88%','var(--yellow)')}
-        ${ccMini('Kondisi','Berawan')}
-      </div>
-      ${ccAlertItem('⚠️','RH 88% — di atas normal (target &lt;80%)','Risiko penyakit jamur meningkat · pantau DM & PM')}
-      ${ccAlertItem('✅','Suhu 31°C dalam rentang optimal (28–34°C)','Kondisi pertumbuhan mendukung')}
-    `);
+    const wx = ccGetWx();
+    if (!wx) {
+      html = ccShell('🌤','Cuaca',null,'ind',`
+        <div style="padding:24px;text-align:center;color:var(--text4);font-size:13px">
+          Data cuaca belum tersedia.<br>
+          <span style="font-size:11px">Pastikan data penyiraman sudah diinput (kolom Suhu, RH, Cuaca)</span>
+        </div>
+      `);
+    } else {
+      const suhuOk  = wx.avgSuhu >= 24 && wx.avgSuhu <= 35;
+      const rhOk    = wx.avgRH <= 80;
+      const suhuCls = suhuOk ? 'green' : 'amber';
+      const rhCls   = rhOk   ? 'green' : wx.avgRH > 90 ? 'red' : 'amber';
+      const icon    = wxIcon ? wxIcon(wx.kondisi) : '🌤';
+
+      const suhuAlert = !suhuOk
+        ? ccAlertItem('⚠️', `Suhu ${wx.avgSuhu.toFixed(1)}°C — ${wx.avgSuhu>35?'di atas':'di bawah'} optimal (24–35°C)`, 'Perhatikan kondisi pertumbuhan tanaman')
+        : ccAlertItem('✅', `Suhu ${wx.avgSuhu.toFixed(1)}°C dalam rentang optimal`, 'Kondisi pertumbuhan mendukung');
+      const rhAlert = !rhOk
+        ? ccAlertItem('⚠️', `RH ${Math.round(wx.avgRH)}% — di atas normal (target ≤80%)`, 'Risiko penyakit jamur · pantau DM & PM lebih ketat')
+        : ccAlertItem('✅', `RH ${Math.round(wx.avgRH)}% dalam batas normal`, 'Kelembaban mendukung');
+
+      const badgeTxt = (!suhuOk || !rhOk) ? {text:'perlu perhatian', cls:'p-w'} : {text:'kondisi baik', cls:'p-ok'};
+      const badgeHtml = `<span class="pill ${badgeTxt.cls}">${badgeTxt.text}</span>`;
+
+      // Trend suhu & RH per hari (dari range yang dipilih)
+      const from = (document.getElementById('ccDateFrom')||{}).value || '';
+      const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+      let pnyRows = [...RAW_PNY];
+      if (from) pnyRows = pnyRows.filter(r=>(r.tgl||'')>=from);
+      if (to)   pnyRows = pnyRows.filter(r=>(r.tgl||'')<=to);
+      const byDay = {};
+      pnyRows.forEach(r => {
+        if (!r.tgl) return;
+        if (!byDay[r.tgl]) byDay[r.tgl] = {suhuSum:0,suhuCnt:0,rhSum:0,rhCnt:0};
+        if (r.suhu>0) { byDay[r.tgl].suhuSum+=r.suhu; byDay[r.tgl].suhuCnt++; }
+        if (r.rh>0)   { byDay[r.tgl].rhSum+=r.rh;     byDay[r.tgl].rhCnt++;   }
+      });
+      const days = Object.keys(byDay).sort().slice(-7);
+      const trendHtml = days.length > 1 ? `
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 8px">Trend 7 hari terakhir</div>
+        <div style="display:flex;gap:6px;overflow-x:auto">
+          ${days.map(d => {
+            const v = byDay[d];
+            const s = v.suhuCnt ? (v.suhuSum/v.suhuCnt).toFixed(1) : '—';
+            const r = v.rhCnt   ? Math.round(v.rhSum/v.rhCnt)     : '—';
+            const dLabel = d.slice(5).split('-').reverse().join('/');
+            const rhCol = (r!=='—'&&r>85) ? 'var(--yellow-txt)' : 'var(--text2)';
+            return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:7px 10px;min-width:56px">
+              <div style="font-size:9px;color:var(--text3);margin-bottom:4px">${dLabel}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--blue)">${s}°</div>
+              <div style="font-size:11px;font-weight:600;color:${rhCol}">${r}%</div>
+            </div>`;
+          }).join('')}
+        </div>
+      ` : '';
+
+      html = ccShell('🌤','Cuaca — Data dari Penyiraman', badgeHtml,'ind',`
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px;padding:12px 14px;background:var(--surface2);border-radius:10px">
+          <div style="font-size:36px;line-height:1">${icon}</div>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:700;color:var(--text);text-transform:capitalize">${wx.kondisi}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Data terbaru: ${(wx.latestTgl||'').split('-').reverse().join('/')} · ${wx.cnt} entri</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:24px;font-weight:700;color:var(--blue)">${wx.avgSuhu.toFixed(1)}°C</div>
+            <div style="font-size:13px;font-weight:600;color:${rhOk?'var(--blue)':'var(--yellow)'}">${Math.round(wx.avgRH)}% RH</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          ${ccMini('Avg Suhu', wx.avgSuhu.toFixed(1)+'°C', suhuOk?'var(--blue)':'var(--yellow)')}
+          ${ccMini('Avg RH', Math.round(wx.avgRH)+'%', rhOk?'var(--blue)':'var(--yellow)')}
+          ${ccMini('Kondisi', wx.kondisi, 'var(--text)')}
+        </div>
+        ${suhuAlert}
+        <div style="margin-top:6px">${rhAlert}</div>
+        ${trendHtml}
+      `);
+    }
   }
 
   else if (id === 'cc-hpt') {
