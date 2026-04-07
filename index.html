@@ -717,6 +717,59 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
       </div>
 
+      <!-- ROW 2: GH Off / Masa Panen — hanya muncul jika ada date range & ada GH off -->
+      <div id="ccKpiOffRow" style="display:none;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px">
+
+        <!-- Label divider -->
+        <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;margin-bottom:2px">
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:2px 10px;border-radius:20px;background:#fdecea;color:var(--red-txt);border:1px solid #f0b0b0;white-space:nowrap">🌾 Masa Panen (HST &gt; 65)</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:10px;color:var(--text4);white-space:nowrap" id="ccOffNote">tidak dihitung dalam KPI aktif</span>
+        </div>
+
+        <!-- Off: GH count -->
+        <div style="background:#fdecea;border:1px solid #f0b0b0;border-radius:11px;padding:13px 16px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8b1515,var(--red))"></div>
+          <div style="font-size:9px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">GH Masa Panen</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--red);margin:4px 0 2px" id="ccOffKpi1">—</div>
+          <div style="font-size:10px;color:var(--red-txt)" id="ccOffKpi1n">greenhouse HST &gt; 65</div>
+        </div>
+
+        <!-- Off: Total Populasi -->
+        <div style="background:#fdecea;border:1px solid #f0b0b0;border-radius:11px;padding:13px 16px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8b1515,var(--red))"></div>
+          <div style="font-size:9px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Pop Panen</div>
+          <div style="display:flex;align-items:baseline;gap:5px;margin:4px 0 2px">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--red)" id="ccOffKpi2">—</div>
+            <div style="font-size:10px;color:var(--red-txt)">/ <span id="ccOffKpi2awal">—</span></div>
+          </div>
+          <div style="height:4px;background:rgba(192,32,32,.15);border-radius:2px;overflow:hidden;margin-bottom:3px">
+            <div id="ccOffKpi2bar" style="height:100%;border-radius:2px;background:var(--red);width:0%;transition:width .6s"></div>
+          </div>
+          <div style="font-size:10px;color:var(--red-txt)" id="ccOffKpi2n">survival rate —%</div>
+        </div>
+
+        <!-- Off: Avg Gramasi -->
+        <div style="background:#fdecea;border:1px solid #f0b0b0;border-radius:11px;padding:13px 16px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8b1515,var(--red))"></div>
+          <div style="font-size:9px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Avg Gramasi Panen</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:26px;font-weight:700;color:var(--red);margin:4px 0 2px" id="ccOffKpi3">—</div>
+          <div style="font-size:10px;color:var(--red-txt)" id="ccOffKpi3n">avg dari GH panen</div>
+        </div>
+
+        <!-- Off: Total Sanitasi -->
+        <div style="background:#fdecea;border:1px solid #f0b0b0;border-radius:11px;padding:13px 16px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#8b1515,var(--red))"></div>
+          <div style="font-size:9px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.7px;margin-bottom:4px">Sanitasi Panen</div>
+          <div style="display:flex;align-items:baseline;gap:5px;margin:4px 0 2px">
+            <div style="font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--red)" id="ccOffKpi4">—</div>
+            <div style="font-size:10px;color:var(--red-txt)">/ <span id="ccOffKpi4pop">—</span></div>
+          </div>
+          <div style="font-size:10px;color:var(--red-txt)" id="ccOffKpi4n">% dari pop awal panen</div>
+        </div>
+
+      </div>
+
       <!-- FILTER BAR -->
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
         <span style="font-size:11px;color:var(--text3);font-weight:600">Filter GH:</span>
@@ -4880,24 +4933,18 @@ const CC_DEP = [
 // ── HELPERS ──
 const ccFmt = n => Number(n).toLocaleString('id-ID');
 
-function ccFilteredRAW() {
+// ── BUILD ALL GH dari history (atau RAW fallback) tanpa filter HST ──
+function ccBuildAllGH() {
   let d;
   if (RAW_POP_HISTORY.length) {
-    // RAW_POP_HISTORY: 1 baris per GH×tanggal dari GAS
-    // Ambil baris HST tertinggi per GH dalam range (kondisi terbaru di range tsb)
     const ghMap = {};
     RAW_POP_HISTORY.forEach(r => {
       if (!ghMap[r.gh] || r.hst > ghMap[r.gh].hst) ghMap[r.gh] = r;
     });
-
-    // Enrich dengan field dari RAW yang tidak ada di history
-    // (targetGramasi, targetPop, pctTarget — dihitung GAS dari sheet Standar)
     const rawByGH = {};
     RAW.forEach(r => { rawByGH[r.gh.trim().toUpperCase()] = r; });
-
     d = Object.values(ghMap).map(r => {
       const base = rawByGH[r.gh.trim().toUpperCase()] || {};
-      // Hitung pctTarget dari history menggunakan popStdFaktor yang sudah ada
       const hst       = r.hst || 0;
       const popAwal   = r.popAwal   || base.popAwal   || 0;
       const popAkhir  = r.popAkhir  || base.popAkhir  || 0;
@@ -4905,7 +4952,7 @@ function ccFilteredRAW() {
       const targetPop = popAwal > 0 ? Math.round(popAwal * stdFaktor) : (base.targetPop || 0);
       const pctTarget = targetPop > 0 ? Math.round(popAkhir / targetPop * 100 * 10) / 10 : (base.pctTarget || 0);
       return {
-        ...base,              // inherit semua field RAW (termasuk targetGramasi, dll)
+        ...base,
         gh           : r.gh,
         hst          : hst,
         periode      : r.periode      || base.periode      || '',
@@ -4926,6 +4973,17 @@ function ccFilteredRAW() {
   }
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
   return d;
+}
+
+// GH Aktif = HST <= 65
+function ccFilteredRAW() {
+  return ccBuildAllGH().filter(r => r.hst <= 65);
+}
+
+// GH Off/Panen = HST > 65 (hanya muncul ketika ada date range history)
+function ccFilteredRAW_OFF() {
+  if (!RAW_POP_HISTORY.length) return [];
+  return ccBuildAllGH().filter(r => r.hst > 65);
 }
 
 function ccFilteredSNT() {
@@ -5238,8 +5296,9 @@ function ccRenderCards() {
 
 // ── RENDER KPI ──
 function ccRenderKPI() {
-  const d   = ccFilteredRAW();
-  const snt = ccFilteredSNT();
+  const d    = ccFilteredRAW();       // GH aktif HST <= 65
+  const dOff = ccFilteredRAW_OFF();   // GH off/panen HST > 65
+  const snt  = ccFilteredSNT();
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
@@ -5249,37 +5308,33 @@ function ccRenderKPI() {
     : from ? fmtD(from) : 'hari ini';
   const dataNote = RAW_POP_HISTORY.length > 0 ? rangeLabel : 'kondisi terkini';
 
-  // ── Kalkulasi ──
+  // ── KPI AKTIF (HST ≤ 65) ──
   const totPopAkhir = d.reduce((s,r) => s+(+r.popAkhir||0), 0);
   const totPopAwal  = d.reduce((s,r) => s+(+r.popAwal||0), 0);
   const survivalPct = totPopAwal > 0 ? (totPopAkhir / totPopAwal * 100) : 0;
 
-  // Loss = total sanitasi dari RAW per GH dibagi pop awal
   const totSanitasiRaw = d.reduce((s,r) => s+(+r.sanitasi||0), 0);
   const lossPct = totPopAwal > 0 ? (totSanitasiRaw / totPopAwal * 100) : 0;
 
   const onTr = d.filter(r => popOk(r) && grOk(r)).length;
   const krit = d.filter(isCrit).length;
 
-  // GH aktif = d.length (dari RAW, HST ≤ 65, sudah difilter GAS)
-  // GH total = semua GH unik yang pernah punya data sanitasi (paling lengkap sebagai "semua GH")
   const ghAktif = d.length;
   const ghTotal = new Set([
     ...RAW.map(r => r.gh),
     ...RAW_SNT.map(r => r.gh).filter(Boolean),
   ]).size;
 
-  // Total sanitasi dari RAW_SNT (ikut date range)
   const totSnt     = snt.reduce((s,r) => s+(r.jml||0), 0);
   const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
 
-  // ── GH Aktif (aktif = HST≤65 di RAW, total = semua GH unik dari semua sumber) ──
+  // GH Aktif
   const el3  = document.getElementById('ccKpi3');      if(el3)  el3.textContent  = ghAktif;
   const el3t = document.getElementById('ccKpi3total'); if(el3t) el3t.textContent = '/ '+ghTotal+' GH total';
   const el3n = document.getElementById('ccKpi3n');
   if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
 
-  // ── Total Loss Populasi (pop akhir + loss section) ──
+  // Total Populasi Aktif
   const el1  = document.getElementById('ccKpi1');    if(el1)  el1.textContent  = ccFmt(totPopAkhir);
   const el1a = document.getElementById('ccKpi1awal');if(el1a) el1a.textContent = ccFmt(totPopAwal);
   const el1b = document.getElementById('ccKpi1bar'); if(el1b) el1b.style.width = Math.min(survivalPct,100).toFixed(1)+'%';
@@ -5288,22 +5343,13 @@ function ccRenderKPI() {
     el1p.textContent = survivalPct.toFixed(1)+'%';
     el1p.style.color = survivalPct>=90?'var(--green)':survivalPct>=80?'#c87800':'var(--red)';
   }
-  const elLn = document.getElementById('ccKpi_lossn');
-  if(elLn) elLn.textContent = 'sanitasi / pop awal · '+dataNote+' · standar <15%';
-  const elL  = document.getElementById('ccKpi_loss');
-  if(elL)  elL.textContent  = ccFmt(totSanitasiRaw);
-  const elLb = document.getElementById('ccKpi_lossbar');
-  if(elLb) {
-    elLb.style.width      = Math.min(lossPct/15*100,100).toFixed(1)+'%';
-    elLb.style.background = lossPct<=15?'#c87800':'var(--red)';
-  }
-  const elLp = document.getElementById('ccKpi_losspct');
-  if(elLp) {
-    elLp.textContent = lossPct.toFixed(1)+'%';
-    elLp.style.color = lossPct<=15?'#c87800':'var(--red)';
-  }
+  // hidden compat elements
+  const elLn = document.getElementById('ccKpi_lossn'); if(elLn) elLn.textContent = '';
+  const elL  = document.getElementById('ccKpi_loss');  if(elL)  elL.textContent  = '';
+  const elLb = document.getElementById('ccKpi_lossbar'); if(elLb) elLb.style.width = '0%';
+  const elLp = document.getElementById('ccKpi_losspct'); if(elLp) elLp.textContent = '';
 
-  // ── Avg Gramasi (selalu dari RAW snapshot, bukan history) ──
+  // Avg Gramasi (selalu dari RAW snapshot, hanya GH aktif)
   const wGr   = RAW.filter(r => {
     if (CC_GH_FILTER !== 'semua' && clOf(r.gh).toLowerCase() !== CC_GH_FILTER) return false;
     return (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1;
@@ -5312,13 +5358,12 @@ function ccRenderKPI() {
   const el2  = document.getElementById('ccKpi2');  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
   const el2n = document.getElementById('ccKpi2n'); if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur · kondisi terkini' : 'belum ada data';
 
-  // ── Total Sanitasi — format: total_snt / total_pop_awal + bar % loss ──
+  // Total Sanitasi Aktif
   const sntLossPct = totPopAwal > 0 ? (totSnt / totPopAwal * 100) : 0;
-  const el4    = document.getElementById('ccKpi4');      if(el4)    el4.textContent  = ccFmt(totSnt);
-  const el4pa  = document.getElementById('ccKpi4popAwal'); if(el4pa) el4pa.textContent = ccFmt(totPopAwal);
+  const el4    = document.getElementById('ccKpi4');       if(el4)   el4.textContent  = ccFmt(totSnt);
+  const el4pa  = document.getElementById('ccKpi4popAwal');if(el4pa) el4pa.textContent = ccFmt(totPopAwal);
   const el4b   = document.getElementById('ccKpi4bar');
   if(el4b) {
-    // bar dikalibrasi terhadap 15% (standar max loss)
     el4b.style.width      = Math.min(sntLossPct/15*100,100).toFixed(1)+'%';
     el4b.style.background = sntLossPct <= 10 ? '#0F6E56' : sntLossPct <= 15 ? '#c87800' : 'var(--red)';
   }
@@ -5328,6 +5373,61 @@ function ccRenderKPI() {
   if(el4pct) {
     el4pct.textContent = sntLossPct.toFixed(1)+'%';
     el4pct.style.color = sntLossPct <= 10 ? '#0F6E56' : sntLossPct <= 15 ? '#c87800' : 'var(--red)';
+  }
+
+  // ── KPI OFF / PANEN (HST > 65) — hanya tampil jika ada data range & ada GH off ──
+  const offRow = document.getElementById('ccKpiOffRow');
+  if (offRow) {
+    if (dOff.length > 0) {
+      offRow.style.display = 'grid';
+
+      const offPopAkhir  = dOff.reduce((s,r) => s+(+r.popAkhir||0), 0);
+      const offPopAwal   = dOff.reduce((s,r) => s+(+r.popAwal||0), 0);
+      const offSurvival  = offPopAwal > 0 ? (offPopAkhir / offPopAwal * 100) : 0;
+
+      const offWGr = dOff.filter(r => (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1);
+      const offAvgGr = offWGr.length
+        ? Math.round(offWGr.reduce((s,r)=>s+(+r.avgGramasi),0)/offWGr.length) : 0;
+
+      // Sanitasi GH panen: cocokkan dari RAW_SNT by GH+periode
+      const offGHKeys = new Set(dOff.map(r => r.gh.trim().toUpperCase()+'||'+(r.periode||'').trim().toLowerCase()));
+      const normP = s => String(s||'').trim().toLowerCase();
+      const offSntTotal = RAW_SNT.filter(r => {
+        const k = (r.gh||'').trim().toUpperCase()+'||'+normP(r.periode||'');
+        const inRange = (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to);
+        return offGHKeys.has(k) && inRange;
+      }).reduce((s,r)=>s+(r.jml||0),0);
+
+      const offSntPct = offPopAwal > 0 ? (offSntTotal / offPopAwal * 100) : 0;
+
+      const off1 = document.getElementById('ccOffKpi1');
+      if(off1) off1.textContent = dOff.length;
+      const off1n = document.getElementById('ccOffKpi1n');
+      if(off1n) {
+        const ghNames = dOff.sort((a,b)=>b.hst-a.hst).slice(0,3).map(r=>r.gh).join(', ');
+        const more    = dOff.length > 3 ? ` +${dOff.length-3} lainnya` : '';
+        off1n.textContent = ghNames + more;
+      }
+
+      const off2 = document.getElementById('ccOffKpi2');     if(off2)  off2.textContent  = ccFmt(offPopAkhir);
+      const off2a= document.getElementById('ccOffKpi2awal'); if(off2a) off2a.textContent = ccFmt(offPopAwal);
+      const off2b= document.getElementById('ccOffKpi2bar');
+      if(off2b) off2b.style.width = Math.min(offSurvival,100).toFixed(1)+'%';
+      const off2n= document.getElementById('ccOffKpi2n');
+      if(off2n) off2n.textContent = 'survival rate '+offSurvival.toFixed(1)+'%';
+
+      const off3 = document.getElementById('ccOffKpi3');  if(off3)  off3.textContent = offAvgGr ? offAvgGr+'g' : '—';
+      const off3n= document.getElementById('ccOffKpi3n'); if(off3n) off3n.textContent = offWGr.length ? 'avg dari '+offWGr.length+' GH' : 'data tidak tersedia';
+
+      const off4 = document.getElementById('ccOffKpi4');    if(off4)  off4.textContent  = ccFmt(offSntTotal);
+      const off4p= document.getElementById('ccOffKpi4pop'); if(off4p) off4p.textContent = ccFmt(offPopAwal);
+      const off4n= document.getElementById('ccOffKpi4n');   if(off4n) off4n.textContent = offSntPct.toFixed(1)+'% dari pop awal panen';
+
+      const offNote = document.getElementById('ccOffNote');
+      if(offNote) offNote.textContent = `${dOff.length} GH sudah HST > 65 · tidak dihitung dalam KPI aktif`;
+    } else {
+      offRow.style.display = 'none';
+    }
   }
 }
 
