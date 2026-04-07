@@ -659,7 +659,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI CARDS -->
-      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)" id="ccKpiGrid">
+      <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)" id="ccKpiGrid">
         <div class="sc g">
           <div class="sc-lbl">Total Populasi</div>
           <div class="sc-val g" id="ccKpi1">—</div>
@@ -679,6 +679,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-lbl">Total Sanitasi</div>
           <div class="sc-val" style="color:#0F6E56" id="ccKpi4">—</div>
           <div class="sc-note" id="ccKpi4n">hari aktif sanitasi</div>
+        </div>
+        <div class="sc" style="border-top:4px solid var(--red);cursor:pointer" onclick="toggleCCMenu('cc-status')" title="Klik untuk lihat detail GH perlu tanam baru">
+          <div class="sc-lbl" style="color:var(--red-txt)">⚠ Perlu Tanam Baru</div>
+          <div class="sc-val" style="color:var(--red)" id="ccKpi5">—</div>
+          <div class="sc-note" id="ccKpi5n">GH panen belum ada semai</div>
         </div>
       </div>
 
@@ -4925,6 +4930,44 @@ function ccFilteredHPT() {
 
 // ── BADGE GENERATOR per sub menu ──
 
+// Helper: GH yang HST ≥ 55 (fase panen) dan belum ada semai aktif/siap
+// → reminder untuk segera koordinasi tanam baru
+function ccGetTanamBaru() {
+  const d = ccFilteredRAW();
+  // GH yang sudah di fase panen (HST ≥ 55)
+  const panenGH = d.filter(r => r.hst >= 55);
+  if (!panenGH.length) return [];
+
+  const result = [];
+  panenGH.forEach(r => {
+    const ghUpper = r.gh.trim().toUpperCase();
+    // Cek apakah ada semai aktif (belum tanam) untuk GH ini
+    const semaiAktif = RAW_SEMAI.filter(s =>
+      s.gh && s.gh.trim().toUpperCase() === ghUpper && !s.realTglTanam
+    );
+    // Cek apakah ada semai yang sudah tanam di periode berikutnya
+    // (tglTanam lebih baru dari tglAwalTanam saat ini)
+    const semaiSudahTanam = RAW_SEMAI.filter(s =>
+      s.gh && s.gh.trim().toUpperCase() === ghUpper && s.realTglTanam
+    );
+    // Kalau tidak ada semai aktif sama sekali → perlu tanam baru
+    const adaSemai = semaiAktif.length > 0;
+    const adaSudahTanam = semaiSudahTanam.some(s => {
+      // Tanam baru = realTglTanam lebih baru dari periode saat ini
+      return s.realTglTanam && s.realTglTanam > (r.tglAwalTanam || '');
+    });
+
+    if (!adaSemai && !adaSudahTanam) {
+      result.push({
+        gh    : r.gh,
+        hst   : r.hst,
+        periode: r.periode,
+      });
+    }
+  });
+  return result;
+}
+
 // Helper: ambil data cuaca dari RAW_PNY (sama sumber dengan menu Penyiraman)
 function ccGetWx() {
   if (!RAW_PNY.length) return null;
@@ -5160,6 +5203,22 @@ function ccRenderKPI() {
   const el3n= document.getElementById('ccKpi3n');if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
   const el4 = document.getElementById('ccKpi4'); if(el4) el4.textContent = ccFmt(totSnt);
   const el4n= document.getElementById('ccKpi4n');if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
+
+  // KPI 5: GH perlu tanam baru
+  const tanamBaru = ccGetTanamBaru();
+  const el5  = document.getElementById('ccKpi5');
+  const el5n = document.getElementById('ccKpi5n');
+  const kpi5card = el5?.closest('.sc');
+  if (el5)  el5.textContent = tanamBaru.length || '0';
+  if (el5n) el5n.textContent = tanamBaru.length
+    ? tanamBaru.slice(0,2).map(r=>r.gh.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B')+' HST'+r.hst).join(', ') + (tanamBaru.length>2?' +lainnya':'')
+    : 'Semua GH panen sudah ada semai';
+  if (kpi5card) {
+    kpi5card.style.borderTopColor = tanamBaru.length ? 'var(--red)' : 'var(--green-mid)';
+    const lbl = kpi5card.querySelector('.sc-lbl');
+    if (lbl) { lbl.textContent = tanamBaru.length ? '⚠ Perlu Tanam Baru' : '✓ Tanam Baru'; lbl.style.color = tanamBaru.length ? 'var(--red-txt)' : 'var(--green-txt)'; }
+    if (el5)  el5.style.color = tanamBaru.length ? 'var(--red)' : 'var(--green-mid)';
+  }
 }
 
 // ── DETAIL RENDERERS ──
@@ -5476,13 +5535,39 @@ function ccRenderDetail(id, panel) {
     const onTr = d.filter(r=>popOk(r)&&grOk(r));
     const warn = d.filter(r=>!isCrit(r)&&!(popOk(r)&&grOk(r)));
     const krit = d.filter(isCrit);
-    const maxN = Math.max(onTr.length, warn.length, krit.length, 1);
+    const tanamBaru = ccGetTanamBaru();
     const badge = krit.length ? `<span class="pill p-b">${krit.length} kritis</span>` : `<span class="pill p-ok">${onTr.length} on track</span>`;
+
+    const tanamBaruHtml = tanamBaru.length ? `
+      <div style="margin-top:14px;padding:12px 14px;background:var(--red-lt);border:1.5px solid #f0b0b0;border-radius:10px">
+        <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
+          🌱 Reminder — GH Panen Perlu Tanam Baru (${tanamBaru.length} GH)
+        </div>
+        ${tanamBaru.map(r => {
+          const dot = CC[clOf(r.gh)] || '#999';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(192,32,32,.12)">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+            <span style="font-size:12px;font-weight:700;flex:1">${r.gh}</span>
+            <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--red-txt)">HST ${r.hst}</span>
+            <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--red-lt);color:var(--red-txt);border:1px solid #f0b0b0">Belum ada semai</span>
+          </div>`;
+        }).join('')}
+        <div style="font-size:10px;color:var(--red-txt);margin-top:8px;opacity:.8">
+          GH ini sudah HST ≥55 (fase panen) namun belum ada batch semai aktif · Segera koordinasi dengan tim PPIC
+        </div>
+      </div>
+    ` : `
+      <div style="margin-top:14px;padding:10px 14px;background:var(--green-lt);border:1px solid #b8dfc4;border-radius:10px;font-size:12px;color:var(--green-txt)">
+        ✓ Semua GH panen sudah ada semai baru terjadwal
+      </div>
+    `;
+
     html = ccShell('📊','Status GH — Ringkasan', badge,'dep',`
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px">
         ${ccMini('On track', onTr.length, 'var(--green-mid)')}
         ${ccMini('Monitor', warn.length, warn.length?'var(--yellow)':'var(--text)')}
         ${ccMini('Kritis', krit.length, krit.length?'var(--red)':'var(--text)')}
+        ${ccMini('Perlu tanam baru', tanamBaru.length, tanamBaru.length?'var(--red)':'var(--green-mid)')}
       </div>
       ${ccBar('On Track', onTr.length, d.length, 'var(--green)', '')}
       ${ccBar('Monitor', warn.length, d.length, '#c87800', '')}
@@ -5490,6 +5575,7 @@ function ccRenderDetail(id, panel) {
       ${krit.length||warn.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH perlu perhatian</div>` : ''}
       ${krit.map(r => ccAlertItem('🔴', r.gh, 'HST '+r.hst+' · '+statusPill(r).replace(/<[^>]*>/g,''))).join('')}
       ${warn.slice(0,4).map(r => ccAlertItem('🟡', r.gh, 'HST '+r.hst+' · '+statusPill(r).replace(/<[^>]*>/g,''))).join('')}
+      ${tanamBaruHtml}
     `);
   }
 
