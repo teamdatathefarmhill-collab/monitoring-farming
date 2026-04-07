@@ -5481,19 +5481,37 @@ function ccRenderDetail(id, panel) {
   let html = '';
 
   if (id === 'cc-sanitasi') {
-    // Tren harian helper (reusable)
+    // Tren harian helper (reusable) — dengan tooltip hover
     function buildTrendHtml(filteredSnt, label) {
-      const ghPerDay = {};
-      filteredSnt.filter(r=>r.tgl).forEach(r => { if(!ghPerDay[r.tgl]) ghPerDay[r.tgl]=new Set(); ghPerDay[r.tgl].add(r.gh); });
-      const days = Object.keys(ghPerDay).sort();
-      // hanya 10 hari terakhir dalam range
+      const ghPerDay  = {};
+      const jmlPerDay = {};
+      filteredSnt.filter(r=>r.tgl).forEach(r => {
+        if (!ghPerDay[r.tgl])  ghPerDay[r.tgl]  = new Set();
+        ghPerDay[r.tgl].add(r.gh);
+        jmlPerDay[r.tgl] = (jmlPerDay[r.tgl]||0) + (r.jmlSnt||r.jml||0);
+      });
+      const days     = Object.keys(ghPerDay).sort();
       const daySlice = days.slice(-10);
-      const vals = daySlice.map(day => ghPerDay[day].size);
-      const mx = Math.max(...vals, 1);
-      return { trend: daySlice.map((day,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-        <div style="width:100%;border-radius:2px 2px 0 0;background:${vals[i]===mx?'var(--green)':'var(--green-lt)'};height:${Math.round(vals[i]/mx*44)}px"></div>
-        <div style="font-size:9px;color:var(--text3)">${day.slice(5).split('-').reverse().join('/')}</div>
-      </div>`).join(''), days: daySlice, vals };
+      const vals     = daySlice.map(day => ghPerDay[day].size);
+      const mx       = Math.max(...vals, 1);
+
+      const trend = daySlice.map((day, i) => {
+        const ghCount  = vals[i];
+        const jmlTotal = jmlPerDay[day] || 0;
+        const barH     = Math.max(Math.round(ghCount / mx * 44), 4);
+        const isBest   = ghCount === mx;
+        const dayLabel = day.slice(5).split('-').reverse().join('/');
+        const tooltipTxt = `${dayLabel}&#10;${ghCount} GH tersanitasi&#10;Total jml: ${Number(jmlTotal).toLocaleString('id-ID')}`;
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;cursor:pointer"
+          onmouseenter="ccSntShowTip(this,'${dayLabel}',${ghCount},${jmlTotal})"
+          onmouseleave="ccSntHideTip()">
+          <div style="width:100%;border-radius:2px 2px 0 0;background:${isBest?'var(--green)':'var(--green-lt)'};height:${barH}px;transition:filter .12s"
+            onmouseenter="this.style.filter='brightness(1.15)'" onmouseleave="this.style.filter=''"></div>
+          <div style="font-size:9px;color:var(--text3)">${dayLabel}</div>
+        </div>`;
+      }).join('');
+
+      return { trend, days: daySlice, vals };
     }
 
     // Bar GH terbanyak helper
@@ -5568,7 +5586,18 @@ function ccRenderDetail(id, panel) {
       </div>` : ''}
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px" id="ccSntChartLabel">Tren GH tersanitasi — Semua Kategori (10 hari terakhir)</div>
-      <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px" id="ccSntTrendBars">${trendHtmlAll.length ? trendHtmlAll : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
+      <div style="position:relative">
+        <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px" id="ccSntTrendBars">${trendHtmlAll.length ? trendHtmlAll : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
+        <div id="ccSntTooltip" style="
+          display:none;position:fixed;z-index:9999;
+          background:rgba(20,40,25,.92);color:#fff;
+          border-radius:9px;padding:8px 12px;font-size:11px;
+          pointer-events:none;white-space:nowrap;
+          box-shadow:0 4px 18px rgba(0,0,0,.28);
+          border:1px solid rgba(44,163,84,.4);
+          min-width:130px;
+        "></div>
+      </div>
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px" id="ccSntBarLabel">GH sanitasi terbanyak — Semua Kategori</div>
       <div id="ccSntGHBars">${topGHAll.map(([gh,jml]) => ccBar(gh, jml, maxJmlAll, 'var(--green)')).join('')}</div>
@@ -5594,6 +5623,39 @@ function ccRenderDetail(id, panel) {
     window._ccKatColors    = KAT_COLORS;
     window._ccSntAll       = snt;       // all rows in date range
     window._ccActiveKat    = null;
+
+    // ── Tooltip functions ──
+    window.ccSntShowTip = function(el, dayLabel, ghCount, jmlTotal) {
+      const tip = document.getElementById('ccSntTooltip');
+      if (!tip) return;
+      tip.innerHTML = `
+        <div style="font-size:10px;font-weight:700;color:#8ec99a;margin-bottom:4px;letter-spacing:.5px">📅 ${dayLabel}</div>
+        <div style="display:flex;justify-content:space-between;gap:16px;margin-bottom:2px">
+          <span style="color:rgba(255,255,255,.7)">GH tersanitasi</span>
+          <span style="font-weight:700;font-family:'JetBrains Mono',monospace">${ghCount}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:16px">
+          <span style="color:rgba(255,255,255,.7)">Total jml sanitasi</span>
+          <span style="font-weight:700;font-family:'JetBrains Mono',monospace">${Number(jmlTotal).toLocaleString('id-ID')}</span>
+        </div>
+      `;
+      tip.style.display = 'block';
+      const rect = el.getBoundingClientRect();
+      const tipW = 170;
+      let left = rect.left + rect.width/2 - tipW/2;
+      if (left < 8) left = 8;
+      if (left + tipW > window.innerWidth - 8) left = window.innerWidth - tipW - 8;
+      tip.style.left = left + 'px';
+      tip.style.top  = (rect.top - 10 - tip.offsetHeight || rect.top - 80) + 'px';
+      // re-position after render (offsetHeight now valid)
+      requestAnimationFrame(() => {
+        tip.style.top = (rect.top - tip.offsetHeight - 8) + 'px';
+      });
+    };
+    window.ccSntHideTip = function() {
+      const tip = document.getElementById('ccSntTooltip');
+      if (tip) tip.style.display = 'none';
+    };
 
     // Helper: re-render trend & bar per kategori (atau semua)
     window._ccRefreshSntCharts = function(filteredRows, label) {
