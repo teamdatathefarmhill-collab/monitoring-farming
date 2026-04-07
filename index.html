@@ -659,7 +659,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI CARDS -->
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px" id="ccKpiGrid">
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px" id="ccKpiGrid">
 
         <!-- 1. GH Aktif -->
         <div class="sc b" style="border-top:3px solid #185FA5">
@@ -675,7 +675,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div class="sc g" style="border-top:3px solid #3B6D11">
           <div class="sc-lbl">Populasi Akhir / Awal</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
-            <div class="sc-val g" id="ccKpi1" style="font-size:24px">—</div>
+            <div class="sc-val g" id="ccKpi1" style="font-size:22px">—</div>
           </div>
           <div class="sc-note" id="ccKpi1n" style="margin-bottom:6px">dari — pop awal</div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
@@ -687,15 +687,22 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           </div>
         </div>
 
-        <!-- 3. Loss Populasi -->
-        <div class="sc y" style="border-top:3px solid #BA7517">
-          <div class="sc-lbl">Loss Populasi</div>
+        <!-- 3. Avg Gramasi -->
+        <div class="sc y" style="border-top:3px solid #a06000">
+          <div class="sc-lbl">Avg Gramasi</div>
+          <div class="sc-val y" id="ccKpi2" style="font-size:28px;margin:6px 0 3px">—</div>
+          <div class="sc-note" id="ccKpi2n">dari GH diukur · kondisi terkini</div>
+        </div>
+
+        <!-- 4. Total Loss -->
+        <div class="sc" style="border-top:3px solid #c02020">
+          <div class="sc-lbl">Total Loss</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
-            <div class="sc-val y" id="ccKpi_loss" style="font-size:24px">—</div>
+            <div class="sc-val" style="color:var(--red);font-size:22px" id="ccKpi_loss">—</div>
           </div>
           <div class="sc-note" id="ccKpi_lossn" style="margin-bottom:6px">sanitasi / pop awal</div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
-            <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:#BA7517;width:0%;transition:width .6s"></div>
+            <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:var(--red);width:0%;transition:width .6s"></div>
           </div>
           <div style="display:flex;justify-content:space-between;font-size:10px">
             <span style="color:var(--text3)">standar &lt;15%</span>
@@ -703,7 +710,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           </div>
         </div>
 
-        <!-- 4. Total Sanitasi -->
+        <!-- 5. Total Sanitasi -->
         <div class="sc" style="border-top:3px solid #0F6E56">
           <div class="sc-lbl">Total Sanitasi</div>
           <div class="sc-val" style="color:#0F6E56;font-size:28px;margin:6px 0 3px" id="ccKpi4">—</div>
@@ -5279,7 +5286,16 @@ function ccRenderKPI() {
     el1p.style.color = survivalPct>=90?'var(--green)':survivalPct>=80?'#c87800':'var(--red)';
   }
 
-  // ── Loss Populasi ──
+  // ── Avg Gramasi (selalu dari RAW snapshot, bukan history) ──
+  const wGr   = RAW.filter(r => {
+    if (CC_GH_FILTER !== 'semua' && clOf(r.gh).toLowerCase() !== CC_GH_FILTER) return false;
+    return (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1;
+  });
+  const avgGr = wGr.length ? Math.round(wGr.reduce((s,r)=>s+(+r.avgGramasi),0)/wGr.length) : 0;
+  const el2  = document.getElementById('ccKpi2');  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
+  const el2n = document.getElementById('ccKpi2n'); if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur · kondisi terkini' : 'belum ada data';
+
+  // ── Total Loss ──
   const elL  = document.getElementById('ccKpi_loss');    if(elL)  elL.textContent  = ccFmt(totSanitasiRaw);
   const elLn = document.getElementById('ccKpi_lossn');   if(elLn) elLn.textContent = 'sanitasi / pop awal · '+dataNote;
   const elLb = document.getElementById('ccKpi_lossbar');
@@ -5378,16 +5394,19 @@ function ccRenderDetail(id, panel) {
     );
     const belumRange = d.filter(r => !sntInRange.has(r.gh.trim().toUpperCase()));
 
-    // ── Kategori sanitasi tertinggi (dari field trueSnt) ──
-    const katMap = {};
+    // ── Kategori sanitasi + GH per kategori ──
+    const katGHMap = {};
     snt.forEach(r => {
       const k = (r.trueSnt && r.trueSnt.trim()) ? r.trueSnt.trim() : null;
       if (!k) return;
-      katMap[k] = (katMap[k]||0) + (r.jmlSnt || r.jml || 0);
+      if (!katGHMap[k]) katGHMap[k] = { total:0, ghs:{} };
+      const jml = r.jmlSnt || r.jml || 0;
+      katGHMap[k].total += jml;
+      katGHMap[k].ghs[r.gh] = (katGHMap[k].ghs[r.gh]||0) + jml;
     });
-    const katEntries = Object.entries(katMap).sort((a,b)=>b[1]-a[1]);
-    const totKat = katEntries.reduce((s,[,v])=>s+v, 0) || 1;
-    const KAT_COLORS = ['#A32D2D','#854F0B','#3B6D11','#185FA5','#5F5E5A'];
+    const katEntries = Object.entries(katGHMap).sort((a,b)=>b[1].total-a[1].total);
+    const totKat = katEntries.reduce((s,[,v])=>s+v.total,0)||1;
+    const KAT_COLORS = ['#A32D2D','#854F0B','#3B6D11','#185FA5','#5F5E5A','#534AB7'];
 
     const totSnt  = snt.reduce((s,r)=>s+(r.jml||0),0);
     const actDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
@@ -5401,17 +5420,27 @@ function ccRenderDetail(id, panel) {
       </div>
 
       ${katEntries.length ? `
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">Kategori sanitasi tertinggi</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:14px">
-        ${katEntries.slice(0,6).map(([kat,jml],i) => {
-          const pct = (jml/totKat*100).toFixed(1);
-          const col = KAT_COLORS[i] || '#888';
-          return `<div style="background:var(--surface2);border:0.5px solid var(--border);border-radius:9px;padding:9px 11px;border-top:2px solid ${col}">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
+        Kategori sanitasi tertinggi
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px"> — klik untuk lihat GH</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px">
+        ${katEntries.slice(0,6).map(([kat,v],i) => {
+          const pct = (v.total/totKat*100).toFixed(1);
+          const col = KAT_COLORS[i]||'#888';
+          const safeKat = kat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          return `<div onclick="ccToggleKat('${safeKat}','${col}')"
+            style="background:var(--surface2);border:0.5px solid var(--border);border-radius:9px;padding:9px 11px;border-top:2px solid ${col};cursor:pointer"
+            onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='var(--surface2)'">
             <div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${kat}</div>
-            <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)">${ccFmt(jml)}</div>
+            <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)">${ccFmt(v.total)}</div>
             <div style="font-size:10px;color:var(--text3)">${pct}% dari total</div>
           </div>`;
         }).join('')}
+      </div>
+      <div id="ccKatDetail" style="display:none;margin-bottom:14px;padding:11px 13px;border-radius:9px;border:0.5px solid var(--border);background:var(--surface)">
+        <div style="font-size:10px;font-weight:700;margin-bottom:8px" id="ccKatDetailTitle">—</div>
+        <div id="ccKatDetailBody" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>` : ''}
 
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Tren GH tersanitasi (10 hari terakhir)</div>
@@ -5425,18 +5454,41 @@ function ccRenderDetail(id, panel) {
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">⚠ Belum sanitasi — periode aktif</div>
           ${belumPeriode.length
             ? belumPeriode.map(r=>`<div style="font-size:11px;color:var(--yellow-txt);padding:2px 0;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${CC[clOf(r.gh)]||'#999'};flex-shrink:0;display:inline-block"></span>${r.gh}</div>`).join('')
-            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH sudah sanitasi</div>`
-          }
+            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH sudah sanitasi</div>`}
         </div>
         <div style="padding:10px 12px;background:var(--surface2);border-radius:9px;border:0.5px solid var(--border)">
           <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">⚠ Belum sanitasi — date range ini</div>
           ${belumRange.length
             ? belumRange.map(r=>`<div style="font-size:11px;color:var(--yellow-txt);padding:2px 0;display:flex;align-items:center;gap:5px"><span style="width:6px;height:6px;border-radius:50%;background:${CC[clOf(r.gh)]||'#999'};flex-shrink:0;display:inline-block"></span>${r.gh}</div>`).join('')
-            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH aktif di range ini</div>`
-          }
+            : `<div style="font-size:11px;color:var(--green-txt)">✓ Semua GH aktif di range ini</div>`}
         </div>
       </div>
     `);
+
+    // Inject toggle function
+    window._ccKatGHMap = katGHMap;
+    window.ccToggleKat = function(kat, col) {
+      const panel = document.getElementById('ccKatDetail');
+      const title = document.getElementById('ccKatDetailTitle');
+      const body  = document.getElementById('ccKatDetailBody');
+      if (!panel||!title||!body) return;
+      const isOpen = panel.style.display!=='none' && title.dataset.kat===kat;
+      if (isOpen) { panel.style.display='none'; return; }
+      const v = window._ccKatGHMap[kat];
+      if (!v) return;
+      const sorted = Object.entries(v.ghs).sort((a,b)=>b[1]-a[1]);
+      title.dataset.kat = kat;
+      title.innerHTML = `<span style="color:${col};text-transform:uppercase;letter-spacing:.5px">${kat}</span> — ${sorted.length} GH`;
+      body.innerHTML = sorted.map(([gh,jml]) => {
+        const dot = CC[clOf(gh)]||'#999';
+        return `<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;background:var(--surface2);border:0.5px solid var(--border);font-size:11px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+          <span style="font-weight:700">${gh}</span>
+          <span style="color:var(--text3);margin-left:6px;font-family:'JetBrains Mono',monospace">${ccFmt(jml)}</span>
+        </div>`;
+      }).join('');
+      panel.style.display='block';
+    };
   }
 
   else if (id === 'cc-cuaca') {
