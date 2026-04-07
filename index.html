@@ -659,31 +659,41 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI CARDS -->
-      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:18px" id="ccKpiGrid">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:18px" id="ccKpiGrid">
 
         <!-- 1. GH Aktif -->
         <div class="sc b" style="border-top:3px solid #185FA5">
           <div class="sc-lbl">GH Aktif</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 3px">
             <div class="sc-val b" id="ccKpi3" style="font-size:28px">—</div>
-            <div style="font-size:13px;color:var(--text3)" id="ccKpi3total">/ — total</div>
+            <div style="font-size:13px;color:var(--text3)" id="ccKpi3total">/ — GH total</div>
           </div>
           <div class="sc-note" id="ccKpi3n">on track vs kritis</div>
         </div>
 
-        <!-- 2. Populasi Akhir / Awal -->
+        <!-- 2. Total Loss Populasi (pop akhir/awal + loss %) -->
         <div class="sc g" style="border-top:3px solid #3B6D11">
-          <div class="sc-lbl">Populasi Akhir / Awal</div>
+          <div class="sc-lbl">Total Loss Populasi</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
             <div class="sc-val g" id="ccKpi1" style="font-size:22px">—</div>
+            <div style="font-size:11px;color:var(--text3)">/ <span id="ccKpi1awal">—</span></div>
           </div>
-          <div class="sc-note" id="ccKpi1n" style="margin-bottom:6px">dari — pop awal</div>
           <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
             <div id="ccKpi1bar" style="height:100%;border-radius:2px;background:#3B6D11;width:0%;transition:width .6s"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px">
             <span style="color:var(--text3)">survival rate</span>
             <span id="ccKpi1pct" style="font-weight:700;color:var(--green)">—%</span>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:5px">
+            <div class="sc-note" id="ccKpi_lossn" style="margin-bottom:4px">sanitasi / pop awal · standar &lt;15%</div>
+            <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
+              <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:var(--red);width:0%;transition:width .6s"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px">
+              <span id="ccKpi_loss" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text2)">—</span>
+              <span id="ccKpi_losspct" style="font-weight:700">—%</span>
+            </div>
           </div>
         </div>
 
@@ -694,23 +704,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-note" id="ccKpi2n">dari GH diukur · kondisi terkini</div>
         </div>
 
-        <!-- 4. Total Loss -->
-        <div class="sc" style="border-top:3px solid #c02020">
-          <div class="sc-lbl">Total Loss</div>
-          <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
-            <div class="sc-val" style="color:var(--red);font-size:22px" id="ccKpi_loss">—</div>
-          </div>
-          <div class="sc-note" id="ccKpi_lossn" style="margin-bottom:6px">sanitasi / pop awal</div>
-          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
-            <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:var(--red);width:0%;transition:width .6s"></div>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px">
-            <span style="color:var(--text3)">standar &lt;15%</span>
-            <span id="ccKpi_losspct" style="font-weight:700">—%</span>
-          </div>
-        </div>
-
-        <!-- 5. Total Sanitasi -->
+        <!-- 4. Total Sanitasi -->
         <div class="sc" style="border-top:3px solid #0F6E56">
           <div class="sc-lbl">Total Sanitasi</div>
           <div class="sc-val" style="color:#0F6E56;font-size:28px;margin:6px 0 3px" id="ccKpi4">—</div>
@@ -5256,34 +5250,53 @@ function ccRenderKPI() {
   const totPopAwal  = d.reduce((s,r) => s+(+r.popAwal||0), 0);
   const survivalPct = totPopAwal > 0 ? (totPopAkhir / totPopAwal * 100) : 0;
 
-  // Loss = total sanitasi dari RAW (kolom sanitasi per GH) dibagi pop awal
+  // Loss = total sanitasi dari RAW per GH dibagi pop awal
   const totSanitasiRaw = d.reduce((s,r) => s+(+r.sanitasi||0), 0);
   const lossPct = totPopAwal > 0 ? (totSanitasiRaw / totPopAwal * 100) : 0;
 
   const onTr = d.filter(r => popOk(r) && grOk(r)).length;
   const krit = d.filter(isCrit).length;
 
-  // Total GH unik yang pernah tercatat di semua RAW (tanpa filter klaster)
-  const allGHUniq = new Set(RAW.map(r => r.gh)).size;
+  // GH aktif = d.length (dari RAW, HST ≤ 65, sudah difilter GAS)
+  // GH total = semua GH unik yang pernah punya data sanitasi (paling lengkap sebagai "semua GH")
+  const ghAktif = d.length;
+  const ghTotal = new Set([
+    ...RAW.map(r => r.gh),
+    ...RAW_SNT.map(r => r.gh).filter(Boolean),
+  ]).size;
 
   // Total sanitasi dari RAW_SNT (ikut date range)
   const totSnt     = snt.reduce((s,r) => s+(r.jml||0), 0);
   const activeDays = new Set(snt.filter(r=>r.tgl).map(r=>r.tgl)).size;
 
-  // ── GH Aktif ──
-  const el3  = document.getElementById('ccKpi3');      if(el3)  el3.textContent  = d.length;
-  const el3t = document.getElementById('ccKpi3total'); if(el3t) el3t.textContent = '/ '+allGHUniq+' total';
+  // ── GH Aktif (aktif = HST≤65 di RAW, total = semua GH unik dari semua sumber) ──
+  const el3  = document.getElementById('ccKpi3');      if(el3)  el3.textContent  = ghAktif;
+  const el3t = document.getElementById('ccKpi3total'); if(el3t) el3t.textContent = '/ '+ghTotal+' GH total';
   const el3n = document.getElementById('ccKpi3n');
   if(el3n) el3n.innerHTML = `<b style="color:var(--green-mid)">${onTr} on track</b> · <b style="color:var(--red)">${krit} kritis</b>`;
 
-  // ── Populasi Akhir / Awal ──
+  // ── Total Loss Populasi (pop akhir + loss section) ──
   const el1  = document.getElementById('ccKpi1');    if(el1)  el1.textContent  = ccFmt(totPopAkhir);
-  const el1n = document.getElementById('ccKpi1n');   if(el1n) el1n.textContent = 'dari '+ccFmt(totPopAwal)+' pop awal · '+dataNote;
+  const el1a = document.getElementById('ccKpi1awal');if(el1a) el1a.textContent = ccFmt(totPopAwal);
   const el1b = document.getElementById('ccKpi1bar'); if(el1b) el1b.style.width = Math.min(survivalPct,100).toFixed(1)+'%';
   const el1p = document.getElementById('ccKpi1pct');
   if(el1p) {
     el1p.textContent = survivalPct.toFixed(1)+'%';
     el1p.style.color = survivalPct>=90?'var(--green)':survivalPct>=80?'#c87800':'var(--red)';
+  }
+  const elLn = document.getElementById('ccKpi_lossn');
+  if(elLn) elLn.textContent = 'sanitasi / pop awal · '+dataNote+' · standar <15%';
+  const elL  = document.getElementById('ccKpi_loss');
+  if(elL)  elL.textContent  = ccFmt(totSanitasiRaw);
+  const elLb = document.getElementById('ccKpi_lossbar');
+  if(elLb) {
+    elLb.style.width      = Math.min(lossPct/15*100,100).toFixed(1)+'%';
+    elLb.style.background = lossPct<=15?'#c87800':'var(--red)';
+  }
+  const elLp = document.getElementById('ccKpi_losspct');
+  if(elLp) {
+    elLp.textContent = lossPct.toFixed(1)+'%';
+    elLp.style.color = lossPct<=15?'#c87800':'var(--red)';
   }
 
   // ── Avg Gramasi (selalu dari RAW snapshot, bukan history) ──
@@ -5294,20 +5307,6 @@ function ccRenderKPI() {
   const avgGr = wGr.length ? Math.round(wGr.reduce((s,r)=>s+(+r.avgGramasi),0)/wGr.length) : 0;
   const el2  = document.getElementById('ccKpi2');  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
   const el2n = document.getElementById('ccKpi2n'); if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur · kondisi terkini' : 'belum ada data';
-
-  // ── Total Loss ──
-  const elL  = document.getElementById('ccKpi_loss');    if(elL)  elL.textContent  = ccFmt(totSanitasiRaw);
-  const elLn = document.getElementById('ccKpi_lossn');   if(elLn) elLn.textContent = 'sanitasi / pop awal · '+dataNote;
-  const elLb = document.getElementById('ccKpi_lossbar');
-  if(elLb) {
-    elLb.style.width      = Math.min(lossPct/15*100,100).toFixed(1)+'%';
-    elLb.style.background = lossPct<=15?'#BA7517':'var(--red)';
-  }
-  const elLp = document.getElementById('ccKpi_losspct');
-  if(elLp) {
-    elLp.textContent = lossPct.toFixed(1)+'%';
-    elLp.style.color = lossPct<=15?'#BA7517':'var(--red)';
-  }
 
   // ── Total Sanitasi (dari RAW_SNT, ikut date range) ──
   const el4  = document.getElementById('ccKpi4');  if(el4)  el4.textContent  = ccFmt(totSnt);
@@ -5424,12 +5423,12 @@ function ccRenderDetail(id, panel) {
         Kategori sanitasi tertinggi
         <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px"> — klik untuk lihat GH</span>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px" id="ccKatGrid">
         ${katEntries.slice(0,6).map(([kat,v],i) => {
           const pct = (v.total/totKat*100).toFixed(1);
           const col = KAT_COLORS[i]||'#888';
           const safeKat = kat.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-          return `<div onclick="ccToggleKat('${safeKat}','${col}')"
+          return `<div id="ccKatCard_${i}" onclick="ccToggleKat('${safeKat}','${col}',${i})"
             style="background:var(--surface2);border:0.5px solid var(--border);border-radius:9px;padding:9px 11px;border-top:2px solid ${col};cursor:pointer"
             onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background='var(--surface2)'">
             <div style="font-size:10px;font-weight:700;color:${col};text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">${kat}</div>
@@ -5438,8 +5437,8 @@ function ccRenderDetail(id, panel) {
           </div>`;
         }).join('')}
       </div>
-      <div id="ccKatDetail" style="display:none;margin-bottom:14px;padding:11px 13px;border-radius:9px;border:0.5px solid var(--border);background:var(--surface)">
-        <div style="font-size:10px;font-weight:700;margin-bottom:8px" id="ccKatDetailTitle">—</div>
+      <div id="ccKatDetail" style="display:none;margin-bottom:10px;padding:10px 13px;border-radius:9px;border:0.5px solid var(--border);background:var(--surface)">
+        <div style="font-size:10px;font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px" id="ccKatDetailTitle">—</div>
         <div id="ccKatDetailBody" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>` : ''}
 
@@ -5467,18 +5466,35 @@ function ccRenderDetail(id, panel) {
 
     // Inject toggle function
     window._ccKatGHMap = katGHMap;
-    window.ccToggleKat = function(kat, col) {
+    window.ccToggleKat = function(kat, col, idx) {
       const panel = document.getElementById('ccKatDetail');
       const title = document.getElementById('ccKatDetailTitle');
       const body  = document.getElementById('ccKatDetailBody');
       if (!panel||!title||!body) return;
-      const isOpen = panel.style.display!=='none' && title.dataset.kat===kat;
-      if (isOpen) { panel.style.display='none'; return; }
+
+      // Reset active state semua kartu
+      document.querySelectorAll('[id^="ccKatCard_"]').forEach(el => {
+        el.style.boxShadow = '';
+        el.style.background = 'var(--surface2)';
+      });
+
+      const isOpen = panel.style.display !== 'none' && title.dataset.kat === kat;
+      if (isOpen) {
+        panel.style.display = 'none';
+        title.dataset.kat = '';
+        return;
+      }
+
+      // Highlight kartu aktif
+      const activeCard = document.getElementById('ccKatCard_'+idx);
+      if (activeCard) { activeCard.style.boxShadow = `0 0 0 2px ${col}`; activeCard.style.background = 'var(--surface)'; }
+
       const v = window._ccKatGHMap[kat];
       if (!v) return;
       const sorted = Object.entries(v.ghs).sort((a,b)=>b[1]-a[1]);
+
       title.dataset.kat = kat;
-      title.innerHTML = `<span style="color:${col};text-transform:uppercase;letter-spacing:.5px">${kat}</span> — ${sorted.length} GH`;
+      title.innerHTML = `<span style="color:${col}">${kat}</span> — ${sorted.length} GH`;
       body.innerHTML = sorted.map(([gh,jml]) => {
         const dot = CC[clOf(gh)]||'#999';
         return `<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;background:var(--surface2);border:0.5px solid var(--border);font-size:11px">
@@ -5487,7 +5503,7 @@ function ccRenderDetail(id, panel) {
           <span style="color:var(--text3);margin-left:6px;font-family:'JetBrains Mono',monospace">${ccFmt(jml)}</span>
         </div>`;
       }).join('');
-      panel.style.display='block';
+      panel.style.display = 'block';
     };
   }
 
