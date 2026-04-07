@@ -671,30 +671,25 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-note" id="ccKpi3n">on track vs kritis</div>
         </div>
 
-        <!-- 2. Total Loss Populasi (pop akhir/awal + loss %) -->
+        <!-- 2. Total Populasi (pop akhir + survival rate saja) -->
         <div class="sc g" style="border-top:3px solid #3B6D11">
-          <div class="sc-lbl">Total Loss Populasi</div>
+          <div class="sc-lbl">Total Populasi</div>
           <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
             <div class="sc-val g" id="ccKpi1" style="font-size:22px">—</div>
             <div style="font-size:11px;color:var(--text3)">/ <span id="ccKpi1awal">—</span></div>
           </div>
-          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
-            <div id="ccKpi1bar" style="height:100%;border-radius:2px;background:#3B6D11;width:0%;transition:width .6s"></div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:4px">
+            <div id="ccKpi1bar" style="height:100%;border-radius:3px;background:#3B6D11;width:0%;transition:width .6s"></div>
           </div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:5px">
+          <div style="display:flex;justify-content:space-between;font-size:10px">
             <span style="color:var(--text3)">survival rate</span>
             <span id="ccKpi1pct" style="font-weight:700;color:var(--green)">—%</span>
           </div>
-          <div style="border-top:1px solid var(--border);padding-top:5px">
-            <div class="sc-note" id="ccKpi_lossn" style="margin-bottom:4px">sanitasi / pop awal · standar &lt;15%</div>
-            <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:3px">
-              <div id="ccKpi_lossbar" style="height:100%;border-radius:2px;background:var(--red);width:0%;transition:width .6s"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:10px">
-              <span id="ccKpi_loss" style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--text2)">—</span>
-              <span id="ccKpi_losspct" style="font-weight:700">—%</span>
-            </div>
-          </div>
+          <!-- hidden elements kept for JS compatibility -->
+          <div id="ccKpi_lossn" style="display:none"></div>
+          <div id="ccKpi_lossbar" style="display:none"></div>
+          <div id="ccKpi_loss" style="display:none"></div>
+          <div id="ccKpi_losspct" style="display:none"></div>
         </div>
 
         <!-- 3. Avg Gramasi -->
@@ -707,8 +702,17 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <!-- 4. Total Sanitasi -->
         <div class="sc" style="border-top:3px solid #0F6E56">
           <div class="sc-lbl">Total Sanitasi</div>
-          <div class="sc-val" style="color:#0F6E56;font-size:28px;margin:6px 0 3px" id="ccKpi4">—</div>
-          <div class="sc-note" id="ccKpi4n">hari aktif sanitasi</div>
+          <div style="display:flex;align-items:baseline;gap:6px;margin:6px 0 2px">
+            <div class="sc-val" style="color:#0F6E56;font-size:22px" id="ccKpi4">—</div>
+            <div style="font-size:11px;color:var(--text3)">/ <span id="ccKpi4popAwal">—</span></div>
+          </div>
+          <div style="height:5px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:4px">
+            <div id="ccKpi4bar" style="height:100%;border-radius:3px;background:#0F6E56;width:0%;transition:width .6s"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span style="color:var(--text3)" id="ccKpi4n">% loss dari pop awal</span>
+            <span id="ccKpi4pct" style="font-weight:700;color:#0F6E56">0.0%</span>
+          </div>
         </div>
 
       </div>
@@ -5308,9 +5312,23 @@ function ccRenderKPI() {
   const el2  = document.getElementById('ccKpi2');  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
   const el2n = document.getElementById('ccKpi2n'); if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur · kondisi terkini' : 'belum ada data';
 
-  // ── Total Sanitasi (dari RAW_SNT, ikut date range) ──
-  const el4  = document.getElementById('ccKpi4');  if(el4)  el4.textContent  = ccFmt(totSnt);
-  const el4n = document.getElementById('ccKpi4n'); if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
+  // ── Total Sanitasi — format: total_snt / total_pop_awal + bar % loss ──
+  const sntLossPct = totPopAwal > 0 ? (totSnt / totPopAwal * 100) : 0;
+  const el4    = document.getElementById('ccKpi4');      if(el4)    el4.textContent  = ccFmt(totSnt);
+  const el4pa  = document.getElementById('ccKpi4popAwal'); if(el4pa) el4pa.textContent = ccFmt(totPopAwal);
+  const el4b   = document.getElementById('ccKpi4bar');
+  if(el4b) {
+    // bar dikalibrasi terhadap 15% (standar max loss)
+    el4b.style.width      = Math.min(sntLossPct/15*100,100).toFixed(1)+'%';
+    el4b.style.background = sntLossPct <= 10 ? '#0F6E56' : sntLossPct <= 15 ? '#c87800' : 'var(--red)';
+  }
+  const el4n   = document.getElementById('ccKpi4n');
+  if(el4n) el4n.textContent = activeDays+' hari · '+rangeLabel;
+  const el4pct = document.getElementById('ccKpi4pct');
+  if(el4pct) {
+    el4pct.textContent = sntLossPct.toFixed(1)+'%';
+    el4pct.style.color = sntLossPct <= 10 ? '#0F6E56' : sntLossPct <= 15 ? '#c87800' : 'var(--red)';
+  }
 }
 
 // ── DETAIL RENDERERS ──
@@ -5363,22 +5381,32 @@ function ccRenderDetail(id, panel) {
   let html = '';
 
   if (id === 'cc-sanitasi') {
-    // Tren harian
-    const ghPerDay = {};
-    snt.filter(r=>r.tgl).forEach(r => { if(!ghPerDay[r.tgl]) ghPerDay[r.tgl]=new Set(); ghPerDay[r.tgl].add(r.gh); });
-    const days = Object.keys(ghPerDay).sort().slice(-10);
-    const vals = days.map(day => ghPerDay[day].size);
-    const mx = Math.max(...vals, 1);
-    const trend = days.map((day,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-      <div style="width:100%;border-radius:2px 2px 0 0;background:${vals[i]===mx?'var(--green)':'var(--green-lt)'};height:${Math.round(vals[i]/mx*44)}px"></div>
-      <div style="font-size:9px;color:var(--text3)">${day.slice(5).split('-').reverse().join('/')}</div>
-    </div>`).join('');
+    // Tren harian helper (reusable)
+    function buildTrendHtml(filteredSnt, label) {
+      const ghPerDay = {};
+      filteredSnt.filter(r=>r.tgl).forEach(r => { if(!ghPerDay[r.tgl]) ghPerDay[r.tgl]=new Set(); ghPerDay[r.tgl].add(r.gh); });
+      const days = Object.keys(ghPerDay).sort();
+      // hanya 10 hari terakhir dalam range
+      const daySlice = days.slice(-10);
+      const vals = daySlice.map(day => ghPerDay[day].size);
+      const mx = Math.max(...vals, 1);
+      return { trend: daySlice.map((day,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="width:100%;border-radius:2px 2px 0 0;background:${vals[i]===mx?'var(--green)':'var(--green-lt)'};height:${Math.round(vals[i]/mx*44)}px"></div>
+        <div style="font-size:9px;color:var(--text3)">${day.slice(5).split('-').reverse().join('/')}</div>
+      </div>`).join(''), days: daySlice, vals };
+    }
 
-    // GH terbanyak
-    const ghJml = {};
-    snt.forEach(r => { ghJml[r.gh] = (ghJml[r.gh]||0) + r.jml; });
-    const topGH = Object.entries(ghJml).sort((a,b)=>b[1]-a[1]).slice(0,5);
-    const maxJml = topGH[0]?.[1] || 1;
+    // Bar GH terbanyak helper
+    function buildGHBarHtml(filteredSnt, maxItemsDefault) {
+      const ghJml = {};
+      filteredSnt.forEach(r => { ghJml[r.gh] = (ghJml[r.gh]||0) + (r.jmlSnt||r.jml||0); });
+      const topGH = Object.entries(ghJml).sort((a,b)=>b[1]-a[1]).slice(0,maxItemsDefault||5);
+      const maxJml = topGH[0]?.[1] || 1;
+      return { topGH, maxJml };
+    }
+
+    const { trend: trendHtmlAll } = buildTrendHtml(snt, 'semua');
+    const { topGH: topGHAll, maxJml: maxJmlAll } = buildGHBarHtml(snt, 5);
 
     // ── Cara A: belum sanitasi di periode aktif (match by gh+periode) ──
     const normP = s => String(s||'').trim().toLowerCase();
@@ -5398,10 +5426,11 @@ function ccRenderDetail(id, panel) {
     snt.forEach(r => {
       const k = (r.trueSnt && r.trueSnt.trim()) ? r.trueSnt.trim() : null;
       if (!k) return;
-      if (!katGHMap[k]) katGHMap[k] = { total:0, ghs:{} };
+      if (!katGHMap[k]) katGHMap[k] = { total:0, ghs:{}, rows:[] };
       const jml = r.jmlSnt || r.jml || 0;
       katGHMap[k].total += jml;
       katGHMap[k].ghs[r.gh] = (katGHMap[k].ghs[r.gh]||0) + jml;
+      katGHMap[k].rows.push(r);
     });
     const katEntries = Object.entries(katGHMap).sort((a,b)=>b[1].total-a[1].total);
     const totKat = katEntries.reduce((s,[,v])=>s+v.total,0)||1;
@@ -5421,7 +5450,7 @@ function ccRenderDetail(id, panel) {
       ${katEntries.length ? `
       <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
         Kategori sanitasi tertinggi
-        <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px"> — klik untuk lihat GH</span>
+        <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px"> — klik untuk update chart</span>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:8px" id="ccKatGrid">
         ${katEntries.slice(0,6).map(([kat,v],i) => {
@@ -5436,17 +5465,13 @@ function ccRenderDetail(id, panel) {
             <div style="font-size:10px;color:var(--text3)">${pct}% dari total</div>
           </div>`;
         }).join('')}
-      </div>
-      <div id="ccKatDetail" style="display:none;margin-bottom:10px;padding:10px 13px;border-radius:9px;border:0.5px solid var(--border);background:var(--surface)">
-        <div style="font-size:10px;font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.5px" id="ccKatDetailTitle">—</div>
-        <div id="ccKatDetailBody" style="display:flex;flex-wrap:wrap;gap:6px"></div>
       </div>` : ''}
 
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Tren GH tersanitasi (10 hari terakhir)</div>
-      <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px">${trend.length ? trend : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px" id="ccSntChartLabel">Tren GH tersanitasi — Semua Kategori (10 hari terakhir)</div>
+      <div style="display:flex;align-items:flex-end;gap:3px;height:60px;margin-bottom:14px" id="ccSntTrendBars">${trendHtmlAll.length ? trendHtmlAll : '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>'}</div>
 
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">GH sanitasi terbanyak</div>
-      ${topGH.map(([gh,jml]) => ccBar(gh, jml, maxJml, 'var(--green)')).join('')}
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px" id="ccSntBarLabel">GH sanitasi terbanyak — Semua Kategori</div>
+      <div id="ccSntGHBars">${topGHAll.map(([gh,jml]) => ccBar(gh, jml, maxJmlAll, 'var(--green)')).join('')}</div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px">
         <div style="padding:10px 12px;background:var(--surface2);border-radius:9px;border:0.5px solid var(--border)">
@@ -5464,24 +5489,42 @@ function ccRenderDetail(id, panel) {
       </div>
     `);
 
-    // Inject toggle function
-    window._ccKatGHMap = katGHMap;
-    window.ccToggleKat = function(kat, col, idx) {
-      const panel = document.getElementById('ccKatDetail');
-      const title = document.getElementById('ccKatDetailTitle');
-      const body  = document.getElementById('ccKatDetailBody');
-      if (!panel||!title||!body) return;
+    // ── Store state for chart toggling ──
+    window._ccKatGHMap     = katGHMap;
+    window._ccKatColors    = KAT_COLORS;
+    window._ccSntAll       = snt;       // all rows in date range
+    window._ccActiveKat    = null;
 
-      // Reset active state semua kartu
+    // Helper: re-render trend & bar per kategori (atau semua)
+    window._ccRefreshSntCharts = function(filteredRows, label) {
+      const lblEl     = document.getElementById('ccSntChartLabel');
+      const trendEl   = document.getElementById('ccSntTrendBars');
+      const barLblEl  = document.getElementById('ccSntBarLabel');
+      const barEl     = document.getElementById('ccSntGHBars');
+      if (!trendEl || !barEl) return;
+
+      const { trend, days } = buildTrendHtml(filteredRows, label);
+      trendEl.innerHTML = trend || '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>';
+      if (lblEl) lblEl.textContent = 'Tren GH tersanitasi — ' + label + ' (10 hari terakhir)';
+
+      const { topGH, maxJml } = buildGHBarHtml(filteredRows, 7);
+      barEl.innerHTML  = topGH.map(([gh,jml]) => ccBar(gh, jml, maxJml, 'var(--green)')).join('') || '<div style="color:var(--text4);font-size:12px">Tidak ada data</div>';
+      if (barLblEl) barLblEl.textContent = 'GH sanitasi terbanyak — ' + label;
+    };
+
+    // Inject toggle function
+    window.ccToggleKat = function(kat, col, idx) {
+      const isOpen = window._ccActiveKat === kat;
+
+      // Reset highlight semua kartu
       document.querySelectorAll('[id^="ccKatCard_"]').forEach(el => {
         el.style.boxShadow = '';
         el.style.background = 'var(--surface2)';
       });
 
-      const isOpen = panel.style.display !== 'none' && title.dataset.kat === kat;
       if (isOpen) {
-        panel.style.display = 'none';
-        title.dataset.kat = '';
+        window._ccActiveKat = null;
+        window._ccRefreshSntCharts(window._ccSntAll, 'Semua Kategori');
         return;
       }
 
@@ -5491,19 +5534,9 @@ function ccRenderDetail(id, panel) {
 
       const v = window._ccKatGHMap[kat];
       if (!v) return;
-      const sorted = Object.entries(v.ghs).sort((a,b)=>b[1]-a[1]);
 
-      title.dataset.kat = kat;
-      title.innerHTML = `<span style="color:${col}">${kat}</span> — ${sorted.length} GH`;
-      body.innerHTML = sorted.map(([gh,jml]) => {
-        const dot = CC[clOf(gh)]||'#999';
-        return `<div style="display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:7px;background:var(--surface2);border:0.5px solid var(--border);font-size:11px">
-          <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
-          <span style="font-weight:700">${gh}</span>
-          <span style="color:var(--text3);margin-left:6px;font-family:'JetBrains Mono',monospace">${ccFmt(jml)}</span>
-        </div>`;
-      }).join('');
-      panel.style.display = 'block';
+      window._ccActiveKat = kat;
+      window._ccRefreshSntCharts(v.rows, kat);
     };
   }
 
