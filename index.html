@@ -4930,42 +4930,81 @@ function ccFilteredHPT() {
 
 // ── BADGE GENERATOR per sub menu ──
 
-// Helper: GH yang HST ≥ 55 (fase panen) dan belum ada semai aktif/siap
-// → reminder untuk segera koordinasi tanam baru
+// Helper: GH yang HST aktual (dihitung dari tglAwalTanam ke hari ini) sudah > 65
+// dan belum ada semai aktif/siap untuk GH tersebut
 function ccGetTanamBaru() {
-  const d = ccFilteredRAW();
-  // GH yang sudah di fase panen (HST ≥ 55)
-  const panenGH = d.filter(r => r.hst >= 55);
-  if (!panenGH.length) return [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  // Ambil semua GH dari RAW (periode aktif terkini)
+  // Termasuk GH yang sudah exclude dari dashboard (HST > 65) — pakai RAW langsung
+  const allGH = [...RAW];
 
   const result = [];
-  panenGH.forEach(r => {
+
+  allGH.forEach(r => {
+    // Hitung HST aktual dari tglAwalTanam ke hari ini
+    let hstAktual = r.hst; // fallback ke HST dari GAS
+    const tglAwal = r.tglAwalTanam || r.tgl || '';
+
+    if (tglAwal) {
+      // Parse tglAwalTanam — format dd/MM/yyyy atau yyyy-MM-dd
+      let tglDate = null;
+      if (tglAwal.includes('/')) {
+        const p = tglAwal.split('/');
+        if (p.length === 3) {
+          // dd/MM/yyyy
+          tglDate = new Date(+p[2], +p[1]-1, +p[0]);
+        }
+      } else if (tglAwal.includes('-')) {
+        tglDate = new Date(tglAwal);
+      }
+      if (tglDate && !isNaN(tglDate)) {
+        tglDate.setHours(0,0,0,0);
+        const diffMs  = today - tglDate;
+        const diffDay = Math.floor(diffMs / 86400000);
+        hstAktual = diffDay; // HST aktual = hari ini - tgl awal tanam
+      }
+    }
+
+    // Hanya proses GH yang HST aktualnya sudah > 65 (benar-benar sudah panen)
+    if (hstAktual <= 65) return;
+
     const ghUpper = r.gh.trim().toUpperCase();
+
     // Cek apakah ada semai aktif (belum tanam) untuk GH ini
     const semaiAktif = RAW_SEMAI.filter(s =>
       s.gh && s.gh.trim().toUpperCase() === ghUpper && !s.realTglTanam
     );
-    // Cek apakah ada semai yang sudah tanam di periode berikutnya
-    // (tglTanam lebih baru dari tglAwalTanam saat ini)
-    const semaiSudahTanam = RAW_SEMAI.filter(s =>
-      s.gh && s.gh.trim().toUpperCase() === ghUpper && s.realTglTanam
-    );
-    // Kalau tidak ada semai aktif sama sekali → perlu tanam baru
-    const adaSemai = semaiAktif.length > 0;
-    const adaSudahTanam = semaiSudahTanam.some(s => {
-      // Tanam baru = realTglTanam lebih baru dari periode saat ini
-      return s.realTglTanam && s.realTglTanam > (r.tglAwalTanam || '');
+
+    // Cek apakah sudah ada tanam baru (periode lebih baru dari tglAwalTanam saat ini)
+    const tglAwalStr = r.tglAwalTanam || r.tgl || '';
+    const sudahTanamBaru = RAW_SEMAI.some(s => {
+      if (!s.gh || s.gh.trim().toUpperCase() !== ghUpper) return false;
+      if (!s.realTglTanam) return false;
+      // realTglTanam format yyyy-MM-dd, tglAwal format dd/MM/yyyy → normalise
+      let tglAwalNorm = tglAwalStr;
+      if (tglAwalStr.includes('/')) {
+        const p = tglAwalStr.split('/');
+        if (p.length === 3) tglAwalNorm = `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      }
+      return s.realTglTanam > tglAwalNorm;
     });
 
-    if (!adaSemai && !adaSudahTanam) {
+    if (!semaiAktif.length && !sudahTanamBaru) {
       result.push({
-        gh    : r.gh,
-        hst   : r.hst,
-        periode: r.periode,
+        gh        : r.gh,
+        hst       : r.hst,        // HST terakhir di record
+        hstAktual : hstAktual,    // HST aktual hari ini
+        periode   : r.periode,
+        tglAwal   : tglAwal,
+        lebihHari : hstAktual - 65, // berapa hari lewat batas 65
       });
     }
   });
-  return result;
+
+  // Sort: yang paling lama lewat di atas
+  return result.sort((a,b) => b.hstAktual - a.hstAktual);
 }
 
 // Helper: ambil data cuaca dari RAW_PNY (sama sumber dengan menu Penyiraman)
@@ -5211,7 +5250,7 @@ function ccRenderKPI() {
   const kpi5card = el5?.closest('.sc');
   if (el5)  el5.textContent = tanamBaru.length || '0';
   if (el5n) el5n.textContent = tanamBaru.length
-    ? tanamBaru.slice(0,2).map(r=>r.gh.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B')+' HST'+r.hst).join(', ') + (tanamBaru.length>2?' +lainnya':'')
+    ? tanamBaru.slice(0,2).map(r => r.gh.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B') + ' ~HST'+r.hstAktual).join(', ') + (tanamBaru.length>2?' +lainnya':'')
     : 'Semua GH panen sudah ada semai';
   if (kpi5card) {
     kpi5card.style.borderTopColor = tanamBaru.length ? 'var(--red)' : 'var(--green-mid)';
@@ -5540,20 +5579,30 @@ function ccRenderDetail(id, panel) {
 
     const tanamBaruHtml = tanamBaru.length ? `
       <div style="margin-top:14px;padding:12px 14px;background:var(--red-lt);border:1.5px solid #f0b0b0;border-radius:10px">
-        <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
-          🌱 Reminder — GH Panen Perlu Tanam Baru (${tanamBaru.length} GH)
+        <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">
+          🌱 Reminder — GH perlu konfirmasi tanam baru (${tanamBaru.length} GH)
         </div>
-        ${tanamBaru.map(r => {
-          const dot = CC[clOf(r.gh)] || '#999';
-          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(192,32,32,.12)">
-            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
-            <span style="font-size:12px;font-weight:700;flex:1">${r.gh}</span>
-            <span style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--red-txt)">HST ${r.hst}</span>
-            <span style="font-size:10px;padding:2px 7px;border-radius:20px;background:var(--red-lt);color:var(--red-txt);border:1px solid #f0b0b0">Belum ada semai</span>
-          </div>`;
-        }).join('')}
-        <div style="font-size:10px;color:var(--red-txt);margin-top:8px;opacity:.8">
-          GH ini sudah HST ≥55 (fase panen) namun belum ada batch semai aktif · Segera koordinasi dengan tim PPIC
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px">
+          ${tanamBaru.map(r => {
+            const dot  = CC[clOf(r.gh)] || '#999';
+            const fmtTgl = t => t ? (t.includes('/')?t:t.split('-').reverse().join('/')) : '—';
+            const urgency = r.lebihHari >= 14 ? 'var(--red)' : r.lebihHari >= 7 ? '#c87800' : 'var(--text2)';
+            return `<div style="background:var(--surface);border:1px solid #f0b0b0;border-radius:9px;padding:10px 12px">
+              <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px">
+                <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+                <span style="font-size:12px;font-weight:700;color:var(--text)">${r.gh}</span>
+              </div>
+              <div style="font-size:10px;color:var(--text3);margin-bottom:4px">Tanam: ${fmtTgl(r.tglAwal)}</div>
+              <div style="display:flex;align-items:baseline;gap:6px">
+                <span style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${urgency}">~${r.hstAktual}</span>
+                <span style="font-size:10px;color:var(--red-txt);font-weight:600">+${r.lebihHari}h</span>
+              </div>
+              <div style="font-size:9px;color:var(--text3);margin-top:1px">HST aktual hari ini</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--red-txt);margin-top:10px;opacity:.8">
+          HST aktual dihitung dari tanggal awal tanam ke hari ini · Tanyakan pemetaan periode tanam baru ke tim PPIC
         </div>
       </div>
     ` : `
