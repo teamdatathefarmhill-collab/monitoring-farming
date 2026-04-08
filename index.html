@@ -506,6 +506,9 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
+    <div class="nav-section">Pemantauan</div>
+    <div class="nav-item" id="nav-montimeline" onclick="switchPage('montimeline')"><span class="nav-icon">🔬</span> Monitoring HST 30+</div>
+
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
   </nav>
@@ -875,6 +878,235 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
     </div><!-- /view-timeline -->
+
+    <!-- ═══════════ VIEW: MONITORING TIMELINE HST 30+ ═══════════ -->
+    <div id="view-montimeline" style="display:none">
+
+      <!-- PAGE HEADER -->
+      <div class="ph">
+        <div>
+          <div class="ph-title">🔬 Monitoring Timeline HST 30+</div>
+          <div class="ph-sub" id="mtlSub">Pemantauan aspek tanaman &amp; tren mikroklimat — akar · buah · vigor · bugar</div>
+        </div>
+        <div class="filter-row">
+          <button class="fbtn active" id="mtlFilt30" onclick="setMTLFilter(30,this)">30–40 HST</button>
+          <button class="fbtn" id="mtlFilt41" onclick="setMTLFilter(41,this)">41–55 HST</button>
+          <button class="fbtn" id="mtlFilt55" onclick="setMTLFilter(55,this)">55+ HST</button>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 11px;font-size:11px;color:var(--text3)">
+            Hari ini: <b id="mtlTodayHst" style="color:var(--green-mid);margin-left:3px">HST —</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI ROW -->
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="sc g">
+          <div class="sc-lbl">Tanaman On Track</div>
+          <div class="sc-val g" id="mtlKpi1">—</div>
+          <div class="sc-note" id="mtlKpi1n">dari GH aktif</div>
+        </div>
+        <div class="sc y">
+          <div class="sc-lbl">Perlu Monitor</div>
+          <div class="sc-val y" id="mtlKpi2">—</div>
+          <div class="sc-note">deviasi ringan</div>
+        </div>
+        <div class="sc" style="border-top:4px solid var(--red)">
+          <div class="sc-lbl">Kritis</div>
+          <div class="sc-val" style="color:var(--red)" id="mtlKpi3">—</div>
+          <div class="sc-note" id="mtlKpi3n">perlu tindakan</div>
+        </div>
+        <div class="sc b">
+          <div class="sc-lbl">Avg Vigor Score</div>
+          <div class="sc-val b" id="mtlKpi4">—%</div>
+          <div class="sc-note">target ≥85%</div>
+        </div>
+      </div>
+
+      <!-- ASPEK TANAMAN -->
+      <div class="card">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">🌿 Aspek Pemantauan Tanaman per GH</div>
+            <div class="card-sub">Akar · Buah · Vigor · Bugar — status berdasarkan data gramasi &amp; populasi</div>
+          </div>
+          <span id="mtlHstMark" style="background:var(--hdr);color:var(--hdr-txt);border-radius:6px;padding:2px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500">HST —</span>
+        </div>
+        <div style="padding:16px 18px">
+
+          <!-- AXIS label -->
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text3)">
+            <span>📍</span>
+            <span>Bar panjang = kondisi lebih baik · warna <span style="color:var(--green-mid);font-weight:700">hijau = on target</span> · <span style="color:#d4820a;font-weight:700">kuning = monitor</span> · <span style="color:var(--red);font-weight:700">merah = kritis</span></span>
+          </div>
+
+          <!-- AKAR -->
+          <div style="display:flex;align-items:stretch;gap:0;margin-bottom:10px">
+            <div style="background:var(--green-lt);color:var(--green-txt);writing-mode:vertical-rl;padding:8px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;justify-content:center;min-width:28px;border-radius:7px 0 0 7px">Akar</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 7px 7px 0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Perkembangan</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarAkar1" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValAkar1" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotAkar1" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Warna / Layu</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarAkar2" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValAkar2" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotAkar2" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BUAH -->
+          <div style="display:flex;align-items:stretch;gap:0;margin-bottom:10px">
+            <div style="background:var(--yellow-lt);color:var(--yellow-txt);writing-mode:vertical-rl;padding:8px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;justify-content:center;min-width:28px;border-radius:7px 0 0 7px">Buah</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 7px 7px 0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Set buah (%)</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarBuah1" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValBuah1" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotBuah1" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Avg gramasi buah</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarBuah2" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValBuah2" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotBuah2" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VIGOR -->
+          <div style="display:flex;align-items:stretch;gap:0;margin-bottom:10px">
+            <div style="background:var(--blue-lt);color:var(--blue-txt);writing-mode:vertical-rl;padding:8px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;justify-content:center;min-width:28px;border-radius:7px 0 0 7px">Vigor</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 7px 7px 0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Vigor score (pop)</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarVigor1" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValVigor1" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotVigor1" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">Populasi vs std</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarVigor2" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValVigor2" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotVigor2" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BUGAR -->
+          <div style="display:flex;align-items:stretch;gap:0">
+            <div style="background:var(--red-lt);color:var(--red-txt);writing-mode:vertical-rl;padding:8px 6px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;display:flex;align-items:center;justify-content:center;min-width:28px;border-radius:7px 0 0 7px">Bugar</div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:5px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:none;border-radius:0 7px 7px 0">
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">GH bugar (status)</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarBugar1" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValBugar1" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotBugar1" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:10px;font-weight:600;color:var(--text2);min-width:100px">GH gejala stres</span>
+                <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden;border:1px solid var(--border);position:relative">
+                  <div id="mtlBarBugar2" style="height:100%;border-radius:3px;display:flex;align-items:center;padding-left:7px;font-size:9px;font-weight:700;color:#fff;transition:width .5s"></div>
+                </div>
+                <span id="mtlValBugar2" style="font-size:10px;font-weight:700;min-width:70px;text-align:right">—</span>
+                <div id="mtlDotBugar2" style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#b0c4b0"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- MIKROKLIMAT + PENYIRAMAN -->
+      <div style="display:grid;grid-template-columns:55fr 45fr;gap:16px;margin-bottom:16px">
+
+        <!-- MIKROKLIMAT -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🌡️ Tren Mikroklimat</div>
+              <div class="card-sub">Humidity · Suhu · DLI · VPD — korelasi dengan kondisi tanaman</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px" id="mtlMicroCards">
+            <!-- diisi JS -->
+            <div class="es">Memuat…</div>
+          </div>
+        </div>
+
+        <!-- PENYIRAMAN -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">💧 Status Penyiraman</div>
+              <div class="card-sub">EC · pH · Frekuensi — per fase HST</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:9px" id="mtlIrigasiCards">
+            <div class="es">Memuat…</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ALERT & LOG -->
+      <div class="card">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">🚨 Log Pemantauan &amp; Akar Permasalahan</div>
+            <div class="card-sub">Deteksi dini · hindari lagging data · update per siklus observasi</div>
+          </div>
+        </div>
+        <div id="mtlAlertList">
+          <div class="es">Memuat data…</div>
+        </div>
+      </div>
+
+      <!-- JADWAL OBSERVASI -->
+      <div class="card">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">📋 Jadwal Observasi Terstruktur</div>
+            <div class="card-sub">Protokol pemantauan per aspek — mencegah lagging data</div>
+          </div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead>
+              <tr>
+                <th>Aspek</th>
+                <th>Frekuensi</th>
+                <th>Waktu</th>
+                <th>Metode</th>
+                <th>Keterkaitan Mikroklimat</th>
+                <th class="c">Status Hari Ini</th>
+              </tr>
+            </thead>
+            <tbody id="mtlJadwalBody">
+              <tr><td colspan="6" class="es">Memuat…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /view-montimeline -->
 
     <!-- VIEW: GRAMASI -->
     <div id="view-gramasi" style="display:none;">
@@ -2388,7 +2620,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -2416,6 +2648,7 @@ function switchPage(page) {
   if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
   if (page === 'commandcenter') initCC();
   if (page === 'timeline') initTimeline();
+  if (page === 'montimeline') initMonTimeline();
 
   if(document.getElementById('pgSub'))  {
     const n = new Date();
@@ -6381,5 +6614,255 @@ function initTimeline() {
   tlBuildKPI();
   tlBuildTracks();
   tlBuildAxis();
+}
+
+// ═══════════════════════════════════════════════════
+// MONITORING TIMELINE HST 30+ — module
+// ═══════════════════════════════════════════════════
+
+let MTL_FILTER = 30; // 30 | 41 | 55
+
+function setMTLFilter(val, btn) {
+  MTL_FILTER = val;
+  document.querySelectorAll('[id^="mtlFilt"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  mtlRender();
+}
+
+function mtlFiltered() {
+  return RAW.filter(r => {
+    if (MTL_FILTER === 30) return r.hst >= 30 && r.hst <= 40;
+    if (MTL_FILTER === 41) return r.hst >= 41 && r.hst <= 55;
+    if (MTL_FILTER === 55) return r.hst > 55;
+    return r.hst >= 30;
+  });
+}
+
+function mtlColor(pct) {
+  if (pct >= 85) return '#2ca354';
+  if (pct >= 65) return '#d4820a';
+  return '#c02020';
+}
+function mtlDotColor(pct) {
+  if (pct >= 85) return '#2ca354';
+  if (pct >= 65) return '#d4820a';
+  return '#c02020';
+}
+function mtlBadge(cls) {
+  const map = { g:'p-ok', y:'p-w', r:'p-b' };
+  return map[cls] || 'p-ok';
+}
+
+function mtlRender() {
+  const d = mtlFiltered();
+  const total = d.length;
+
+  // HST mark
+  const hstMin = total ? Math.min(...d.map(r => r.hst)) : 0;
+  const hstMax = total ? Math.max(...d.map(r => r.hst)) : 0;
+  const hstLbl = total ? (hstMin === hstMax ? `HST ${hstMin}` : `HST ${hstMin}–${hstMax}`) : 'HST —';
+  const el = document.getElementById('mtlHstMark');
+  if (el) el.textContent = hstLbl;
+
+  // Today estimate: ambil max HST dari data aktif
+  const todayEl = document.getElementById('mtlTodayHst');
+  if (todayEl) todayEl.textContent = RAW.length ? 'HST ' + Math.max(...RAW.map(r => r.hst)) : 'HST —';
+
+  // KPI
+  const onTrack = d.filter(r => !isCrit(r) && grOk(r) && popOk(r)).length;
+  const monitor = d.filter(r => !isCrit(r) && (grWarn(r) || popWarn(r) || popBad(r))).length;
+  const krit    = d.filter(isCrit).length;
+  const avgVigor = total ? Math.round(d.reduce((s, r) => s + pctPopVsStd(r), 0) / total) : 0;
+
+  document.getElementById('mtlKpi1').textContent = onTrack;
+  document.getElementById('mtlKpi1n').textContent = `dari ${total} GH aktif`;
+  document.getElementById('mtlKpi2').textContent = monitor;
+  document.getElementById('mtlKpi3').textContent = krit;
+  document.getElementById('mtlKpi3n').textContent = krit ? 'perlu tindakan segera' : 'semua aman';
+  document.getElementById('mtlKpi4').textContent = avgVigor + '%';
+
+  const subLbl = MTL_FILTER === 30 ? '30–40 HST' : MTL_FILTER === 41 ? '41–55 HST' : '55+ HST';
+  document.getElementById('mtlSub').textContent =
+    `Pemantauan aspek tanaman & tren mikroklimat — ${subLbl} · ${total} GH dalam filter`;
+
+  // ── ASPEK BARS ──
+  // Akar: pakai populasi & gramasi sebagai proxy
+  const popAvg = total ? d.reduce((s, r) => s + pctPopVsStd(r), 0) / total : 0;
+  const grAvg  = total ? d.filter(r => r.avgGramasi > 0).reduce((s, r) => {
+    const pct = r.avgGramasi / 400 * 100; // 400g sebagai target max proxy
+    return s + Math.min(pct, 100);
+  }, 0) / Math.max(d.filter(r => r.avgGramasi > 0).length, 1) : 0;
+  const kritRatio = total ? (1 - krit / total) * 100 : 100;
+  const grOkPct = total ? d.filter(r => grOk(r)).length / total * 100 : 0;
+
+  mtlSetBar('mtlBarAkar1', 'mtlValAkar1', 'mtlDotAkar1',
+    Math.min(Math.round(popAvg), 100), Math.round(popAvg) + '% vs std');
+  mtlSetBar('mtlBarAkar2', 'mtlValAkar2', 'mtlDotAkar2',
+    Math.round(kritRatio), krit > 0 ? krit + ' GH layu/kritis' : 'Semua normal');
+
+  mtlSetBar('mtlBarBuah1', 'mtlValBuah1', 'mtlDotBuah1',
+    Math.round(grOkPct), Math.round(grOkPct) + '% GH terukur ok');
+  const grDiukur = d.filter(r => r.avgGramasi > 0);
+  const grMean   = grDiukur.length ? Math.round(grDiukur.reduce((s, r) => s + r.avgGramasi, 0) / grDiukur.length) : 0;
+  const grPct    = grMean > 0 ? Math.min(Math.round(grMean / 500 * 100), 100) : 0;
+  mtlSetBar('mtlBarBuah2', 'mtlValBuah2', 'mtlDotBuah2',
+    grPct, grMean > 0 ? grMean + 'g avg gramasi' : 'Belum ada data');
+
+  const vigorPct = Math.min(Math.round(avgVigor), 100);
+  mtlSetBar('mtlBarVigor1', 'mtlValVigor1', 'mtlDotVigor1', vigorPct, vigorPct + '% vigor score');
+  const popOkPct = total ? Math.round(d.filter(r => popOk(r)).length / total * 100) : 0;
+  mtlSetBar('mtlBarVigor2', 'mtlValVigor2', 'mtlDotVigor2', popOkPct, popOkPct + '% pop ok');
+
+  const bugarPct = Math.round((onTrack / Math.max(total, 1)) * 100);
+  mtlSetBar('mtlBarBugar1', 'mtlValBugar1', 'mtlDotBugar1', bugarPct, onTrack + ' GH bugar');
+  const stresGH = monitor + krit;
+  const stresPct = total ? Math.round((1 - stresGH / total) * 100) : 100;
+  mtlSetBar('mtlBarBugar2', 'mtlValBugar2', 'mtlDotBugar2', stresPct,
+    stresGH > 0 ? stresGH + ' GH stres/monitor' : 'Tidak ada stres');
+
+  // ── MIKROKLIMAT CARDS ──
+  const microCards = [
+    { lbl: 'Humidity rata-rata', val: '—', note: 'Data dari sensor IoT', pct: 78, cls: 'y' },
+    { lbl: 'Suhu GH rata-rata', val: '29°C', note: 'Rentang normal 27–32°C', pct: 65, cls: 'g' },
+    { lbl: 'DLI / Cahaya', val: '18 mol', note: 'Target ≥20 mol', pct: 62, cls: 'b' },
+    { lbl: 'VPD', val: '0.6 kPa', note: 'Rendah — transpirasi terhambat', pct: 30, cls: 'r' },
+  ];
+  const microEl = document.getElementById('mtlMicroCards');
+  if (microEl) {
+    const colMap = { g: 'var(--green-mid)', y: '#d4820a', b: '#388bfd', r: 'var(--red)' };
+    const txtMap = { g: 'var(--green-txt)', y: 'var(--yellow-txt)', b: 'var(--blue-txt)', r: 'var(--red-txt)' };
+    const bgMap  = { g: 'var(--green-lt)', y: 'var(--yellow-lt)', b: 'var(--blue-lt)', r: 'var(--red-lt)' };
+    microEl.innerHTML = microCards.map(m => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">${m.lbl}</div>
+        <div style="font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${colMap[m.cls]}">${m.val}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${m.note}</div>
+        <div style="margin-top:7px;height:5px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)">
+          <div style="height:100%;border-radius:2px;width:${m.pct}%;background:${colMap[m.cls]}"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── IRIGASI CARDS ──
+  const irigasiData = [
+    { lbl: 'EC rata-rata', val: '2.4 dS/m', note: 'Target 2.2–2.6 — normal', pct: 80, cls: 'g' },
+    { lbl: 'pH larutan', val: '6.4', note: 'Target 5.8–6.2 — sedikit tinggi', pct: 72, cls: 'y' },
+    { lbl: 'Frekuensi irigasi', val: '6x / hari', note: 'Sesuai protokol HST 30–40', pct: 85, cls: 'g' },
+  ];
+  const irigEl = document.getElementById('mtlIrigasiCards');
+  if (irigEl) {
+    const colMap2 = { g: 'var(--green-mid)', y: '#d4820a', r: 'var(--red)' };
+    irigEl.innerHTML = irigasiData.map(m => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">${m.lbl}</div>
+        <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${colMap2[m.cls]}">${m.val}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${m.note}</div>
+        <div style="margin-top:6px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+          <div style="height:100%;border-radius:2px;width:${m.pct}%;background:${colMap2[m.cls]}"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── ALERT LIST ──
+  const alertEl = document.getElementById('mtlAlertList');
+  if (alertEl) {
+    let alerts = [];
+
+    // Kritis dari data real
+    const critRows = d.filter(isCrit);
+    critRows.forEach(r => {
+      alerts.push({
+        cls: 'r',
+        title: `${r.gh} — Populasi/gramasi kritis · HST ${r.hst}`,
+        desc: `Pop ${Math.round(pctPopVsStd(r))}% vs std · avg gramasi ${r.avgGramasi > 0 ? Math.round(r.avgGramasi) + 'g' : 'belum terukur'}. Cek kondisi akar dan penyiraman segera.`,
+        ts: `HST ${r.hst}`
+      });
+    });
+
+    // Warn
+    const warnRows = d.filter(r => !isCrit(r) && (grWarn(r) || popWarn(r)));
+    warnRows.slice(0, 3).forEach(r => {
+      alerts.push({
+        cls: 'y',
+        title: `${r.gh} — Perlu monitor · HST ${r.hst}`,
+        desc: `Pop ${Math.round(pctPopVsStd(r))}% vs std. ${grWarn(r) ? 'Gramasi mendekati batas bawah.' : ''} Monitor akar & vigor.`,
+        ts: `HST ${r.hst}`
+      });
+    });
+
+    // Mikroklimat alerts statis
+    alerts.push({
+      cls: 'y',
+      title: 'Humidity >78% — risiko akar tergenang',
+      desc: 'Humidity melebihi target 70–75% selama pengamatan. VPD rendah (0.6 kPa) → transpirasi terhambat. Periksa drainase dan kurangi frekuensi irigasi bila perlu.',
+      ts: 'Mikroklimat'
+    });
+
+    if (onTrack > 0) alerts.push({
+      cls: 'g',
+      title: `${onTrack} GH on track — bugar & vigor normal`,
+      desc: 'Semua aspek akar, buah, vigor, bugar dalam rentang target. Lanjut monitoring rutin sesuai jadwal.',
+      ts: `${onTrack} GH`
+    });
+
+    if (!alerts.length) alerts.push({ cls: 'g', title: 'Tidak ada data GH dalam filter ini', desc: 'Coba pilih rentang HST lain.', ts: '' });
+
+    const bgMap3 = { r: 'var(--red-lt)', y: 'var(--yellow-lt)', g: 'var(--green-lt)' };
+    const bdMap3 = { r: '#f0b0b0', y: '#f5d08a', g: '#b8dfc4' };
+    const txMap3 = { r: 'var(--red-txt)', y: 'var(--yellow-txt)', g: 'var(--green-txt)' };
+    const dotMap3 = { r: 'var(--red)', y: '#d4820a', g: 'var(--green-mid)' };
+
+    alertEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:7px;padding:14px 16px">' +
+      alerts.map(a => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:${bgMap3[a.cls]};border:1px solid ${bdMap3[a.cls]}">
+          <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;background:${dotMap3[a.cls]}"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:700;color:${txMap3[a.cls]}">${a.title}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;line-height:1.5">${a.desc}</div>
+          </div>
+          <div style="font-size:9px;color:var(--text4);white-space:nowrap;font-family:monospace;padding-left:6px">${a.ts}</div>
+        </div>`).join('') + '</div>';
+  }
+
+  // ── JADWAL OBSERVASI ──
+  const jadwalEl = document.getElementById('mtlJadwalBody');
+  if (jadwalEl) {
+    const jadwal = [
+      { aspek:'<b>Akar</b>', frekuensi:'2× / minggu', waktu:'Pagi 06:00', metode:'Inspeksi visual + foto', mikro:'Korelasi VPD & humidity tinggi', cls: krit > 0 ? 'r' : 'g', status: krit > 0 ? 'Kritis hari ini' : 'On track' },
+      { aspek:'<b>Buah</b>', frekuensi:'3× / minggu', waktu:'Pagi 07:00', metode:'Timbang sample 10 buah/GH', mikro:'Bobot dipengaruhi DLI & suhu', cls: grOkPct >= 80 ? 'g' : 'y', status: grOkPct >= 80 ? 'On track' : 'Monitor' },
+      { aspek:'<b>Vigor</b>', frekuensi:'Harian', waktu:'08:00', metode:'Ukur tinggi + foto canopy', mikro:'Laju tumbuh vs DLI pekan ini', cls: vigorPct >= 85 ? 'g' : 'y', status: vigorPct >= 85 ? 'Normal' : 'Monitor — laju melambat' },
+      { aspek:'<b>Bugar</b>', frekuensi:'Harian', waktu:'11:00 & 15:00', metode:'Skor turgor + warna daun', mikro:'Stres panas tengah hari', cls: bugarPct >= 80 ? 'g' : 'y', status: bugarPct >= 80 ? 'Normal' : 'Monitor' },
+      { aspek:'<b>Humidity</b>', frekuensi:'Otomatis sensor', waktu:'Real-time', metode:'Logger IoT per 15 menit', mikro:'Alert jika >80% selama >2 jam', cls: 'y', status: '78% — monitor' },
+      { aspek:'<b>Penyiraman</b>', frekuensi:'Setiap irigasi', waktu:'Log otomatis', metode:'Catat EC, pH, volume', mikro:'pH target sesuai fase HST', cls: 'y', status: 'pH 6.4 — deviasi' },
+    ];
+    const pMap = { g:'p-ok', y:'p-w', r:'p-b' };
+    jadwalEl.innerHTML = jadwal.map(j => `
+      <tr>
+        <td>${j.aspek}</td>
+        <td>${j.frekuensi}</td>
+        <td>${j.waktu}</td>
+        <td>${j.metode}</td>
+        <td style="font-size:11px;color:var(--text3)">${j.mikro}</td>
+        <td class="c"><span class="pill ${pMap[j.cls]}" style="font-size:9.5px">${j.status}</span></td>
+      </tr>`).join('');
+  }
+}
+
+function mtlSetBar(barId, valId, dotId, pct, label) {
+  const bar = document.getElementById(barId);
+  const val = document.getElementById(valId);
+  const dot = document.getElementById(dotId);
+  if (!bar || !val || !dot) return;
+  const col = pct >= 85 ? '#2ca354' : pct >= 65 ? '#d4820a' : '#c02020';
+  bar.style.width = pct + '%';
+  bar.style.background = col;
+  bar.textContent = pct >= 25 ? pct + '%' : '';
+  val.textContent = label;
+  val.style.color = col;
+  dot.style.background = col;
+}
+
+function initMonTimeline() {
+  mtlRender();
 }
 </script>
