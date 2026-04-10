@@ -5864,11 +5864,20 @@ function ccAlerts(id) {
     }
     case 'cc-gramasi': {
       const krit = d.filter(grKrit);
-      const warn = d.filter(grWarn);
+      const warn = RAW_VARIAN.filter(r => r.targetGramasi > 0 && r.avgGramasi > 0 && r.avgGramasi < r.targetGramasi);
+      // Unique GH yang di bawah standar
+      const warnGHs = [...new Set(warn.map(r => r.gh))];
+      // Populasi
+      const totPop  = d.reduce((s,r) => s + (+r.popAkhir||0), 0);
+      const totAwal = d.reduce((s,r) => s + (+r.popAwal||0), 0);
+      const survPct = totAwal > 0 ? (totPop/totAwal*100).toFixed(1) : null;
       const res = [];
-      if (krit.length) res.push({dot:'dot-red',   text: krit[0].gh+' — gramasi kritis'});
-      if (warn.length) res.push({dot:'dot-amber', text: warn.length+' GH di bawah target gramasi'});
-      return res.length ? res : [{dot:'dot-green', text:'Semua gramasi on track'}];
+      // Populasi selalu ditampilkan
+      res.push({dot:'dot-green', text: `Pop akhir ${ccFmt(totPop)}${survPct ? ' · survival '+survPct+'%' : ''}`});
+      if (krit.length)      res.push({dot:'dot-red',   text: krit[0].gh+' — belum input gramasi'});
+      if (warnGHs.length)   res.push({dot:'dot-amber', text: warnGHs.length+' GH di bawah standar'});
+      if (!krit.length && !warnGHs.length) res.push({dot:'dot-green', text: 'Semua gramasi on track'});
+      return res;
     }
     case 'cc-estpanen': {
       const noGr = d.filter(r => r.avgGramasi <= 0).length;
