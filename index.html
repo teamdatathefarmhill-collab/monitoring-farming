@@ -6602,6 +6602,50 @@ function ccRenderDetail(id, panel) {
         </div>
       </div>
 
+      <!-- ── Populasi di bawah standar HST ── -->
+      ${(() => {
+        const popBawah = d.filter(r => {
+          const pct = pctPopVsStd(r);
+          return pct < 90 && r.popAwal > 0;
+        }).sort((a,b) => pctPopVsStd(a) - pctPopVsStd(b));
+
+        if (!popBawah.length) return `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--green-lt);border:1px solid #b8dfc4;border-radius:8px;font-size:11px;color:var(--green-txt);margin-bottom:12px">
+            <span style="font-size:13px">✅</span> Populasi semua GH memenuhi standar HST
+          </div>`;
+
+        return `<div style="padding:10px 12px;background:var(--red-lt);border:1.5px solid #f0b0b0;border-radius:9px;margin-bottom:12px">
+          <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
+            ⚠ Populasi di bawah standar HST · ${popBawah.length} GH
+          </div>
+          ${popBawah.map(r => {
+            const pct    = pctPopVsStd(r);
+            const dot    = CC[clOf(r.gh)] || '#999';
+            const label  = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
+            const col    = pct < 80 ? 'var(--red)' : '#c87800';
+            const barW   = Math.max(Math.min(pct, 100) / 100 * 100, 2).toFixed(1);
+            const selisih = r.popAwal > 0
+              ? Math.round(r.popAwal * popStdFaktor(r.hst)) - r.popAkhir
+              : 0;
+            return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+              <div style="display:flex;align-items:center;gap:5px;width:88px;flex-shrink:0">
+                <span style="width:6px;height:6px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+                <span style="font-size:10.5px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+              </div>
+              <div style="flex:1;height:16px;background:rgba(192,32,32,.1);border-radius:3px;overflow:hidden;position:relative">
+                <div style="width:${barW}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding:0 6px">
+                  ${barW > 20 ? `<span style="font-size:10px;color:#fff;font-weight:700">${pct.toFixed(1)}%</span>` : ''}
+                </div>
+              </div>
+              <div style="width:80px;text-align:right;flex-shrink:0;font-size:10px;color:${col};font-weight:700;font-family:'JetBrains Mono',monospace">
+                −${ccFmt(selisih)} tan
+              </div>
+            </div>`;
+          }).join('')}
+          <div style="font-size:10px;color:var(--red-txt);margin-top:6px;opacity:.8">Std: &lt;90% = kritis · ambang dari tabel standar HST · "−N tan" = selisih dari standar minimum</div>
+        </div>`;
+      })()}
+
       <!-- Bar chart GH yang bermasalah -->
       ${(kritis.length || bawahGH.length) ? `
       <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
