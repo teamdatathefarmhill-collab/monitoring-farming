@@ -1166,6 +1166,12 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <option value="">Semua Varian</option>
               </select>
             </div>
+            <!-- Musim Selector -->
+            <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px" title="Pilih musim untuk target gramasi">
+              <button class="fbtn musim-btn active" onclick="setMusim('kemarau',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">☀️ Kemarau</button>
+              <button class="fbtn musim-btn" onclick="setMusim('pancaroba',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">🌤️ Pancaroba</button>
+              <button class="fbtn musim-btn" onclick="setMusim('hujan',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">🌧️ Hujan</button>
+            </div>
             <!-- Filter GH -->
             <div id="wrapFilterGH">
               <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
@@ -1965,6 +1971,16 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 // ══════════════════════════════════════════════
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
 
+// ── STANDAR GRAMASI — sheet Calc dari Google Sheets ──
+const STANDAR_GR_SHEET_ID = '1THYKWkQOaQvL7Uz9pDB-cOG9N9Empn2jQ0o2p_smDAE';
+const STANDAR_GR_GID      = '1118941390';
+const STANDAR_GR_CSV_URL  = `https://docs.google.com/spreadsheets/d/${STANDAR_GR_SHEET_ID}/export?format=csv&gid=${STANDAR_GR_GID}`;
+
+// Map hasil parse: { 'GREENIEGAL': { 0: {kemarau:400, pancaroba:350, hujan:300}, 31:{...}, ... }, ... }
+let STANDAR_GR_MAP  = {};
+let STANDAR_GR_READY = false;
+let ACTIVE_MUSIM    = 'kemarau'; // default musim aktif
+
 // Auto-refresh setiap 5 menit
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -2088,6 +2104,176 @@ function fetchBackground() {
     }).catch(() => {});
 }
 
+// ══════════════════════════════════════════════════════════════
+//  STANDAR GRAMASI — Fetch & Parse dari sheet Calc
+//
+//  Struktur sheet Calc:
+//  Setiap blok varian punya header baris: HST | % | Inc | Kemarau | Pancaroba | Hujan
+//  Baris data: Start (HST=0), 31-35, 36-40, 41-45, 46-50
+//  Kolom "Cat" di kolom AE menandai tingkatan: High / Medium / Low
+//
+//  Cara parse:
+//  - Scan baris per baris CSV
+//  - Deteksi header blok dengan adanya kata "HST", "Kemarau", "Pancaroba", "Hujan" bersamaan
+//  - Nama varian ada di baris sebelum header (baris judul blok)
+//  - Baris data: kolom HST berisi angka (atau "Start"), lalu ambil Kemarau/Pancaroba/Hujan
+// ══════════════════════════════════════════════════════════════
+
+async function fetchStandarGramasi() {
+  // Coba cache dulu (1 jam)
+  try {
+    const cached   = localStorage.getItem('ft_standar_gr_cache');
+    const cachedAt = parseInt(localStorage.getItem('ft_standar_gr_cache_ts') || '0');
+    if (cached && Date.now() - cachedAt < 3600000) {
+      STANDAR_GR_MAP   = JSON.parse(cached);
+      STANDAR_GR_READY = true;
+      console.log('[StandarGR] loaded from cache, varian:', Object.keys(STANDAR_GR_MAP));
+      return;
+    }
+  } catch(_) {}
+
+  try {
+    const resp = await fetch(STANDAR_GR_CSV_URL + '&_t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    STANDAR_GR_MAP   = parseStandarGramasi(text);
+    STANDAR_GR_READY = true;
+    localStorage.setItem('ft_standar_gr_cache',    JSON.stringify(STANDAR_GR_MAP));
+    localStorage.setItem('ft_standar_gr_cache_ts', Date.now().toString());
+    console.log('[StandarGR] fetched OK, varian:', Object.keys(STANDAR_GR_MAP));
+  } catch(e) {
+    console.error('[StandarGR] gagal fetch:', e.message);
+  }
+}
+
+function parseStandarGramasi(csvText) {
+  // Parse CSV jadi array of array
+  const lines = csvText.split('\n');
+  const grid  = lines.map(l => splitCSVRow(l).map(c => c.trim()));
+
+  const map = {};          // hasil akhir
+  let curVarian = null;    // nama varian aktif
+  let colKemarau = -1, colPancaroba = -1, colHujan = -1, colHST = -1, colInc = -1;
+
+  for (let i = 0; i < grid.length; i++) {
+    const row = grid[i];
+    if (!row || row.every(c => !c)) continue;
+
+    // ── Deteksi baris header kolom: mengandung "HST" DAN ("Kemarau" atau "Hujan") ──
+    const rowStr = row.join('|').toLowerCase();
+    if (rowStr.includes('kemarau') && rowStr.includes('hujan')) {
+      // Ini baris header kolom, cari index
+      colHST      = row.findIndex(c => c.toLowerCase() === 'hst');
+      colKemarau  = row.findIndex(c => c.toLowerCase() === 'kemarau');
+      colPancaroba= row.findIndex(c => c.toLowerCase() === 'pancaroba');
+      colHujan    = row.findIndex(c => c.toLowerCase() === 'hujan');
+      colInc      = row.findIndex(c => c.toLowerCase() === 'inc');
+
+      // Nama varian: cari dari baris sebelumnya yang ada teksnya
+      // Scan mundur dari baris ini (max 3 baris ke atas)
+      for (let back = 1; back <= 3; back++) {
+        const prevRow = grid[i - back];
+        if (!prevRow) continue;
+        const candidate = prevRow.filter(c => c && c !== '-' && isNaN(c) && c.length > 1);
+        if (candidate.length > 0) {
+          // Ambil nilai non-kosong pertama yang bukan angka
+          const name = candidate[0].toUpperCase().trim();
+          if (name && name !== 'HST' && name !== 'INC' && !name.includes('KEMARAU')) {
+            curVarian = name;
+            break;
+          }
+        }
+      }
+      continue;
+    }
+
+    // ── Baris data: kolom HST harus ada angka atau "Start" ──
+    if (colHST < 0 || !curVarian) continue;
+    const hstRaw = (row[colHST] || '').toLowerCase();
+    if (!hstRaw) continue;
+
+    let hstKey = -1;
+    if (hstRaw === 'start') {
+      hstKey = 0;
+    } else {
+      // Format "31 - 35" atau "31-35" → ambil angka pertama
+      const match = hstRaw.match(/^(\d+)/);
+      if (match) hstKey = parseInt(match[1]);
+    }
+    if (hstKey < 0) continue;
+
+    const kemarau   = parseInt((row[colKemarau]   || '').replace('.','')) || 0;
+    const pancaroba = parseInt((row[colPancaroba] || '').replace('.','')) || 0;
+    const hujan     = parseInt((row[colHujan]     || '').replace('.','')) || 0;
+
+    if (!kemarau && !pancaroba && !hujan) continue;
+
+    if (!map[curVarian]) map[curVarian] = {};
+    map[curVarian][hstKey] = { kemarau, pancaroba, hujan };
+  }
+
+  return map;
+}
+
+// Lookup target gramasi berdasarkan varian, HST, dan musim aktif
+// Logika range HST: Start=0-30, 31=31-35, 36=36-40, 41=41-45, 46=46-50
+// Jika HST > 50, gunakan baris terakhir (46)
+function getTargetGramasi(varian, hst, musim) {
+  if (!STANDAR_GR_READY || !varian) return 0;
+
+  // Normalisasi nama varian: uppercase, trim
+  const varKey = varian.toUpperCase().trim();
+  const varData = STANDAR_GR_MAP[varKey];
+  if (!varData) return 0;
+
+  const h = Math.round(+hst || 0);
+
+  // Tentukan baris HST yang applicable
+  let hstKey = 0;
+  if (h >= 46) hstKey = 46;
+  else if (h >= 41) hstKey = 41;
+  else if (h >= 36) hstKey = 36;
+  else if (h >= 31) hstKey = 31;
+  else hstKey = 0; // Start (HST 0-30)
+
+  const row = varData[hstKey];
+  if (!row) return 0;
+
+  const m = (musim || ACTIVE_MUSIM || 'kemarau').toLowerCase();
+  return row[m] || row.kemarau || 0;
+}
+
+// Enrich RAW_VARIAN dan RAW dengan targetGramasi dari standar sheet
+function enrichTargetGramasi() {
+  if (!STANDAR_GR_READY) return;
+
+  RAW_VARIAN = RAW_VARIAN.map(r => ({
+    ...r,
+    targetGramasi: getTargetGramasi(r.varian, r.hst, ACTIVE_MUSIM) || r.targetGramasi || 0,
+  }));
+
+  // Juga update RAW (per GH, avg target dari semua variannya di RAW_VARIAN)
+  const tgtByGH = {};
+  RAW_VARIAN.forEach(r => {
+    if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { sum: 0, cnt: 0 };
+    if (r.targetGramasi > 0) { tgtByGH[r.gh].sum += r.targetGramasi; tgtByGH[r.gh].cnt++; }
+  });
+  RAW = RAW.map(r => {
+    const tgt = tgtByGH[r.gh];
+    const fromSheet = tgt && tgt.cnt > 0 ? Math.round(tgt.sum / tgt.cnt) : 0;
+    return { ...r, targetGramasi: fromSheet || r.targetGramasi || 0 };
+  });
+}
+
+// Ganti musim aktif dan rebuild tampilan gramasi
+function setMusim(musim, el) {
+  ACTIVE_MUSIM = musim;
+  document.querySelectorAll('.musim-btn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  enrichTargetGramasi();
+  rebuildGramasi();
+}
+
 // RAW_VARIAN: flat rows per GH × Varian (dari json.gramasiDetail)
 let RAW_VARIAN = [];
 
@@ -2152,6 +2338,9 @@ function applyData(json) {
       targetGramasi : 0,     // tidak ada target per varian
     };
   });
+
+  // ── Enrich targetGramasi dari standar sheet ──
+  enrichTargetGramasi();
 
   showUpStrip(json.lastUpdated, RAW.length, json.dataDate, json.isFallback);
   window._grDataDate = json.dataDate || '';
@@ -3319,6 +3508,11 @@ function setHptTab(tab, el) {
 // ── INIT ──
 tick();
 setInterval(tick, 1000);
+// Fetch standar gramasi dan data GAS secara paralel
+fetchStandarGramasi().then(() => {
+  // Kalau data GAS sudah ada (dari cache), langsung enrich
+  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
+});
 fetchData();
 // Fetch semai di background agar kolom Semai di dashboard langsung terisi
 setTimeout(() => fetchSemai(true), 1500);
