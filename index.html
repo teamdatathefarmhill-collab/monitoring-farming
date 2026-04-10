@@ -1166,11 +1166,9 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <option value="">Semua Varian</option>
               </select>
             </div>
-            <!-- Musim Selector -->
-            <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px" title="Pilih musim untuk target gramasi">
-              <button class="fbtn musim-btn active" onclick="setMusim('kemarau',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">☀️ Kemarau</button>
-              <button class="fbtn musim-btn" onclick="setMusim('pancaroba',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">🌤️ Pancaroba</button>
-              <button class="fbtn musim-btn" onclick="setMusim('hujan',this)" style="padding:4px 9px;border:none;border-radius:6px;font-size:11px">🌧️ Hujan</button>
+            <!-- Musim Info (otomatis dari bulan tanam) -->
+            <div id="musimInfoBadge" style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:5px 11px;font-size:11px;color:var(--text3)" title="Musim ditentukan otomatis dari bulan tanam tiap GH">
+              🌿 Musim: <b id="musimInfoText" style="color:var(--text2)">Auto</b>
             </div>
             <!-- Filter GH -->
             <div id="wrapFilterGH">
@@ -1979,7 +1977,37 @@ const STANDAR_GR_CSV_URL  = `https://docs.google.com/spreadsheets/d/${STANDAR_GR
 // Map hasil parse: { 'GREENIEGAL': { 0: {kemarau:400, pancaroba:350, hujan:300}, 31:{...}, ... }, ... }
 let STANDAR_GR_MAP  = {};
 let STANDAR_GR_READY = false;
-let ACTIVE_MUSIM    = 'kemarau'; // default musim aktif
+
+// ── REFERENSI MUSIM berdasarkan Bulan Tanam ──
+// Sumber: tabel referensi (Bulan Tanam → Musim)
+const MUSIM_MAP = {
+  1: 'hujan', 2: 'hujan', 3: 'hujan',
+  4: 'pancaroba', 5: 'pancaroba',
+  6: 'kemarau', 7: 'kemarau', 8: 'kemarau', 9: 'kemarau',
+  10: 'pancaroba', 11: 'pancaroba',
+  12: 'hujan'
+};
+
+// Ambil bulan (1-12) dari string tanggal — support dd/MM/yyyy dan yyyy-MM-dd
+function getBulanTanam(tglStr) {
+  if (!tglStr) return null;
+  if (tglStr.includes('/')) {
+    // dd/MM/yyyy
+    const p = tglStr.split('/');
+    if (p.length === 3) return parseInt(p[1]) || null;
+  } else if (tglStr.includes('-')) {
+    // yyyy-MM-dd
+    const p = tglStr.split('-');
+    if (p.length === 3) return parseInt(p[1]) || null;
+  }
+  return null;
+}
+
+// Lookup musim dari bulan tanam — fallback 'kemarau'
+function getMusimFromTgl(tglStr) {
+  const bulan = getBulanTanam(tglStr);
+  return (bulan && MUSIM_MAP[bulan]) || 'kemarau';
+}
 
 // Auto-refresh setiap 5 menit
 const REFRESH_MS = 5 * 60 * 1000;
@@ -2221,57 +2249,78 @@ function parseStandarGramasi(csvText) {
 function getTargetGramasi(varian, hst, musim) {
   if (!STANDAR_GR_READY || !varian) return 0;
 
-  // Normalisasi nama varian: uppercase, trim
   const varKey = varian.toUpperCase().trim();
   const varData = STANDAR_GR_MAP[varKey];
   if (!varData) return 0;
 
   const h = Math.round(+hst || 0);
 
-  // Tentukan baris HST yang applicable
   let hstKey = 0;
   if (h >= 46) hstKey = 46;
   else if (h >= 41) hstKey = 41;
   else if (h >= 36) hstKey = 36;
   else if (h >= 31) hstKey = 31;
-  else hstKey = 0; // Start (HST 0-30)
+  else hstKey = 0;
 
   const row = varData[hstKey];
   if (!row) return 0;
 
-  const m = (musim || ACTIVE_MUSIM || 'kemarau').toLowerCase();
+  const m = (musim || 'kemarau').toLowerCase();
   return row[m] || row.kemarau || 0;
 }
 
 // Enrich RAW_VARIAN dan RAW dengan targetGramasi dari standar sheet
+// Musim ditentukan otomatis per-GH dari tglAwalTanam
 function enrichTargetGramasi() {
   if (!STANDAR_GR_READY) return;
 
-  RAW_VARIAN = RAW_VARIAN.map(r => ({
-    ...r,
-    targetGramasi: getTargetGramasi(r.varian, r.hst, ACTIVE_MUSIM) || r.targetGramasi || 0,
-  }));
+  // Buat lookup musim per GH dari tglAwalTanam (ada di RAW)
+  const musimByGH = {};
+  RAW.forEach(r => {
+    musimByGH[r.gh] = getMusimFromTgl(r.tglAwalTanam || r.tgl || '');
+  });
 
-  // Juga update RAW (per GH, avg target dari semua variannya di RAW_VARIAN)
+  RAW_VARIAN = RAW_VARIAN.map(r => {
+    const musim = musimByGH[r.gh] || getMusimFromTgl(r.tglAwalTanam || r.tgl || '') || 'kemarau';
+    return {
+      ...r,
+      musim,
+      targetGramasi: getTargetGramasi(r.varian, r.hst, musim) || r.targetGramasi || 0,
+    };
+  });
+
+  // Update RAW juga — avg target dari RAW_VARIAN per GH
   const tgtByGH = {};
   RAW_VARIAN.forEach(r => {
-    if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { sum: 0, cnt: 0 };
+    if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { sum: 0, cnt: 0, musim: r.musim };
     if (r.targetGramasi > 0) { tgtByGH[r.gh].sum += r.targetGramasi; tgtByGH[r.gh].cnt++; }
   });
   RAW = RAW.map(r => {
     const tgt = tgtByGH[r.gh];
     const fromSheet = tgt && tgt.cnt > 0 ? Math.round(tgt.sum / tgt.cnt) : 0;
-    return { ...r, targetGramasi: fromSheet || r.targetGramasi || 0 };
+    return { ...r, musim: (tgt && tgt.musim) || musimByGH[r.gh] || 'kemarau', targetGramasi: fromSheet || r.targetGramasi || 0 };
   });
+
+  // Update badge musim info — tampilkan ringkasan musim yang digunakan
+  updateMusimBadge();
 }
 
-// Ganti musim aktif dan rebuild tampilan gramasi
+// Update info badge musim di header tabel
+function updateMusimBadge() {
+  const el = document.getElementById('musimInfoText');
+  if (!el) return;
+  const counts = { kemarau: 0, pancaroba: 0, hujan: 0 };
+  RAW_VARIAN.forEach(r => { if (r.musim) counts[r.musim] = (counts[r.musim] || 0) + 1; });
+  const parts = [];
+  if (counts.kemarau)   parts.push(`☀️ ${counts.kemarau}`);
+  if (counts.pancaroba) parts.push(`🌤️ ${counts.pancaroba}`);
+  if (counts.hujan)     parts.push(`🌧️ ${counts.hujan}`);
+  el.textContent = parts.length ? parts.join(' · ') : 'Auto';
+}
+
+// setMusim tidak lagi digunakan (musim otomatis), tapi tetap ada untuk kompatibilitas
 function setMusim(musim, el) {
-  ACTIVE_MUSIM = musim;
-  document.querySelectorAll('.musim-btn').forEach(b => b.classList.remove('active'));
-  if (el) el.classList.add('active');
-  enrichTargetGramasi();
-  rebuildGramasi();
+  // no-op — musim sekarang otomatis per GH dari bulan tanam
 }
 
 // RAW_VARIAN: flat rows per GH × Varian (dari json.gramasiDetail)
@@ -2335,7 +2384,8 @@ function applyData(json) {
       kenaikanHarian: _kenaikanHarian,
       gramasiPrev   : _gramasiPrev,
       lastUpdateGr  : _lastUpdateGr,
-      targetGramasi : 0,     // tidak ada target per varian
+      targetGramasi : 0,     // akan di-enrich oleh enrichTargetGramasi()
+      musim         : '',    // akan diisi oleh enrichTargetGramasi() dari tglAwalTanam
     };
   });
 
@@ -2751,6 +2801,14 @@ function rebuildGramasi() {
           ? '<span class="pill p-ok">✓ On Track</span>'
           : '<span class="pill p-b">⚠ Di Bawah Std</span>';
 
+        // Ikon musim berdasarkan bulan tanam
+        const musimRow  = r.musim || 'kemarau';
+        const musimIcon = musimRow === 'hujan' ? '🌧️' : musimRow === 'pancaroba' ? '🌤️' : '☀️';
+        const musimLabel= musimRow.charAt(0).toUpperCase() + musimRow.slice(1);
+        const tgtDisp   = r.targetGramasi > 0
+          ? `${r.targetGramasi} g <span style="font-size:9px;opacity:.6" title="Musim ${musimLabel}">${musimIcon}</span>`
+          : '—';
+
         return `<tr${misleading ? ' style="background:rgba(255,193,7,.07)!important"' : ''}>
           <td class="no-col">${i+1}</td>
           <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
@@ -2758,7 +2816,7 @@ function rebuildGramasi() {
           <td class="c mono" style="color:var(--text3)">${r.periode}</td>
           <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
           ${grDisp}
-          <td class="r mono" style="color:var(--text3)">${r.targetGramasi > 0 ? r.targetGramasi + ' g' : '—'}</td>
+          <td class="r mono" style="color:var(--text3)">${tgtDisp}</td>
           <td class="r">${kenaikStr}</td>
           <td class="c">${luDisp}</td>
           <td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>
