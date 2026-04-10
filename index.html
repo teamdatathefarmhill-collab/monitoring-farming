@@ -1970,14 +1970,95 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 // ══════════════════════════════════════════════
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxgjbPl34YAJupXz-g25X5uLH7BUDAfyANx-4Dxup2rVIEHn3KWWzYkzhoIoIAOwdIlNA/exec';
 
-// ── STANDAR GRAMASI — sheet Calc dari Google Sheets ──
-const STANDAR_GR_SHEET_ID = '1THYKWkQOaQvL7Uz9pDB-cOG9N9Empn2jQ0o2p_smDAE';
-const STANDAR_GR_GID      = '1118941390';
-const STANDAR_GR_CSV_URL  = `https://docs.google.com/spreadsheets/d/${STANDAR_GR_SHEET_ID}/export?format=csv&gid=${STANDAR_GR_GID}`;
+// ── STANDAR GRAMASI — hardcoded dari sheet Calc ──
+// Data diambil langsung dari sheet: Standar Gramasi (gid 1118941390)
+// Format: { VARIAN: { HST_KEY: { kemarau, pancaroba, hujan } } }
+// HST_KEY: 0 = Start (HST 0-30), 31 = HST 31-35, 36 = 36-40, 41 = 41-45, 46 = 46-50+
 
-// Map hasil parse: { 'GREENIEGAL': { 0: {kemarau:400, pancaroba:350, hujan:300}, 31:{...}, ... }, ... }
-let STANDAR_GR_MAP  = {};
-let STANDAR_GR_READY = false;
+let STANDAR_GR_MAP = {
+  'GREENIEGAL': {
+     0: { kemarau: 400, pancaroba: 350, hujan: 300 },
+    31: { kemarau: 800, pancaroba: 750, hujan: 700 },
+    36: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    41: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    46: { kemarau:1200, pancaroba:1150, hujan:1100 },
+  },
+  'SUNRAY': {
+     0: { kemarau: 300, pancaroba: 250, hujan: 200 },
+    31: { kemarau: 700, pancaroba: 650, hujan: 600 },
+    36: { kemarau: 950, pancaroba: 900, hujan: 850 },
+    41: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    46: { kemarau:1100, pancaroba:1050, hujan:1000 },
+  },
+  'ELYSIA': {
+     0: { kemarau: 500, pancaroba: 450, hujan: 400 },
+    31: { kemarau: 900, pancaroba: 850, hujan: 800 },
+    36: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    41: { kemarau:1250, pancaroba:1200, hujan:1150 },
+    46: { kemarau:1300, pancaroba:1250, hujan:1200 },
+  },
+  'MIDORI': {
+     0: { kemarau: 400, pancaroba: 350, hujan: 300 },
+    31: { kemarau: 800, pancaroba: 750, hujan: 700 },
+    36: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    41: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    46: { kemarau:1200, pancaroba:1150, hujan:1100 },
+  },
+  'ARUNI': {
+     0: { kemarau: 300, pancaroba: 250, hujan: 200 },
+    31: { kemarau: 700, pancaroba: 650, hujan: 600 },
+    36: { kemarau: 950, pancaroba: 900, hujan: 850 },
+    41: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    46: { kemarau:1100, pancaroba:1050, hujan:1000 },
+  },
+  'GREENIE SWEET': {
+     0: { kemarau: 400, pancaroba: 350, hujan: 300 },
+    31: { kemarau: 800, pancaroba: 750, hujan: 700 },
+    36: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    41: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    46: { kemarau:1200, pancaroba:1150, hujan:1100 },
+  },
+  'EMERALDA': {
+     0: { kemarau: 500, pancaroba: 450, hujan: 400 },
+    31: { kemarau: 900, pancaroba: 850, hujan: 800 },
+    36: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    41: { kemarau:1250, pancaroba:1200, hujan:1150 },
+    46: { kemarau:1300, pancaroba:1250, hujan:1200 },
+  },
+  'SARASUKA': {
+     0: { kemarau: 400, pancaroba: 350, hujan: 300 },
+    31: { kemarau: 800, pancaroba: 750, hujan: 700 },
+    36: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    41: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    46: { kemarau:1200, pancaroba:1150, hujan:1100 },
+  },
+  'SAGAMI': {
+     0: { kemarau: 300, pancaroba: 250, hujan: 200 },
+    31: { kemarau: 700, pancaroba: 650, hujan: 600 },
+    36: { kemarau: 950, pancaroba: 900, hujan: 850 },
+    41: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    46: { kemarau:1100, pancaroba:1050, hujan:1000 },
+  },
+  'S7': {
+     0: { kemarau: 300, pancaroba: 250, hujan: 200 },
+    31: { kemarau: 700, pancaroba: 650, hujan: 600 },
+    36: { kemarau: 950, pancaroba: 900, hujan: 850 },
+    41: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    46: { kemarau:1100, pancaroba:1050, hujan:1000 },
+  },
+  'DAEGOJI': {
+     0: { kemarau: 400, pancaroba: 350, hujan: 300 },
+    31: { kemarau: 800, pancaroba: 750, hujan: 700 },
+    36: { kemarau:1050, pancaroba:1000, hujan: 950 },
+    41: { kemarau:1150, pancaroba:1100, hujan:1050 },
+    46: { kemarau:1200, pancaroba:1150, hujan:1100 },
+  },
+};
+// Alias untuk nama varian yang mungkin beda penulisan
+STANDAR_GR_MAP['GREENIE_SWEET'] = STANDAR_GR_MAP['GREENIE SWEET'];
+STANDAR_GR_MAP['GREENIE-SWEET'] = STANDAR_GR_MAP['GREENIE SWEET'];
+
+let STANDAR_GR_READY = true; // langsung ready karena hardcoded
 
 // ── REFERENSI MUSIM berdasarkan Bulan Tanam ──
 // Sumber: tabel referensi (Bulan Tanam → Musim)
@@ -2148,42 +2229,10 @@ function fetchBackground() {
 //  - Baris data: kolom HST berisi angka (atau "Start"), lalu ambil Kemarau/Pancaroba/Hujan
 // ══════════════════════════════════════════════════════════════
 
+// fetchStandarGramasi tidak perlu fetch lagi — data sudah hardcoded
 async function fetchStandarGramasi() {
-  // Coba cache dulu (1 jam) — tapi validasi dulu isinya
-  try {
-    const cached   = localStorage.getItem('ft_standar_gr_cache');
-    const cachedAt = parseInt(localStorage.getItem('ft_standar_gr_cache_ts') || '0');
-    if (cached && Date.now() - cachedAt < 3600000) {
-      const parsed = JSON.parse(cached);
-      if (Object.keys(parsed).length > 0) {
-        STANDAR_GR_MAP   = parsed;
-        STANDAR_GR_READY = true;
-        console.log('[StandarGR] dari cache, varian:', Object.keys(STANDAR_GR_MAP));
-        return;
-      }
-      // Cache kosong/tidak valid → hapus dan refetch
-      localStorage.removeItem('ft_standar_gr_cache');
-      localStorage.removeItem('ft_standar_gr_cache_ts');
-    }
-  } catch(_) {
-    localStorage.removeItem('ft_standar_gr_cache');
-  }
-
-  try {
-    const resp = await fetch(STANDAR_GR_CSV_URL + '&_t=' + Date.now());
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    console.log('[StandarGR] CSV preview:', text.slice(0, 300).replace(/\n/g, ' | '));
-    STANDAR_GR_MAP   = parseStandarGramasi(text);
-    STANDAR_GR_READY = true;
-    if (Object.keys(STANDAR_GR_MAP).length > 0) {
-      localStorage.setItem('ft_standar_gr_cache',    JSON.stringify(STANDAR_GR_MAP));
-      localStorage.setItem('ft_standar_gr_cache_ts', Date.now().toString());
-    }
-    console.log('[StandarGR] OK, varian:', Object.keys(STANDAR_GR_MAP));
-  } catch(e) {
-    console.error('[StandarGR] gagal fetch:', e.message);
-  }
+  // Data standar gramasi sudah hardcoded, langsung ready
+  console.log('[StandarGR] hardcoded, varian:', Object.keys(STANDAR_GR_MAP));
 }
 
 function parseStandarGramasi(csvText) {
@@ -2397,17 +2446,9 @@ function updateMusimBadge() {
   if (btn) btn.style.display = 'inline';
 }
 
-// Clear cache standar gramasi dan refetch
+// Re-enrich tanpa perlu clear cache (data sudah hardcoded)
 function clearStandarCache() {
-  localStorage.removeItem('ft_standar_gr_cache');
-  localStorage.removeItem('ft_standar_gr_cache_ts');
-  STANDAR_GR_MAP   = {};
-  STANDAR_GR_READY = false;
-  const el = document.getElementById('musimInfoText');
-  if (el) { el.textContent = 'Memuat ulang…'; el.style.color = 'var(--text3)'; }
-  fetchStandarGramasi().then(() => {
-    if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
-  });
+  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
 }
 
 // setMusim tidak lagi digunakan (musim otomatis), tapi tetap ada untuk kompatibilitas
