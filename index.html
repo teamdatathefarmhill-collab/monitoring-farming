@@ -5993,14 +5993,22 @@ function ccRenderKPI() {
   const elLb = document.getElementById('ccKpi_lossbar'); if(elLb) elLb.style.width = '0%';
   const elLp = document.getElementById('ccKpi_losspct'); if(elLp) elLp.textContent = '';
 
-  // Avg Gramasi (selalu dari RAW snapshot, hanya GH aktif)
-  const wGr   = RAW.filter(r => {
+  // Avg Gramasi & Est. Akhir — pakai RAW_VARIAN + estGramasiAkhir (sama persis dengan menu Gramasi)
+  // Filter sesuai GH filter aktif
+  const wGrVar = RAW_VARIAN.filter(r => {
     if (CC_GH_FILTER !== 'semua' && clOf(r.gh).toLowerCase() !== CC_GH_FILTER) return false;
-    return (+r.targetGramasi||0) > 0 && (+r.avgGramasi||0) > 0 && r.avgGramasi !== -1;
+    return r.targetGramasi > 0 && r.avgGramasi > 0;
   });
-  const avgGr = wGr.length ? Math.round(wGr.reduce((s,r)=>s+(+r.avgGramasi),0)/wGr.length) : 0;
-  const el2  = document.getElementById('ccKpi2');  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
-  const el2n = document.getElementById('ccKpi2n'); if(el2n) el2n.textContent = wGr.length ? 'dari '+wGr.length+' GH diukur · kondisi terkini' : 'belum ada data';
+  const avgGr = wGrVar.length
+    ? Math.round(wGrVar.reduce((s,r) => s + r.avgGramasi, 0) / wGrVar.length) : 0;
+  const estVals = wGrVar.map(r => estGramasiAkhir(r)).filter(v => v > 0);
+  const avgEst  = estVals.length ? Math.round(estVals.reduce((s,v) => s+v, 0) / estVals.length) : 0;
+  const el2  = document.getElementById('ccKpi2');
+  if(el2)  el2.textContent  = avgGr ? avgGr+'g' : '—';
+  const el2n = document.getElementById('ccKpi2n');
+  if(el2n) el2n.textContent = avgEst > 0
+    ? `Est. akhir ~${avgEst}g · dari ${wGrVar.length} baris`
+    : wGrVar.length ? `dari ${wGrVar.length} GH diukur` : 'belum ada data';
 
   // Total Sanitasi Aktif
   const sntLossPct = totPopAwal > 0 ? (totSnt / totPopAwal * 100) : 0;
@@ -6481,27 +6489,157 @@ function ccRenderDetail(id, panel) {
   }
 
   else if (id === 'cc-gramasi') {
-    const wGr   = d.filter(hasGr);
-    const avgGr = wGr.length ? Math.round(wGr.reduce((s,r)=>s+r.avgGramasi,0)/wGr.length) : 0;
-    const kritis = d.filter(grKrit);
-    const bawah  = d.filter(grWarn);
-    const sorted = [...d].sort((a,b)=>pctPopVsStd(b)-pctPopVsStd(a));
-    const maxPct = Math.max(...d.map(r=>pctPopVsStd(r)), 1);
-    const badge  = kritis.length ? `<span class="pill p-b">${kritis.length} kritis</span>` : bawah.length ? `<span class="pill p-w">${bawah.length} di bawah target</span>` : `<span class="pill p-ok">On track</span>`;
-    html = ccShell('⚖️','Gramasi & Populasi', badge,'dep',`
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
-        ${ccMini('Avg gramasi', avgGr ? avgGr+'g' : '—')}
-        ${ccMini('Di bawah target', bawah.length, bawah.length?'var(--yellow)':'var(--text)')}
-        ${ccMini('Kritis', kritis.length, kritis.length?'var(--red)':'var(--text)')}
+    // Gunakan RAW_VARIAN (per GH × Varian) supaya konsisten dengan menu Gramasi
+    const ghFilter = CC_GH_FILTER;
+    const varRows  = RAW_VARIAN.filter(r => {
+      if (ghFilter !== 'semua' && clOf(r.gh).toLowerCase() !== ghFilter) return false;
+      return r.avgGramasi > 0;
+    });
+
+    // Hitung per GH — avg gramasi, avg target, avg est. akhir dari semua variannya
+    const ghMap = {};
+    varRows.forEach(r => {
+      if (!ghMap[r.gh]) ghMap[r.gh] = {
+        gh: r.gh, hst: r.hst, periode: r.periode, musim: r.musim || 'kemarau',
+        _grSum:0, _tgtSum:0, _estSum:0, _cnt:0, _tgtCnt:0,
+        varianList: [],
+      };
+      const g = ghMap[r.gh];
+      g._grSum  += r.avgGramasi;
+      g._cnt++;
+      g.varianList.push(r.varian);
+      if (r.targetGramasi > 0) {
+        g._tgtSum += r.targetGramasi;
+        g._tgtCnt++;
+        const est = estGramasiAkhir(r);
+        if (est > 0) g._estSum += est;
+      }
+    });
+
+    const ghRows = Object.values(ghMap).map(g => ({
+      ...g,
+      avgGramasi   : g._cnt   > 0 ? Math.round(g._grSum  / g._cnt)   : 0,
+      targetGramasi: g._tgtCnt > 0 ? Math.round(g._tgtSum / g._tgtCnt): 0,
+      estAkhir     : g._tgtCnt > 0 ? Math.round(g._estSum / g._tgtCnt): 0,
+    })).map(g => ({
+      ...g,
+      deviasi: g.targetGramasi > 0 ? ((g.avgGramasi - g.targetGramasi) / g.targetGramasi * 100) : null,
+    }));
+
+    // Kategorisasi
+    const kritis   = ghRows.filter(r => r.avgGramasi === 0 && r.targetGramasi > 0);  // belum ada data
+    const bawahStd = ghRows.filter(r => r.avgGramasi > 0 && r.deviasi !== null && r.deviasi < 0);
+    const onTrack  = ghRows.filter(r => r.avgGramasi > 0 && (r.deviasi === null || r.deviasi >= 0));
+
+    // Juga cek dari RAW untuk GH yang grKrit (avgGramasi === 0)
+    const dKrit = d.filter(grKrit);
+
+    // Stats
+    const avgGrCC  = ghRows.filter(r=>r.avgGramasi>0).length
+      ? Math.round(ghRows.filter(r=>r.avgGramasi>0).reduce((s,r)=>s+r.avgGramasi,0) / ghRows.filter(r=>r.avgGramasi>0).length) : 0;
+    const estValsCC = ghRows.filter(r=>r.estAkhir>0).map(r=>r.estAkhir);
+    const avgEstCC  = estValsCC.length ? Math.round(estValsCC.reduce((s,v)=>s+v,0)/estValsCC.length) : 0;
+
+    const badge = dKrit.length
+      ? `<span class="pill p-b">${dKrit.length} kritis</span>`
+      : bawahStd.length
+        ? `<span class="pill p-w">${bawahStd.length} di bawah standar</span>`
+        : `<span class="pill p-ok">Semua on track</span>`;
+
+    // Row tabel per GH
+    const makeGHRow = (r, bg) => {
+      const dot      = CC[clOf(r.gh)] || '#999';
+      const devStr   = r.deviasi !== null ? (r.deviasi >= 0 ? `+${r.deviasi.toFixed(1)}%` : `${r.deviasi.toFixed(1)}%`) : '—';
+      const devColor = r.deviasi === null ? 'var(--text4)' : r.deviasi >= 0 ? 'var(--green)' : 'var(--red)';
+      const musimIco = r.musim === 'hujan' ? '🌧️' : r.musim === 'pancaroba' ? '🌤️' : '☀️';
+      const estDisp  = r.estAkhir > 0 ? `<b style="color:${r.estAkhir>=r.targetGramasi?'var(--green)':'var(--red)'}">${r.estAkhir}g</b>` : '—';
+      return `<tr style="border-bottom:1px solid var(--border);${bg?'background:'+bg+';':''}">
+        <td style="padding:7px 10px;font-size:12px;font-weight:700">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>${r.gh}
+          </div>
+          <div style="font-size:9px;color:var(--text4);margin-top:1px;padding-left:13px">${r.varianList.slice(0,3).join(', ')}${r.varianList.length>3?' +lainnya':''}</div>
+        </td>
+        <td style="padding:7px 8px;text-align:center">
+          <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--surface2);font-family:'JetBrains Mono',monospace">HST ${r.hst}</span>
+        </td>
+        <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700">${r.avgGramasi > 0 ? r.avgGramasi+'g' : '<span style="color:var(--red)">—</span>'}</td>
+        <td style="padding:7px 8px;text-align:right;font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">${r.targetGramasi > 0 ? r.targetGramasi+'g '+musimIco : '—'}</td>
+        <td style="padding:7px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:11px">${estDisp}</td>
+        <td style="padding:7px 8px;text-align:right;font-weight:700;font-family:'JetBrains Mono',monospace;font-size:12px;color:${devColor}">${devStr}</td>
+      </tr>`;
+    };
+
+    // Tabel header
+    const tblHeader = `<table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:var(--hdr)">
+        <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">GH · Varian</th>
+        <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">HST</th>
+        <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Avg Gramasi</th>
+        <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Target</th>
+        <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Est. Akhir</th>
+        <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;text-transform:uppercase;letter-spacing:.6px">Deviasi</th>
+      </tr></thead>`;
+
+    html = ccShell('⚖️','Gramasi & Populasi', badge, 'dep', `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
+        ${ccMini('Avg gramasi aktual', avgGrCC ? avgGrCC+'g' : '—')}
+        ${ccMini('Est. gramasi akhir', avgEstCC ? '~'+avgEstCC+'g' : '—', 'var(--blue)')}
+        ${ccMini('Di bawah standar', bawahStd.length, bawahStd.length ? 'var(--yellow)' : 'var(--text)')}
+        ${ccMini('Kritis (belum input)', dKrit.length, dKrit.length ? 'var(--red)' : 'var(--text)')}
       </div>
-      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">% Pop akhir vs standar HST (semua GH)</div>
-      ${sorted.slice(0,6).map(r => {
-        const pct = pctPopVsStd(r);
-        const col = pct>=100?'var(--green)':pct>=90?'#c87800':'var(--red)';
-        return ccBar(r.gh, Math.round(pct), Math.max(Math.round(maxPct)+5,115), col, '%');
-      }).join('')}
-      ${kritis.length ? `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin:12px 0 6px">GH gramasi kritis</div>
-        ${kritis.map(r => ccAlertItem('🔴', r.gh+' — HST '+r.hst+' gramasi belum tercatat','Input data gramasi segera')).join('')}` : ''}
+
+      ${(bawahStd.length || dKrit.length) ? `
+      <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
+        ⚠ GH tidak memenuhi standar (${bawahStd.length + dKrit.length} GH)
+      </div>
+      <div style="overflow-x:auto;margin-bottom:14px;border-radius:9px;border:1.5px solid #f0b0b0">
+        ${tblHeader}<tbody>
+          ${dKrit.map(r => {
+            const dot = CC[clOf(r.gh)]||'#999';
+            const musim = r.musim || getMusimFromTgl(r.tglAwalTanam||'') || 'kemarau';
+            const musimIco = musim==='hujan'?'🌧️':musim==='pancaroba'?'🌤️':'☀️';
+            return `<tr style="background:var(--red-lt);border-bottom:1px solid #f0b0b0">
+              <td style="padding:7px 10px;font-size:12px;font-weight:700">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>${r.gh}
+                </div>
+                <div style="font-size:10px;color:var(--red-txt);padding-left:13px;margin-top:1px">Gramasi belum tercatat</div>
+              </td>
+              <td style="padding:7px 8px;text-align:center"><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--red-lt);color:var(--red-txt);font-family:'JetBrains Mono',monospace">HST ${r.hst}</span></td>
+              <td colspan="4" style="padding:7px 10px;font-size:11px;color:var(--red);font-weight:700;text-align:center">Input data gramasi segera !</td>
+            </tr>`;
+          }).join('')}
+          ${bawahStd.sort((a,b)=>a.deviasi-b.deviasi).map(r => makeGHRow(r, 'rgba(255,193,7,.06)')).join('')}
+        </tbody></table>
+      </div>` : `
+      <div style="padding:10px 14px;background:var(--green-lt);border:1px solid #b8dfc4;border-radius:9px;font-size:12px;color:var(--green-txt);margin-bottom:14px">
+        ✅ Semua GH memenuhi standar gramasi
+      </div>`}
+
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">
+        Semua GH — diurutkan deviasi
+      </div>
+      <div style="overflow-x:auto;border-radius:9px;border:1px solid var(--border)">
+        ${tblHeader}<tbody>
+          ${[...bawahStd.sort((a,b)=>a.deviasi-b.deviasi), ...onTrack.sort((a,b)=>(b.deviasi||0)-(a.deviasi||0))].map(r => makeGHRow(r)).join('')}
+          ${dKrit.map(r => {
+            const dot = CC[clOf(r.gh)]||'#999';
+            return `<tr style="background:var(--red-lt);border-bottom:1px solid var(--border)">
+              <td style="padding:7px 10px;font-size:12px;font-weight:700">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0"></span>${r.gh}
+                </div>
+              </td>
+              <td style="padding:7px 8px;text-align:center"><span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:5px;background:var(--red-lt);color:var(--red-txt);font-family:'JetBrains Mono',monospace">HST ${r.hst}</span></td>
+              <td colspan="4" style="padding:7px 10px;font-size:11px;color:var(--red);font-weight:600;text-align:center">🔴 Belum ada data gramasi</td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>
+      </div>
+      <div style="font-size:10px;color:var(--text3);margin-top:8px">
+        Est. Akhir = (avg ÷ target HST sekarang) × target max HST 46 · Musim otomatis dari bulan tanam
+      </div>
     `);
   }
 
