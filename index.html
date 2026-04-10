@@ -1132,9 +1132,9 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-note" id="scGr1n">Rata-rata dari GH aktif (diukur)</div>
         </div>
         <div class="sc b">
-          <div class="sc-lbl">Avg Gramasi per Periode</div>
+          <div class="sc-lbl">Est. Gramasi Akhir</div>
           <div class="sc-val b" id="scGr4"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr4n">Rata-rata target gramasi periode aktif</div>
+          <div class="sc-note" id="scGr4n">Rata-rata estimasi panen berdasarkan tren saat ini</div>
         </div>
         <div class="sc y">
           <div class="sc-lbl">GH Performa Terbaik</div>
@@ -1194,6 +1194,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <th class="c" onclick="doSortGr('hst')" style="cursor:pointer" title="Sort HST">HST ↕</th>
                 <th class="r">Avg Gramasi</th>
                 <th class="r" id="th-target">Target</th>
+                <th class="r" id="th-est" title="Estimasi gramasi akhir = (avg ÷ target HST sekarang) × target HST max (46+)">Est. Akhir</th>
                 <th class="r">Kenaikan Harian</th>
                 <th class="c">Last Update</th>
                 <th class="r" id="th-deviasi">Deviasi (%)</th>
@@ -2756,19 +2757,40 @@ function maxTglGH(gh) {
   return rows.reduce((max, r) => r.lastUpdateGr > max ? r.lastUpdateGr : max, '');
 }
 
+// ── ESTIMASI GRAMASI AKHIR ──
+// Formula: (avgGramasi / targetGramasi_sekarang) × targetGramasi_max(HST46)
+// Artinya: kalau sekarang sudah sekian persen dari target, proyeksikan ke target max
+function estGramasiAkhir(r) {
+  if (!r.targetGramasi || r.targetGramasi <= 0 || !r.avgGramasi) return 0;
+  const musim   = r.musim || 'kemarau';
+  const varKey  = (r.varian || '').toUpperCase().trim();
+  const varData = STANDAR_GR_MAP[varKey];
+  if (!varData) return 0;
+  const maxRow  = varData[46]; // target HST 46-50 = target max
+  if (!maxRow) return 0;
+  const tgtMax  = maxRow[musim] || maxRow.kemarau || 0;
+  if (!tgtMax) return 0;
+  return Math.round((r.avgGramasi / r.targetGramasi) * tgtMax);
+}
+
 function renderGramasi(d) {
   const wGr = d.filter(hasGr);
 
   // ── KPI CARDS ──
-  const avgGes     = wGr.length ? wGr.reduce((s,r) => s + r.avgGramasi, 0) / wGr.length : 0;
-  const avgPeriode = wGr.length ? wGr.reduce((s,r) => s + r.targetGramasi, 0) / wGr.length : 0;
+  const avgGes  = wGr.length ? wGr.reduce((s,r) => s + r.avgGramasi, 0) / wGr.length : 0;
+
+  // Est. Akhir: hitung per row dari RAW_VARIAN (punya info varian+musim), avg-kan
+  const varWithEst = RAW_VARIAN.filter(r => r.targetGramasi > 0 && r.avgGramasi > 0);
+  const estValues  = varWithEst.map(r => estGramasiAkhir(r)).filter(v => v > 0);
+  const avgEst     = estValues.length ? Math.round(estValues.reduce((s,v) => s+v, 0) / estValues.length) : 0;
+
   let bestGH = '—', bestDev = -999;
   wGr.forEach(r => {
     const dev = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : -999;
     if (dev > bestDev) { bestDev = dev; bestGH = r.gh; }
   });
   document.getElementById('scGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
-  document.getElementById('scGr4').textContent = wGr.length ? Math.round(avgPeriode) + ' g' : '—';
+  document.getElementById('scGr4').textContent = avgEst > 0 ? avgEst + ' g' : '—';
   document.getElementById('scGr2').textContent = bestGH !== '—' ? bestGH : '—';
   document.getElementById('scGr2n').innerHTML  = wGr.length && bestDev > -999
     ? (bestDev >= 0 ? `Deviasi <b class="up">+${bestDev.toFixed(1)}%</b>` : `Deviasi <b class="dn">${bestDev.toFixed(1)}%</b>`)
@@ -2885,35 +2907,29 @@ function rebuildGramasi() {
       : `${rows.length} GH ditampilkan · diurutkan HST`) + misleadingNote;
   }
 
-  const colCount = 9 + (showVarian ? 1 : 0);
+  const colCount = 10 + (showVarian ? 1 : 0);
 
   document.getElementById('tBodyGr').innerHTML = rows.length
     ? rows.map((r, i) => {
         const dot = CC[clOf(r.gh)] || '#999';
 
-        // Last update dari field GAS (bukan today)
         const lu     = r.lastUpdateGr || '';
         const luDisp = lu
           ? `<span class="mono" style="font-size:11px;color:var(--text2);font-weight:600">${fmtTgl(lu)}</span>`
           : `<span style="color:var(--text4);font-size:11px">—</span>`;
 
-        // Varian cell (hanya mode all)
         const varCell = showVarian
           ? `<td class="c" style="font-size:11px;color:var(--text3)">${r.varian || '—'}</td>`
           : '';
 
-        // Gramasi — jangan tampilkan target jika 0 (mode per varian)
-        // Flag ⚠ jika avgGramasi < gramasiPrev (kemungkinan salah input)
+        // Avg Gramasi — bersih, tanpa target (hapus double info)
         const misleading = r.gramasiPrev > 0 && r.avgGramasi < r.gramasiPrev;
         const misleadingBadge = misleading
           ? `<span title="Avg gramasi lebih rendah dari hari sebelumnya (${r.gramasiPrev}g → ${r.avgGramasi}g). Kemungkinan salah input." style="display:inline-flex;align-items:center;gap:3px;background:#fff3cd;border:1px solid #ffc107;color:#856404;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:6px;cursor:help">⚠ Cek Input</span>`
           : '';
-        const grDisp = r.targetGramasi > 0
-          ? `<td class="r mono" style="font-weight:700">${r.avgGramasi} g <span style="font-size:10px;font-weight:400;color:var(--text4)">/ ${r.targetGramasi}g</span>${misleadingBadge}</td>`
-          : `<td class="r mono" style="font-weight:700">${r.avgGramasi} g${misleadingBadge}</td>`;
+        const grDisp = `<td class="r mono" style="font-weight:700">${r.avgGramasi} g${misleadingBadge}</td>`;
 
-        // Kenaikan harian — null = belum ada data prev, 0/negatif = tidak valid → tampil —
-        // Gramasi buah tidak mungkin turun; diff negatif = kemungkinan salah input
+        // Kenaikan harian
         const ken     = r.kenaikanHarian;
         const kenPrev = r.gramasiPrev || 0;
         let kenaikStr;
@@ -2923,6 +2939,23 @@ function rebuildGramasi() {
           const kenPct = kenPrev > 0 ? (ken / kenPrev * 100) : 0;
           kenaikStr = `<span class="mono" style="font-size:12px;color:var(--text2)">+${ken.toFixed(1)} g/hari</span><br><span style="font-size:10px;color:var(--green)">+${kenPct.toFixed(1)}%</span>`;
         }
+
+        // Target kolom — dengan ikon musim
+        const musimRow  = r.musim || 'kemarau';
+        const musimIcon = musimRow === 'hujan' ? '🌧️' : musimRow === 'pancaroba' ? '🌤️' : '☀️';
+        const musimLabel= musimRow.charAt(0).toUpperCase() + musimRow.slice(1);
+        const tgtDisp   = r.targetGramasi > 0
+          ? `${r.targetGramasi} g <span style="font-size:9px;opacity:.6" title="Musim ${musimLabel}">${musimIcon}</span>`
+          : '—';
+
+        // Estimasi gramasi akhir
+        const est    = estGramasiAkhir(r);
+        const estCol = est > 0
+          ? (est >= (r.targetGramasi || 0) * 1.05 ? 'var(--green)' : est >= (r.targetGramasi || 0) ? 'var(--text2)' : 'var(--red)')
+          : 'var(--text4)';
+        const estDisp = est > 0
+          ? `<span class="mono" style="font-weight:700;color:${estCol}">${est} g</span>`
+          : `<span style="color:var(--text4)">—</span>`;
 
         // Deviasi vs target
         const devVal  = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : 0;
@@ -2934,14 +2967,6 @@ function rebuildGramasi() {
           ? '<span class="pill p-ok">✓ On Track</span>'
           : '<span class="pill p-b">⚠ Di Bawah Std</span>';
 
-        // Ikon musim berdasarkan bulan tanam
-        const musimRow  = r.musim || 'kemarau';
-        const musimIcon = musimRow === 'hujan' ? '🌧️' : musimRow === 'pancaroba' ? '🌤️' : '☀️';
-        const musimLabel= musimRow.charAt(0).toUpperCase() + musimRow.slice(1);
-        const tgtDisp   = r.targetGramasi > 0
-          ? `${r.targetGramasi} g <span style="font-size:9px;opacity:.6" title="Musim ${musimLabel}">${musimIcon}</span>`
-          : '—';
-
         return `<tr${misleading ? ' style="background:rgba(255,193,7,.07)!important"' : ''}>
           <td class="no-col">${i+1}</td>
           <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
@@ -2950,6 +2975,7 @@ function rebuildGramasi() {
           <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
           ${grDisp}
           <td class="r mono" style="color:var(--text3)">${tgtDisp}</td>
+          <td class="r">${estDisp}</td>
           <td class="r">${kenaikStr}</td>
           <td class="c">${luDisp}</td>
           <td class="r mono" style="font-weight:700;color:${devCol}">${devStr}</td>
