@@ -1865,25 +1865,12 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- ROW 2: Kategori Sanitasi -->
+      <!-- ROW 2: Kategori Sanitasi + Distribusi & Aktivitas (digabung) -->
       <div class="card" style="margin-bottom:18px">
         <div class="card-hd">
           <div>
-            <div class="card-title">🏷️ True Sanitasi per Kategori</div>
+            <div class="card-title">🏷️ True Sanitasi per Kategori · Distribusi & Aktivitas</div>
             <div class="card-sub" id="sntKatSub">Hari unik ada sanitasi per kategori kegiatan</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px 18px" id="sntKatGrid">
-          <div class="es">Memuat…</div>
-        </div>
-      </div>
-
-      <!-- ROW 3: Pie + Heatmap dalam 1 card -->
-      <div class="card" style="margin-bottom:18px">
-        <div class="card-hd">
-          <div>
-            <div class="card-title">📊 Distribusi & Aktivitas Sanitasi</div>
-            <div class="card-sub">Kontribusi tim · Heatmap kalender aktivitas</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text3)">
             <span>Sedikit</span>
@@ -1897,6 +1884,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             <span>Banyak</span>
           </div>
         </div>
+        <!-- Kategori cards row -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)" id="sntKatGrid">
+          <div class="es">Memuat…</div>
+        </div>
+        <!-- Pie + Heatmap row -->
         <div style="display:grid;grid-template-columns:220px 1fr;gap:0;min-height:0">
           <!-- Pie kiri -->
           <div style="padding:14px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
@@ -1915,12 +1907,22 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       <!-- ROW 3: Bar per GH + Status Terakhir per GH -->
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:18px">
 
-        <!-- BAR TRUE SANITASI PER KATEGORI -->
+        <!-- BAR TRUE SANITASI — toggle per Kategori / per GH -->
         <div class="card" style="margin-bottom:0">
           <div class="card-hd">
             <div>
-              <div class="card-title">📊 True Sanitasi per Kategori</div>
-              <div class="card-sub" id="sntBarSub">Total TRUE SANITASI per kategori kegiatan</div>
+              <div class="card-title" id="sntBarTitle">📊 True Sanitasi per Kategori</div>
+              <div class="card-sub" id="sntBarSub">Total sanitasi per kategori kegiatan</div>
+            </div>
+            <div style="display:flex;gap:5px">
+              <button id="sntBarBtnKat" onclick="switchSntBarMode('kategori')"
+                style="background:var(--green-lt);border:1.5px solid var(--green-mid);color:var(--green-txt);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;transition:all .12s">
+                Per Kategori
+              </button>
+              <button id="sntBarBtnGH" onclick="switchSntBarMode('gh')"
+                style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;transition:all .12s">
+                Per GH
+              </button>
             </div>
           </div>
           <div style="padding:14px 18px;height:280px;position:relative">
@@ -4560,8 +4562,23 @@ let RAW_SNT_PERIODE = 'harian';
 let sntTrendChartObj = null;
 let sntPieChartObj   = null;
 let sntBarChartObj   = null;
+let sntBarMode       = 'kategori'; // 'kategori' | 'gh'
+let sntBarLastRows   = [];
 // rawKeys per tanggal untuk drill-down
 let SNT_GROUPED_BY_DATE = {};
+
+function switchSntBarMode(mode) {
+  sntBarMode = mode;
+  const btnKat = document.getElementById('sntBarBtnKat');
+  const btnGH  = document.getElementById('sntBarBtnGH');
+  if (btnKat && btnGH) {
+    const activeStyle = 'background:var(--green-lt);border:1.5px solid var(--green-mid);color:var(--green-txt);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;transition:all .12s';
+    const idleStyle   = 'background:var(--surface);border:1.5px solid var(--border2);color:var(--text2);padding:5px 11px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:700;transition:all .12s';
+    btnKat.style.cssText = mode === 'kategori' ? activeStyle : idleStyle;
+    btnGH.style.cssText  = mode === 'gh'       ? activeStyle : idleStyle;
+  }
+  renderSntBar(sntBarLastRows);
+}
 
 const SNT_COLORS = [
   '#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020',
@@ -5166,33 +5183,72 @@ function sntHeatClick(iso) {
 
 // ── BAR CHART TRUE SANITASI PER KATEGORI (kolom TRUE SANITASI) ──
 function renderSntBar(rows) {
-  // Group by nilai kolom TRUE SANITASI (GSB, KERITING, MOZAIK, dll)
-  const katMap = {};
-  rows.filter(r => r.trueSnt && r.trueSnt.trim()).forEach(r => {
-    const k = r.trueSnt.trim();
-    if (!katMap[k]) katMap[k] = { jmlTotal: 0, ghSet: new Set(), days: new Set() };
-    katMap[k].jmlTotal += r.jmlSnt || 0;
-    katMap[k].ghSet.add(r.gh);
-    if (r.tgl) katMap[k].days.add(r.tgl);
-  });
+  sntBarLastRows = rows; // simpan untuk re-render saat mode switch
 
-  const entries = Object.entries(katMap).sort((a,b) => b[1].jmlTotal - a[1].jmlTotal);
   const canvas  = document.getElementById('sntBarChart');
   const empty   = document.getElementById('sntBarEmpty');
   const subEl   = document.getElementById('sntBarSub');
-
-  if (!entries.length) {
-    canvas.style.display = 'none'; if(empty) empty.style.display=''; return;
-  }
-  canvas.style.display = ''; if(empty) empty.style.display='none';
-  if (subEl) subEl.textContent = entries.length + ' jenis sanitasi · diurutkan total terbanyak';
+  const titleEl = document.getElementById('sntBarTitle');
 
   if (sntBarChartObj) { sntBarChartObj.destroy(); sntBarChartObj = null; }
 
   const KAT_COLORS = ['#1a7a3a','#1a5fa0','#a06000','#7b2d8b','#c02020','#2ca354','#388bfd','#d4820a','#43a047','#e57373'];
-  const labels = entries.map(([k]) => k);
-  const data   = entries.map(([,v]) => v.jmlTotal);
-  const colors = entries.map((_,i) => KAT_COLORS[i % KAT_COLORS.length]);
+
+  let labels, data, colors, tooltipExtra;
+
+  if (sntBarMode === 'gh') {
+    // Mode: per GH — group by GH, sum jmlSnt
+    if (titleEl) titleEl.textContent = '📊 True Sanitasi per GH (Terbanyak)';
+    const ghMap = {};
+    rows.filter(r => r.gh).forEach(r => {
+      if (!ghMap[r.gh]) ghMap[r.gh] = { jmlTotal: 0, days: new Set(), katTypes: {} };
+      ghMap[r.gh].jmlTotal += r.jmlSnt || 0;
+      if (r.tgl) ghMap[r.gh].days.add(r.tgl);
+      if (r.trueSnt && r.trueSnt.trim()) {
+        const ts = r.trueSnt.trim();
+        ghMap[r.gh].katTypes[ts] = (ghMap[r.gh].katTypes[ts] || 0) + (r.jmlSnt || 0);
+      }
+    });
+
+    const entries = Object.entries(ghMap).sort((a,b) => b[1].jmlTotal - a[1].jmlTotal);
+    if (!entries.length) {
+      canvas.style.display = 'none'; if(empty) empty.style.display=''; return;
+    }
+    canvas.style.display = ''; if(empty) empty.style.display='none';
+    if (subEl) subEl.textContent = entries.length + ' GH · diurutkan total sanitasi terbanyak';
+
+    labels      = entries.map(([gh]) => gh);
+    data        = entries.map(([,v]) => v.jmlTotal);
+    colors      = entries.map((_,i) => KAT_COLORS[i % KAT_COLORS.length]);
+    tooltipExtra = entries.map(([,v]) => {
+      const topKat = Object.entries(v.katTypes).sort((a,b)=>b[1]-a[1]).slice(0,2).map(([k,n])=>`${k}: ${n}`);
+      return [`Hari aktif: ${v.days.size}`, ...topKat];
+    });
+
+  } else {
+    // Mode: per Kategori (default) — group by trueSnt
+    if (titleEl) titleEl.textContent = '📊 True Sanitasi per Kategori';
+    const katMap = {};
+    rows.filter(r => r.trueSnt && r.trueSnt.trim()).forEach(r => {
+      const k = r.trueSnt.trim();
+      if (!katMap[k]) katMap[k] = { jmlTotal: 0, ghSet: new Set(), days: new Set() };
+      katMap[k].jmlTotal += r.jmlSnt || 0;
+      katMap[k].ghSet.add(r.gh);
+      if (r.tgl) katMap[k].days.add(r.tgl);
+    });
+
+    const entries = Object.entries(katMap).sort((a,b) => b[1].jmlTotal - a[1].jmlTotal);
+    if (!entries.length) {
+      canvas.style.display = 'none'; if(empty) empty.style.display=''; return;
+    }
+    canvas.style.display = ''; if(empty) empty.style.display='none';
+    if (subEl) subEl.textContent = entries.length + ' jenis sanitasi · diurutkan total terbanyak';
+
+    labels      = entries.map(([k]) => k);
+    data        = entries.map(([,v]) => v.jmlTotal);
+    colors      = entries.map((_,i) => KAT_COLORS[i % KAT_COLORS.length]);
+    tooltipExtra = entries.map(([,v]) => [`GH: ${v.ghSet.size}`, `Hari: ${v.days.size}`]);
+  }
 
   sntBarChartObj = new Chart(canvas.getContext('2d'), {
     type: 'bar',
@@ -5203,10 +5259,7 @@ function renderSntBar(rows) {
         legend:{display:false},
         tooltip:{callbacks:{
           label: c => ` ${c.raw.toLocaleString('id-ID')} sanitasi`,
-          afterLabel: c => {
-            const e = entries[c.dataIndex];
-            return [`GH: ${e[1].ghSet.size}`, `Hari: ${e[1].days.size}`];
-          }
+          afterLabel: c => tooltipExtra[c.dataIndex] || []
         }}
       },
       scales:{
