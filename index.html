@@ -6919,9 +6919,24 @@ function ccBuildPhaseTimeline() {
   const container = document.getElementById('ccPhaseTimeline');
   if (!container) return;
 
-  const allGH  = ccBuildAllGH().filter(r => r.hst <= 65);
+  // Timeline selalu pakai RAW (live) sebagai sumber utama,
+  // gabung dengan history jika ada GH yang belum ada di RAW
   const fromV  = (document.getElementById('ccDateFrom')||{}).value || '';
   const toV    = (document.getElementById('ccDateTo')||{}).value   || '';
+  const rawByGH = {};
+  RAW.forEach(r => { rawByGH[r.gh.trim().toUpperCase()] = r; });
+  // Dari history: ambil GH yang tidak ada di RAW live
+  const histExtra = [];
+  if (RAW_POP_HISTORY.length) {
+    const ghMap = {};
+    RAW_POP_HISTORY.forEach(r => { if (!ghMap[r.gh] || r.hst > ghMap[r.gh].hst) ghMap[r.gh] = r; });
+    Object.values(ghMap).forEach(r => {
+      if (!rawByGH[r.gh.trim().toUpperCase()] && r.hst <= 65) histExtra.push(r);
+    });
+  }
+  let allGH = [...RAW, ...histExtra].filter(r => (r.hst||0) <= 65);
+  // Apply GH filter
+  if (CC_GH_FILTER !== 'semua') allGH = allGH.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
 
   // Pre-compute issue level per GH
   function ghIssueLevel(r) {
@@ -7025,8 +7040,12 @@ function ccShowGhIssue(ghName) {
 
   const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
   const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
-  const allGH = ccBuildAllGH().filter(r => r.hst <= 65);
-  const r     = allGH.find(x => x.gh === ghName);
+  // Cari di RAW live dulu, fallback ke history
+  let r = RAW.find(x => x.gh === ghName);
+  if (!r && RAW_POP_HISTORY.length) {
+    const fromHist = RAW_POP_HISTORY.filter(x => x.gh === ghName);
+    r = fromHist.reduce((m,x) => (!m||x.hst>m.hst)?x:m, null);
+  }
   if (!r) return;
 
   const gh    = r.gh.trim().toUpperCase();
