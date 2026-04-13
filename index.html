@@ -7182,7 +7182,8 @@ function ccShowGhIssue(ghName) {
     const survCol = survPct>=95?'var(--green-txt)':survPct>=90?'var(--yellow-txt)':'var(--red-txt)';
     const popCol  = popPct>=100?'var(--green-txt)':popPct>=90?'var(--yellow-txt)':'var(--red-txt)';
     const grCol   = grCrit?'var(--red-txt)':grWn?'var(--yellow-txt)':'var(--green-txt)';
-    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    let html = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Pop awal', r.popAwal>0?ccFmt(r.popAwal):'—', 'var(--text)')}
         ${miniStat('Pop akhir', ccFmt(r.popAkhir), popCol)}
         ${miniStat('vs standar HST', popPct>0?popPct.toFixed(1)+'%':'—', popCol)}
         ${miniStat('Survival rate', survPct>0?survPct.toFixed(1)+'%':'—', survCol)}
