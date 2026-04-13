@@ -791,6 +791,24 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
+      <!-- PHASE FILTER BAR -->
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:10px 14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
+        <span style="font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap">Filter Fase:</span>
+        <button class="fbtn active" id="ccPhaseFiltSemua" onclick="setCCPhaseFilter('semua',this)" style="font-size:11px;padding:4px 10px">Semua Fase</button>
+        <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
+        <button class="fbtn" id="ccPhaseFiltPrep"   onclick="setCCPhaseFilter('preparation',this)"       style="font-size:11px;padding:4px 10px;border-left:2px solid #0a3d6b">Preparation</button>
+        <button class="fbtn" id="ccPhaseFiltSG"     onclick="setCCPhaseFilter('shoot-growth',this)"      style="font-size:11px;padding:4px 10px;border-left:2px solid #155c2c">Shoot Growth</button>
+        <button class="fbtn" id="ccPhaseFiltEst"    onclick="setCCPhaseFilter('establishment',this)"     style="font-size:11px;padding:4px 10px;border-left:2px solid #134880">Establishment</button>
+        <button class="fbtn" id="ccPhaseFiltFS"     onclick="setCCPhaseFilter('fruit-set',this)"         style="font-size:11px;padding:4px 10px;border-left:2px solid #2d5a1b">Fruit Set</button>
+        <button class="fbtn" id="ccPhaseFiltEFD"    onclick="setCCPhaseFilter('early-fruit-dev',this)"   style="font-size:11px;padding:4px 10px;border-left:2px solid #6b4800">Early Fruit Dev</button>
+        <button class="fbtn" id="ccPhaseFiltFE"     onclick="setCCPhaseFilter('fruit-enlargement',this)" style="font-size:11px;padding:4px 10px;border-left:2px solid #7a4800">Fruit Enlargement</button>
+        <button class="fbtn" id="ccPhaseFiltRip"    onclick="setCCPhaseFilter('ripening',this)"          style="font-size:11px;padding:4px 10px;border-left:2px solid #8b1515">Ripening</button>
+        <div id="ccPhaseActiveLabel" style="margin-left:auto;font-size:10px;color:var(--text3)"></div>
+      </div>
+
+      <!-- DISTRIBUSI PER FASE -->
+      <div id="ccPhaseDistPanel" style="margin-bottom:18px"></div>
+
       <!-- INDEPENDEN GROUP -->
       <div style="margin-bottom:16px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
@@ -5590,7 +5608,33 @@ function renderSntLastTable(rows) {
 //  COMMAND CENTER MODULE
 // ══════════════════════════════════════════════
 let CC_ACTIVE_ID  = null;
-let CC_GH_FILTER  = 'semua';
+let CC_GH_FILTER   = 'semua';
+let CC_PHASE_FILTER = 'semua';
+
+// ── PHASE DEFINITIONS (mirror TL_ZONES post-semai) ──
+const CC_PHASES = [
+  { id:'preparation',       label:'Preparation',         hstMin:-1,  hstMax:0,  color:'#0a3d6b', bg:'#dceeff' },
+  { id:'shoot-growth',      label:'Shoot Growth',        hstMin:0,   hstMax:7,  color:'#155c2c', bg:'#e6f4ec' },
+  { id:'establishment',     label:'Establishment',       hstMin:8,   hstMax:16, color:'#134880', bg:'#e8f0fb' },
+  { id:'fruit-set',         label:'Fruit Set',           hstMin:17,  hstMax:25, color:'#2d5a1b', bg:'#eef5e8' },
+  { id:'early-fruit-dev',   label:'Early Fruit Dev',     hstMin:26,  hstMax:35, color:'#6b4800', bg:'#fef8e2' },
+  { id:'fruit-enlargement', label:'Fruit Enlargement',   hstMin:36,  hstMax:50, color:'#7a4800', bg:'#fef3e2' },
+  { id:'ripening',          label:'Ripening',            hstMin:51,  hstMax:65, color:'#8b1515', bg:'#fdecea' },
+];
+
+function hstToPhase(hst) {
+  for (const p of CC_PHASES) {
+    if (hst >= p.hstMin && hst <= p.hstMax) return p;
+  }
+  return null;
+}
+
+function setCCPhaseFilter(val, el) {
+  CC_PHASE_FILTER = val;
+  document.querySelectorAll('[id^="ccPhaseFilt"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildCC();
+}
 let RAW_POP_HISTORY = []; // data historis dari endpoint populasi_history
 
 // ── FETCH POPULASI HISTORY ──
@@ -5676,7 +5720,12 @@ function ccBuildAllGH() {
 
 // GH Aktif = HST <= 65
 function ccFilteredRAW() {
-  return ccBuildAllGH().filter(r => r.hst <= 65);
+  let d = ccBuildAllGH().filter(r => r.hst <= 65);
+  if (CC_PHASE_FILTER !== 'semua') {
+    const ph = CC_PHASES.find(p => p.id === CC_PHASE_FILTER);
+    if (ph) d = d.filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax);
+  }
+  return d;
 }
 
 // GH Off/Panen = HST > 65 (hanya muncul ketika ada date range history)
@@ -5692,6 +5741,10 @@ function ccFilteredSNT() {
   if (from) d = d.filter(r => r.tgl >= from);
   if (to)   d = d.filter(r => r.tgl <= to);
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  if (CC_PHASE_FILTER !== 'semua') {
+    const phGHs = new Set(ccFilteredRAW().map(r => r.gh.trim().toUpperCase()));
+    d = d.filter(r => phGHs.has((r.gh||'').trim().toUpperCase()));
+  }
   return d;
 }
 
@@ -5702,6 +5755,10 @@ function ccFilteredPNY() {
   if (from) d = d.filter(r => (r.tgl||'') >= from);
   if (to)   d = d.filter(r => (r.tgl||'') <= to);
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  if (CC_PHASE_FILTER !== 'semua') {
+    const phGHs = new Set(ccFilteredRAW().map(r => r.gh.trim().toUpperCase()));
+    d = d.filter(r => phGHs.has((r.gh||'').trim().toUpperCase()));
+  }
   return d;
 }
 
@@ -5712,6 +5769,10 @@ function ccFilteredHPT() {
   if (from) d = d.filter(r => (r.tgl||'') >= from);
   if (to)   d = d.filter(r => (r.tgl||'') <= to);
   if (CC_GH_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+  if (CC_PHASE_FILTER !== 'semua') {
+    const phGHs = new Set(ccFilteredRAW().map(r => r.gh.trim().toUpperCase()));
+    d = d.filter(r => phGHs.has((r.gh||'').trim().toUpperCase()));
+  }
   return d;
 }
 
@@ -6860,6 +6921,169 @@ function ccRenderDetail(id, panel) {
   panel.innerHTML = html;
 }
 
+// ── PHASE FILTER FROM DIST CLICK ──
+function ccSetPhaseFromDist(phaseId) {
+  CC_PHASE_FILTER = CC_PHASE_FILTER === phaseId ? 'semua' : phaseId;
+  // Update button states
+  document.querySelectorAll('[id^="ccPhaseFilt"]').forEach(b => b.classList.remove('active'));
+  const activeId = CC_PHASE_FILTER === 'semua' ? 'ccPhaseFiltSemua' : null;
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    if (el) el.classList.add('active');
+  } else {
+    // find the right button by looping
+    document.querySelectorAll('[id^="ccPhaseFilt"]').forEach(b => {
+      if (b.id === 'ccPhaseFiltSemua' && CC_PHASE_FILTER === 'semua') b.classList.add('active');
+    });
+  }
+  // Also set Semua button active when resetting
+  if (CC_PHASE_FILTER === 'semua') {
+    const el = document.getElementById('ccPhaseFiltSemua');
+    if (el) el.classList.add('active');
+  }
+  rebuildCC();
+}
+
+// ── PHASE DISTRIBUTION RENDERER ──
+function ccRenderPhaseDist() {
+  const panel = document.getElementById('ccPhaseDistPanel');
+  if (!panel) return;
+
+  // Always use all GH (ignore phase filter for the distribution view)
+  let allGH = ccBuildAllGH().filter(r => r.hst <= 65);
+  if (CC_GH_FILTER !== 'semua') allGH = allGH; // already filtered by GH
+
+  // Count + list GH per phase
+  const phaseData = CC_PHASES.map(ph => {
+    const ghs = allGH.filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax);
+
+    // Issue counts per phase
+    const sntPhGHs = new Set(ghs.map(r => r.gh.trim().toUpperCase()));
+    const sntAll = [...RAW_SNT];
+    const from = (document.getElementById('ccDateFrom')||{}).value || '';
+    const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+    const sntFiltered = sntAll.filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+
+    // Belum sanitasi
+    const normP = s => String(s||'').trim().toLowerCase();
+    const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
+    const belumSnt = ghs.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode))).length;
+
+    // HPT issues
+    const hptFiltered = [...RAW_HPT].filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+    const latestHPT = {};
+    hptFiltered.forEach(r => { if (!latestHPT[r.gh]||r.tgl>latestHPT[r.gh].tgl) latestHPT[r.gh]=r; });
+    const hptHigh = Object.values(latestHPT).filter(r => risikoGlobal && risikoGlobal(r)==='high').length;
+
+    // Penyiraman deviasi
+    const pnyFiltered = [...RAW_PNY].filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+    const latestPNY = {};
+    pnyFiltered.forEach(r => { if(!latestPNY[r.gh]||r.tgl>latestPNY[r.gh].tgl) latestPNY[r.gh]=r; });
+    const pnyDev = Object.values(latestPNY).filter(r =>
+      (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))
+    ).length;
+
+    // Total masalah
+    const totalIssues = belumSnt + hptHigh + pnyDev;
+
+    return { ...ph, ghs, belumSnt, hptHigh, pnyDev, totalIssues };
+  }).filter(p => p.ghs.length > 0); // only show phases that have GH
+
+  if (!phaseData.length) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  const maxIssues = Math.max(...phaseData.map(p => p.totalIssues), 1);
+  const isFiltered = CC_PHASE_FILTER !== 'semua';
+
+  const activeLabel = document.getElementById('ccPhaseActiveLabel');
+  if (activeLabel) {
+    if (isFiltered) {
+      const ph = CC_PHASES.find(p => p.id === CC_PHASE_FILTER);
+      const count = ccFilteredRAW().length;
+      activeLabel.innerHTML = `<span style="background:${ph.bg};color:${ph.color};border:1px solid ${ph.color}40;border-radius:5px;padding:2px 8px;font-weight:700">${ph.label} · ${count} GH aktif</span>`;
+    } else {
+      activeLabel.textContent = '';
+    }
+  }
+
+  const rows = phaseData.map(p => {
+    const isActive = CC_PHASE_FILTER === p.id;
+    const barW = Math.max((p.totalIssues / maxIssues * 100), p.ghs.length > 0 ? 4 : 0).toFixed(1);
+    const issueColor = p.totalIssues === 0 ? 'var(--green-mid)' : p.totalIssues <= 2 ? '#c87800' : 'var(--red)';
+    const ghList = p.ghs
+      .sort((a,b) => a.hst - b.hst)
+      .map(r => {
+        const dot = CC[clOf(r.gh)] || '#999';
+        const ph2 = hstToPhase(r.hst);
+        return `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--surface);border:0.5px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;white-space:nowrap">
+          <span style="width:5px;height:5px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+          ${r.gh} <span style="color:var(--text4);font-family:'JetBrains Mono',monospace;font-size:9px">HST${r.hst}</span>
+        </span>`;
+      }).join('');
+
+    return `<div onclick="ccSetPhaseFromDist('${p.id}')"
+      style="display:flex;align-items:stretch;gap:0;border-radius:9px;border:1.5px solid ${isActive ? p.color : 'var(--border)'};background:${isActive ? p.bg : 'var(--surface)'};overflow:hidden;cursor:pointer;transition:border .15s,background .15s;margin-bottom:6px"
+      onmouseover="this.style.borderColor='${p.color}'" onmouseout="this.style.borderColor='${isActive ? p.color : 'var(--border)'}'">
+
+      <!-- Left: phase label -->
+      <div style="width:130px;flex-shrink:0;padding:10px 12px;border-right:1px solid ${isActive ? p.color+'40' : 'var(--border)'};background:${p.bg};display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:10px;font-weight:700;color:${p.color};margin-bottom:2px">${p.label}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace">${p.ghs.length} GH</div>
+        <div style="font-size:9px;color:var(--text3)">HST ${p.hstMin}–${p.hstMax}</div>
+      </div>
+
+      <!-- Middle: GH list + issue bar -->
+      <div style="flex:1;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:6px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${ghList}</div>
+        <!-- mini issue bar -->
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+            <div style="width:${barW}%;height:100%;background:${issueColor};border-radius:3px;transition:width .3s"></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;color:${issueColor};font-family:'JetBrains Mono',monospace;white-space:nowrap">
+            ${p.totalIssues > 0 ? p.totalIssues + ' isu' : '✓ ok'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: issue breakdown -->
+      <div style="width:130px;flex-shrink:0;padding:10px 12px;border-left:1px solid ${isActive ? p.color+'40' : 'var(--border)'};display:flex;flex-direction:column;justify-content:center;gap:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">🧹 Sanitasi</span>
+          <span style="font-weight:700;color:${p.belumSnt>0?'var(--yellow-txt)':'var(--green-mid)'}">${p.belumSnt > 0 ? p.belumSnt+' belum' : '✓'}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">🔍 HPT</span>
+          <span style="font-weight:700;color:${p.hptHigh>0?'var(--red)':'var(--green-mid)'}">${p.hptHigh > 0 ? p.hptHigh+' high' : '✓'}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">💧 Penyiraman</span>
+          <span style="font-weight:700;color:${p.pnyDev>0?'var(--yellow-txt)':'var(--green-mid)'}">${p.pnyDev > 0 ? p.pnyDev+' dev' : '✓'}</span>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  panel.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span>📊 Distribusi masalah per fase</span>
+      <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--text4)">— klik fase untuk filter semua card</span>
+    </div>
+    ${rows.join('')}
+  `;
+}
+
 // ── FILTER & REBUILD ──
 function setCCFilter(val, el) {
   CC_GH_FILTER = val;
@@ -6872,8 +7096,9 @@ async function rebuildCC() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // Render kartu sub menu langsung
+  // Render kartu sub menu langsung + distribusi fase
   ccRenderCards();
+  ccRenderPhaseDist();
 
   if (from && to) {
     // Tampilkan loading di KPI nilai
