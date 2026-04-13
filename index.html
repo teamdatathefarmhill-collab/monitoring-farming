@@ -847,10 +847,13 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <span style="color:var(--text4)">|</span>
         <span style="font-weight:700;color:var(--text2)">Zona:</span>
         <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#E1F5EE;border:1px solid #9FE1CB;display:inline-block"></span>Semai</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green-lt);border:1px solid #b8dfc4;display:inline-block"></span>Fase Awal</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--blue-lt);border:1px solid #b0cef0;display:inline-block"></span>Vegetatif</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;display:inline-block"></span>Generatif</span>
-        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;display:inline-block"></span>Panen</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#dceeff;border:1px solid #90c0f0;display:inline-block"></span>Preparation</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--green-lt);border:1px solid #b8dfc4;display:inline-block"></span>Shoot Growth</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--blue-lt);border:1px solid #b0cef0;display:inline-block"></span>Establishment</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#eef5e8;border:1px solid #b0d490;display:inline-block"></span>Fruit Set</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:#fef8e2;border:1px solid #f0d880;display:inline-block"></span>Early Fruit Dev</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--yellow-lt);border:1px solid #f5d08a;display:inline-block"></span>Fruit Enlargement</span>
+        <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:var(--red-lt);border:1px solid #f0b0b0;display:inline-block"></span>Ripening</span>
       </div>
 
       <!-- TIMELINE CARD -->
@@ -6930,11 +6933,14 @@ let TL_ACTIVE  = null; // GH yang sedang dipilih
 
 // ── ZONE DEFINITIONS ──
 const TL_ZONES = [
-  { from:0,        to:HSS_MAX,       bg:'#E1F5EE', label:'Semai (HSS 1–14)',   labelColor:'#085041' },
-  { from:HSS_MAX,  to:HSS_MAX+10,    bg:'#e6f4ec', label:'Fase Awal',           labelColor:'#155c2c' },
-  { from:HSS_MAX+10,to:HSS_MAX+35,   bg:'#e8f0fb', label:'Vegetatif',           labelColor:'#134880' },
-  { from:HSS_MAX+35,to:HSS_MAX+54,   bg:'#fef3e2', label:'Generatif',           labelColor:'#7a4800' },
-  { from:HSS_MAX+54,to:HSS_MAX+65,   bg:'#fdecea', label:'Panen',               labelColor:'#8b1515' },
+  { from:0,        to:HSS_MAX,       bg:'#E1F5EE', label:'Semai (HSS 1–14)',          labelColor:'#085041' },
+  { from:HSS_MAX,  to:HSS_MAX+1,     bg:'#dceeff', label:'Preparation',               labelColor:'#0a3d6b' },
+  { from:HSS_MAX+1,to:HSS_MAX+8,     bg:'#e6f4ec', label:'Shoot Growth (0–7 HST)',    labelColor:'#155c2c' },
+  { from:HSS_MAX+8,to:HSS_MAX+17,    bg:'#e8f0fb', label:'Establishment (8–16 HST)',  labelColor:'#134880' },
+  { from:HSS_MAX+17,to:HSS_MAX+26,   bg:'#eef5e8', label:'Fruit Set (17–25 HST)',     labelColor:'#2d5a1b' },
+  { from:HSS_MAX+26,to:HSS_MAX+36,   bg:'#fef8e2', label:'Early Fruit Dev (26–35 HST)', labelColor:'#6b4800' },
+  { from:HSS_MAX+36,to:HSS_MAX+51,   bg:'#fef3e2', label:'Fruit Enlargement (36–50 HST)', labelColor:'#7a4800' },
+  { from:HSS_MAX+51,to:HSS_MAX+65,   bg:'#fdecea', label:'Ripening (51–65 HST)',      labelColor:'#8b1515' },
 ];
 
 function tlU2P(u) { return (u / TL_TOTAL * 100).toFixed(3) + '%'; }
