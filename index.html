@@ -496,7 +496,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-section">Overview</div>
     <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')"><span class="nav-icon">📊</span> Dashboard</div>
     <div class="nav-item" id="nav-commandcenter" onclick="switchPage('commandcenter')"><span class="nav-icon">🎯</span> Command Center</div>
-    <div class="nav-item" id="nav-timeline" onclick="switchPage('timeline')"><span class="nav-icon">🗺️</span> Timeline GH</div>
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
@@ -507,7 +506,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
     <div class="nav-section">Pemantauan</div>
-    <div class="nav-item" id="nav-montimeline" onclick="switchPage('montimeline')"><span class="nav-icon">🔬</span> Monitoring HST 30+</div>
 
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
@@ -792,50 +790,36 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- PHASE FILTER BAR -->
-      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:18px;padding:10px 14px;background:var(--surface);border-radius:10px;border:1px solid var(--border)">
-        <span style="font-size:11px;color:var(--text3);font-weight:600;white-space:nowrap">Filter Fase:</span>
-        <button class="fbtn active" id="ccPhaseFiltSemua" onclick="setCCPhaseFilter('semua',this)" style="font-size:11px;padding:4px 10px">Semua Fase</button>
-        <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
-        <button class="fbtn" id="ccPhaseFiltPrep"   onclick="setCCPhaseFilter('preparation',this)"       style="font-size:11px;padding:4px 10px;border-left:2px solid #0a3d6b">Preparation</button>
-        <button class="fbtn" id="ccPhaseFiltSG"     onclick="setCCPhaseFilter('shoot-growth',this)"      style="font-size:11px;padding:4px 10px;border-left:2px solid #155c2c">Shoot Growth</button>
-        <button class="fbtn" id="ccPhaseFiltEst"    onclick="setCCPhaseFilter('establishment',this)"     style="font-size:11px;padding:4px 10px;border-left:2px solid #134880">Establishment</button>
-        <button class="fbtn" id="ccPhaseFiltFS"     onclick="setCCPhaseFilter('fruit-set',this)"         style="font-size:11px;padding:4px 10px;border-left:2px solid #2d5a1b">Fruit Set</button>
-        <button class="fbtn" id="ccPhaseFiltEFD"    onclick="setCCPhaseFilter('early-fruit-dev',this)"   style="font-size:11px;padding:4px 10px;border-left:2px solid #6b4800">Early Fruit Dev</button>
-        <button class="fbtn" id="ccPhaseFiltFE"     onclick="setCCPhaseFilter('fruit-enlargement',this)" style="font-size:11px;padding:4px 10px;border-left:2px solid #7a4800">Fruit Enlargement</button>
-        <button class="fbtn" id="ccPhaseFiltRip"    onclick="setCCPhaseFilter('ripening',this)"          style="font-size:11px;padding:4px 10px;border-left:2px solid #8b1515">Ripening</button>
-        <div id="ccPhaseActiveLabel" style="margin-left:auto;font-size:10px;color:var(--text3)"></div>
-      </div>
-
-      <!-- DISTRIBUSI PER FASE -->
-      <div id="ccPhaseDistPanel" style="margin-bottom:18px"></div>
-
-      <!-- INDEPENDEN GROUP -->
-      <div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 12px;border-radius:20px;background:var(--blue-lt);color:var(--blue-txt);border:1px solid #b0cef0;white-space:nowrap">Independen</span>
-          <span style="font-size:10px;color:var(--text3);white-space:nowrap">tidak bergantung data lain</span>
-          <div style="flex:1;height:1px;background:var(--border)"></div>
+      <!-- PHASE TIMELINE -->
+      <div class="card" style="overflow:hidden;margin-bottom:14px">
+        <div style="padding:11px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="font-size:12px;font-weight:700;color:var(--text)">📊 Posisi GH per Fase</div>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block"></span>On track</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#c87800;display:inline-block"></span>Ada isu</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block"></span>Kritis</span>
+            <span style="font-size:10px;color:var(--text4)">· klik GH untuk detail</span>
+          </div>
         </div>
-        <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:4px" id="ccRowInd"></div>
-      </div>
-
-      <!-- DEPENDEN GROUP -->
-      <div style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;padding:3px 12px;border-radius:20px;background:var(--yellow-lt);color:var(--yellow-txt);border:1px solid #f5d08a;white-space:nowrap">Dependen</span>
-          <span style="font-size:10px;color:var(--text3);white-space:nowrap">bergantung pada populasi & gramasi</span>
-          <div style="flex:1;height:1px;background:var(--border)"></div>
-        </div>
-        <div style="display:flex;gap:9px;overflow-x:auto;padding-bottom:4px" id="ccRowDep"></div>
-      </div>
-
-      <!-- DETAIL PANEL -->
-      <div class="card" id="ccDetailPanel" style="min-height:80px">
-        <div style="padding:32px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">
-          Pilih sub menu di atas untuk melihat detail<br>
-          <span style="font-size:11px">Kartu <i>coming soon</i> belum tersedia datanya</span>
+        <div style="padding:14px 16px;overflow-x:auto">
+          <div id="ccPhaseTimeline" style="display:flex;gap:6px;min-width:700px"></div>
+          <div style="display:flex;gap:14px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap;align-items:center">
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#1a5fa0;display:inline-block"></span>Tohudan</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#8b1515;display:inline-block"></span>Bergas</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#a06000;display:inline-block"></span>Colomadu</span>
+            <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#1a7a3a;display:inline-block"></span>Sawahan</span>
+          </div>
         </div>
       </div>
+
+      <!-- GH ISSUE PANEL -->
+      <div id="ccGhIssuePanel" style="display:none;margin-bottom:14px"></div>
+
+      <!-- HIDDEN COMPAT elements for old JS -->
+      <div style="display:none" id="ccRowInd"></div>
+      <div style="display:none" id="ccRowDep"></div>
+      <div style="display:none" id="ccDetailPanel"></div>
+      <div style="display:none" id="ccPhaseDistPanel"></div>
 
     </div><!-- /view-commandcenter -->
 
@@ -6921,6 +6905,277 @@ function ccRenderDetail(id, panel) {
   panel.innerHTML = html;
 }
 
+// ── GH SHORT CODE helper ──
+function ghCodeOf(ghName) {
+  const n = String(ghName).trim().toUpperCase();
+  const loc = n.split(' ')[0];
+  const num = n.split(' ')[1] || '';
+  const abbr = loc === 'TOHUDAN' ? 'TH' : loc === 'BERGAS' ? 'BG' : loc === 'COLOMADU' ? 'CL' : loc === 'SAWAHAN' ? 'SW' : loc.slice(0,2);
+  return abbr + num;
+}
+
+// ── BUILD PHASE TIMELINE ──
+function ccBuildPhaseTimeline() {
+  const container = document.getElementById('ccPhaseTimeline');
+  if (!container) return;
+
+  const allGH  = ccBuildAllGH().filter(r => r.hst <= 65);
+  const fromV  = (document.getElementById('ccDateFrom')||{}).value || '';
+  const toV    = (document.getElementById('ccDateTo')||{}).value   || '';
+
+  // Pre-compute issue level per GH
+  function ghIssueLevel(r) {
+    const gh = r.gh.trim().toUpperCase();
+
+    // SNT
+    const normP = s => String(s||'').trim().toLowerCase();
+    const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
+    const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
+
+    // HPT
+    const hptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+    const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
+
+    // PNY
+    const pnyRows = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+    const pnyDev = latestPNY && ((latestPNY.ecIn&&(latestPNY.ecIn<2.5||latestPNY.ecIn>3.2))||(latestPNY.phIn&&(latestPNY.phIn<5.8||latestPNY.phIn>6.3)));
+
+    // Pop & Gramasi
+    const popPct = pctPopVsStd(r);
+    const grCrit = grKrit(r);
+    const grWn   = grWarn(r);
+
+    if (hptLevel==='high' || grCrit || popPct < 75) return 'kritis';
+    if (belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90) return 'isu';
+    return 'ok';
+  }
+
+  const PHASES = [
+    { id:'preparation',       label:'Preparation',         hstMin:-1,  hstMax:0,  color:'#0a3d6b', bg:'#dceeff' },
+    { id:'shoot-growth',      label:'Shoot Growth',        hstMin:0,   hstMax:7,  color:'#155c2c', bg:'#e6f4ec' },
+    { id:'establishment',     label:'Establishment',       hstMin:8,   hstMax:16, color:'#134880', bg:'#e8f0fb' },
+    { id:'fruit-set',         label:'Fruit Set',           hstMin:17,  hstMax:25, color:'#2d5a1b', bg:'#eef5e8' },
+    { id:'early-fruit-dev',   label:'Early Fruit Dev',     hstMin:26,  hstMax:35, color:'#6b4800', bg:'#fef8e2' },
+    { id:'fruit-enlargement', label:'Fruit Enlargement',   hstMin:36,  hstMax:50, color:'#7a4800', bg:'#fef3e2' },
+    { id:'ripening',          label:'Ripening',            hstMin:51,  hstMax:65, color:'#8b1515', bg:'#fdecea' },
+  ];
+
+  container.innerHTML = PHASES.map(ph => {
+    const ghs = allGH
+      .filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax)
+      .sort((a,b) => a.hst - b.hst);
+
+    const dots = ghs.map(r => {
+      const level = ghIssueLevel(r);
+      const dotColor = level === 'kritis' ? 'var(--red)' : level === 'isu' ? '#c87800' : 'var(--green)';
+      const txtColor = level === 'ok' ? ph.color : '#fff';
+      const bg       = level === 'ok' ? ph.bg : dotColor;
+      const code     = ghCodeOf(r.gh);
+      const ghKey    = r.gh.replace(/'/g,"\'");
+      return `<div onclick="ccShowGhIssue('${ghKey}')" data-tl-gh="${r.gh}"
+        style="width:28px;height:28px;border-radius:50%;background:${bg};color:${txtColor};
+               display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;
+               cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;flex-shrink:0;font-family:'JetBrains Mono',monospace"
+        onmouseover="this.style.transform='scale(1.18)';this.style.borderColor='${ph.color}'"
+        onmouseout="this.style.transform='';this.style.borderColor='transparent'"
+        title="${r.gh} · HST ${r.hst}">${code}</div>`;
+    }).join('');
+
+    const issueCount = ghs.filter(r => ghIssueLevel(r) !== 'ok').length;
+    const critCount  = ghs.filter(r => ghIssueLevel(r) === 'kritis').length;
+    const countBadge = ghs.length === 0 ? '' :
+      critCount  > 0 ? `<span style="font-size:9px;font-weight:700;color:var(--red);margin-top:3px">${critCount} kritis</span>` :
+      issueCount > 0 ? `<span style="font-size:9px;font-weight:700;color:#c87800;margin-top:3px">${issueCount} isu</span>` :
+                       `<span style="font-size:9px;color:var(--green);margin-top:3px">✓ ok</span>`;
+
+    return `<div style="flex:1;min-width:90px;display:flex;flex-direction:column">
+      <div style="font-size:10px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;margin-bottom:6px;color:${ph.color};background:${ph.bg};line-height:1.3">
+        ${ph.label}<br><span style="font-weight:400;font-size:9px;opacity:.8">HST ${ph.hstMin}–${ph.hstMax}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:34px;align-items:center">
+        ${dots || `<span style="font-size:10px;color:var(--text4)">—</span>`}
+      </div>
+      <div style="text-align:center;min-height:16px">${countBadge}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── SHOW GH ISSUE CARD ──
+function ccShowGhIssue(ghName) {
+  const panel = document.getElementById('ccGhIssuePanel');
+  if (!panel) return;
+
+  // Toggle
+  if (panel._currentGH === ghName && panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    panel._currentGH = null;
+    document.querySelectorAll('[data-tl-gh]').forEach(d => d.style.outline = '');
+    return;
+  }
+  panel._currentGH = ghName;
+  document.querySelectorAll('[data-tl-gh]').forEach(d => {
+    d.style.outline = d.getAttribute('data-tl-gh') === ghName ? '3px solid var(--green)' : '';
+    d.style.outlineOffset = '2px';
+  });
+
+  const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
+  const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
+  const allGH = ccBuildAllGH().filter(r => r.hst <= 65);
+  const r     = allGH.find(x => x.gh === ghName);
+  if (!r) return;
+
+  const gh = r.gh.trim().toUpperCase();
+  const normP = s => String(s||'').trim().toLowerCase();
+
+  // ── SNT ──
+  const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
+  const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
+  const sntCount = RAW_SNT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV)).reduce((s,x)=>s+(x.jml||0),0);
+
+  // ── HPT ──
+  const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+  const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+  const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
+
+  // ── PNY ──
+  const pnyRows   = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+  const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+  const ecDev  = latestPNY && latestPNY.ecIn && (latestPNY.ecIn<2.5||latestPNY.ecIn>3.2);
+  const phDev  = latestPNY && latestPNY.phIn && (latestPNY.phIn<5.8||latestPNY.phIn>6.3);
+  const pnyDev = ecDev || phDev;
+
+  // ── POP & GRAMASI ──
+  const popPct  = pctPopVsStd(r);
+  const grCrit  = grKrit(r);
+  const grWn    = grWarn(r);
+
+  // ── EST PANEN ──
+  const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
+  const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
+
+  // ── OVERALL STATUS ──
+  const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
+  const hasIsu    = belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
+  const overallBadge = hasKritis
+    ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
+    : hasIsu
+      ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
+      : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
+
+  function pill(val, okTxt, warnTxt, critTxt) {
+    if (val==='ok') return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">${okTxt||'ok'}</span>`;
+    if (val==='warn') return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--yellow-lt);color:var(--yellow-txt)">${warnTxt||'perlu perhatian'}</span>`;
+    return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--red-lt);color:var(--red-txt)">${critTxt||'kritis'}</span>`;
+  }
+
+  const sntSt  = belumSnt ? 'warn' : 'ok';
+  const hptSt  = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
+  const pnySt  = pnyDev ? 'warn' : 'ok';
+  const popSt  = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
+  const grSt   = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
+
+  const CATS = [
+    {
+      icon:'🏗', label:'Kesiapan GH', soon:true,
+      status:'—', detail:'Sedang dikembangkan'
+    },
+    {
+      icon:'⚖️', label:'Populasi & Gramasi', soon:false,
+      status: popSt==='ok' && grSt==='ok' ? 'ok' : popSt==='crit'||grSt==='crit' ? 'crit' : 'warn',
+      detail: [
+        'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—'),
+        r.avgGramasi>0 ? 'Gramasi: '+Math.round(r.avgGramasi)+'g' : 'Gramasi: belum input'
+      ].join(' · ')
+    },
+    {
+      icon:'🧹', label:'Sanitasi', soon:false,
+      status: sntSt,
+      detail: belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah'
+    },
+    {
+      icon:'🔍', label:'HPT', soon:false,
+      status: hptSt,
+      detail: latestHPT
+        ? 'Risiko '+hptLevel+' · '+latestHPT.tgl
+        : 'Belum ada data HPT'
+    },
+    {
+      icon:'💧', label:'Penyiraman', soon:false,
+      status: pnySt,
+      detail: latestPNY
+        ? (ecDev?'EC in '+latestPNY.ecIn+' (std 2.5–3.2)':'')+(ecDev&&phDev?' · ':'')+(phDev?'pH in '+latestPNY.phIn+' (std 5.8–6.3)':'') || 'EC & pH normal'
+        : 'Belum ada data'
+    },
+    {
+      icon:'⚡', label:'Vigor', soon:true,
+      status:'—', detail:'Sedang dikembangkan'
+    },
+    {
+      icon:'📦', label:'Est. Panen', soon:false,
+      status: estKg > 0 ? 'ok' : 'warn',
+      detail: estKg > 0
+        ? ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg')
+        : 'Belum cukup data'
+    },
+    {
+      icon:'🌿', label:'Penyemprotan', soon:false,
+      status: 'ok',
+      detail: 'Tidak ada jadwal aktif'
+    },
+  ];
+
+  function catCard(c) {
+    const bg   = c.soon || c.status==='—' ? 'var(--surface2)' :
+                 c.status==='ok'           ? 'var(--green-lt)' :
+                 c.status==='warn'         ? 'var(--yellow-lt)' : 'var(--red-lt)';
+    const bc   = c.soon || c.status==='—' ? 'var(--border)' :
+                 c.status==='ok'           ? '#b8dfc4' :
+                 c.status==='warn'         ? '#f5d08a' : '#f0b0b0';
+    const stTxt = c.soon || c.status==='—' ? 'build' :
+                  c.status==='ok' ? 'ok' : c.status==='warn' ? 'perlu perhatian' : 'kritis';
+    const stCol = c.soon || c.status==='—' ? 'var(--text4)' :
+                  c.status==='ok' ? 'var(--green-txt)' : c.status==='warn' ? 'var(--yellow-txt)' : 'var(--red-txt)';
+    return `<div style="background:${bg};border:1px solid ${bc};border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:3px">
+      <div style="font-size:13px">${c.icon}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3">${c.label}${c.soon?` <span style="font-size:8px;font-weight:400;color:var(--text4);background:var(--surface);padding:1px 5px;border-radius:3px;border:1px solid var(--border)">build</span>`:''}</div>
+      <div style="font-size:10px;font-weight:600;color:${stCol}">${stTxt}</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.4;margin-top:1px">${c.detail}</div>
+    </div>`;
+  }
+
+  const ph = hstToPhase(r.hst);
+  const phLabel = ph ? ph.label : 'HST '+r.hst;
+  const phColor = ph ? ph.color : 'var(--text2)';
+  const dot = CC[clOf(r.gh)] || '#999';
+  const code = ghCodeOf(r.gh);
+
+  panel.innerHTML = `<div class="card">
+    <div class="card-hd" style="border-left:3px solid ${dot}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <div>
+          <div class="card-title">${r.gh} <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);font-weight:400">(${code})</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">
+            <span style="font-weight:700;color:${phColor}">${phLabel}</span>
+            · HST ${r.hst} · Periode ${r.periode||'—'}
+          </div>
+        </div>
+        <div style="margin-left:auto">${overallBadge}</div>
+      </div>
+    </div>
+    <div style="padding:12px 16px">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+        ${CATS.map(catCard).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
 // ── PHASE FILTER FROM DIST CLICK ──
 function ccSetPhaseFromDist(phaseId) {
   CC_PHASE_FILTER = CC_PHASE_FILTER === phaseId ? 'semua' : phaseId;
@@ -7096,9 +7351,8 @@ async function rebuildCC() {
   const from = (document.getElementById('ccDateFrom')||{}).value || '';
   const to   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // Render kartu sub menu langsung + distribusi fase
-  ccRenderCards();
-  ccRenderPhaseDist();
+  // Build phase timeline
+  ccBuildPhaseTimeline();
 
   if (from && to) {
     // Tampilkan loading di KPI nilai
