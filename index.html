@@ -7003,18 +7003,21 @@ function ccBuildPhaseTimeline() {
 }
 
 // ── SHOW GH ISSUE CARD ──
+let _ccActiveCat = null;
+
 function ccShowGhIssue(ghName) {
   const panel = document.getElementById('ccGhIssuePanel');
   if (!panel) return;
 
-  // Toggle
   if (panel._currentGH === ghName && panel.style.display !== 'none') {
     panel.style.display = 'none';
     panel._currentGH = null;
+    _ccActiveCat = null;
     document.querySelectorAll('[data-tl-gh]').forEach(d => d.style.outline = '');
     return;
   }
   panel._currentGH = ghName;
+  _ccActiveCat = null;
   document.querySelectorAll('[data-tl-gh]').forEach(d => {
     d.style.outline = d.getAttribute('data-tl-gh') === ghName ? '3px solid var(--green)' : '';
     d.style.outlineOffset = '2px';
@@ -7026,18 +7029,32 @@ function ccShowGhIssue(ghName) {
   const r     = allGH.find(x => x.gh === ghName);
   if (!r) return;
 
-  const gh = r.gh.trim().toUpperCase();
+  const gh    = r.gh.trim().toUpperCase();
   const normP = s => String(s||'').trim().toLowerCase();
+  const fmtD  = s => s ? s.split('-').reverse().join('/') : '—';
 
   // ── SNT ──
-  const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
+  const sntRows  = RAW_SNT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+  const sntKeys  = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
   const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
-  const sntCount = RAW_SNT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV)).reduce((s,x)=>s+(x.jml||0),0);
+  const sntCount = sntRows.reduce((s,x)=>s+(x.jml||0),0);
+  // Trend harian sanitasi
+  const sntByDay = {};
+  sntRows.forEach(x => { if(x.tgl) sntByDay[x.tgl] = (sntByDay[x.tgl]||0)+(x.jml||0); });
+  const sntDays = Object.keys(sntByDay).sort().slice(-7);
+  // Kategori sanitasi
+  const sntKatMap = {};
+  sntRows.forEach(x => { const k=(x.trueSnt||x.kategori||'').trim(); if(k){sntKatMap[k]=(sntKatMap[k]||0)+(x.jml||0);} });
+  const sntKats = Object.entries(sntKatMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
 
   // ── HPT ──
   const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
   const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
   const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
+  // HPT per tgl (untuk riwayat)
+  const hptByTgl  = {};
+  hptRows.forEach(x => { if(x.tgl){ if(!hptByTgl[x.tgl]||x.tgl>hptByTgl[x.tgl].tgl) hptByTgl[x.tgl]=x; } });
+  const hptHistory = Object.values(hptByTgl).sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,5);
 
   // ── PNY ──
   const pnyRows   = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
@@ -7045,17 +7062,21 @@ function ccShowGhIssue(ghName) {
   const ecDev  = latestPNY && latestPNY.ecIn && (latestPNY.ecIn<2.5||latestPNY.ecIn>3.2);
   const phDev  = latestPNY && latestPNY.phIn && (latestPNY.phIn<5.8||latestPNY.phIn>6.3);
   const pnyDev = ecDev || phDev;
+  const pnyByDay = {};
+  pnyRows.forEach(x => { if(x.tgl) pnyByDay[x.tgl]=x; });
+  const pnyDays = Object.keys(pnyByDay).sort().slice(-7);
 
   // ── POP & GRAMASI ──
-  const popPct  = pctPopVsStd(r);
-  const grCrit  = grKrit(r);
-  const grWn    = grWarn(r);
+  const popPct = pctPopVsStd(r);
+  const grCrit = grKrit(r);
+  const grWn   = grWarn(r);
+  const varRows = RAW_VARIAN.filter(x => x.gh.trim().toUpperCase()===gh && x.avgGramasi>0);
 
   // ── EST PANEN ──
   const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
   const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
 
-  // ── OVERALL STATUS ──
+  // ── STATUS ──
   const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
   const hasIsu    = belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
   const overallBadge = hasKritis
@@ -7064,116 +7085,389 @@ function ccShowGhIssue(ghName) {
       ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
       : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
 
-  function pill(val, okTxt, warnTxt, critTxt) {
-    if (val==='ok') return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">${okTxt||'ok'}</span>`;
-    if (val==='warn') return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--yellow-lt);color:var(--yellow-txt)">${warnTxt||'perlu perhatian'}</span>`;
-    return `<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:5px;background:var(--red-lt);color:var(--red-txt)">${critTxt||'kritis'}</span>`;
+  const sntSt = belumSnt ? 'warn' : 'ok';
+  const hptSt = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
+  const pnySt = pnyDev ? 'warn' : 'ok';
+  const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
+  const grSt  = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
+  const popGrSt = (popSt==='crit'||grSt==='crit') ? 'crit' : (popSt==='warn'||grSt==='warn') ? 'warn' : 'ok';
+  const estSt = estKg > 0 ? 'ok' : 'warn';
+
+  // ── MINI HELPERS ──
+  function stBg(s,soon)  { return soon?'var(--surface2)':s==='ok'?'var(--green-lt)':s==='warn'?'var(--yellow-lt)':s==='crit'?'var(--red-lt)':'var(--surface2)'; }
+  function stBc(s,soon)  { return soon?'var(--border2)':s==='ok'?'#b8dfc4':s==='warn'?'#f5d08a':s==='crit'?'#f0b0b0':'var(--border2)'; }
+  function stTxt(s,soon) { return soon?'build':s==='ok'?'ok':s==='warn'?'perlu perhatian':s==='crit'?'kritis':'build'; }
+  function stCol(s,soon) { return soon?'var(--text4)':s==='ok'?'var(--green-txt)':s==='warn'?'var(--yellow-txt)':s==='crit'?'var(--red-txt)':'var(--text4)'; }
+
+  function miniStat(lbl,val,col) {
+    return `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;text-align:center">
+      <div style="font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col||'var(--text)'}">${val}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${lbl}</div>
+    </div>`;
   }
 
-  const sntSt  = belumSnt ? 'warn' : 'ok';
-  const hptSt  = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
-  const pnySt  = pnyDev ? 'warn' : 'ok';
-  const popSt  = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
-  const grSt   = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
+  function trendBars(days, vals, maxVal, colFn) {
+    const mx = maxVal || Math.max(...vals, 1);
+    return `<div style="display:flex;align-items:flex-end;gap:3px;height:52px">
+      ${days.map((d,i) => {
+        const h = Math.max(Math.round((vals[i]||0)/mx*48), vals[i]>0?4:2);
+        const col = colFn ? colFn(vals[i],i) : 'var(--green)';
+        const lbl = d.slice(5).split('-').reverse().join('/');
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="width:100%;height:${h}px;background:${col};border-radius:2px 2px 0 0"></div>
+          <div style="font-size:8px;color:var(--text3)">${lbl}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
 
-  const CATS = [
-    {
-      icon:'🏗', label:'Kesiapan GH', soon:true,
-      status:'—', detail:'Sedang dikembangkan'
-    },
-    {
-      icon:'⚖️', label:'Populasi & Gramasi', soon:false,
-      status: popSt==='ok' && grSt==='ok' ? 'ok' : popSt==='crit'||grSt==='crit' ? 'crit' : 'warn',
-      detail: [
-        'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—'),
-        r.avgGramasi>0 ? 'Gramasi: '+Math.round(r.avgGramasi)+'g' : 'Gramasi: belum input'
-      ].join(' · ')
-    },
-    {
-      icon:'🧹', label:'Sanitasi', soon:false,
-      status: sntSt,
-      detail: belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah'
-    },
-    {
-      icon:'🔍', label:'HPT', soon:false,
-      status: hptSt,
-      detail: latestHPT
-        ? 'Risiko '+hptLevel+' · '+latestHPT.tgl
-        : 'Belum ada data HPT'
-    },
-    {
-      icon:'💧', label:'Penyiraman', soon:false,
-      status: pnySt,
-      detail: latestPNY
-        ? (ecDev?'EC in '+latestPNY.ecIn+' (std 2.5–3.2)':'')+(ecDev&&phDev?' · ':'')+(phDev?'pH in '+latestPNY.phIn+' (std 5.8–6.3)':'') || 'EC & pH normal'
-        : 'Belum ada data'
-    },
-    {
-      icon:'⚡', label:'Vigor', soon:true,
-      status:'—', detail:'Sedang dikembangkan'
-    },
-    {
-      icon:'📦', label:'Est. Panen', soon:false,
-      status: estKg > 0 ? 'ok' : 'warn',
-      detail: estKg > 0
-        ? ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg')
-        : 'Belum cukup data'
-    },
-    {
-      icon:'🌿', label:'Penyemprotan', soon:false,
-      status: 'ok',
-      detail: 'Tidak ada jadwal aktif'
-    },
-  ];
+  function hBar(lbl, val, maxVal, col, labelW) {
+    const w = Math.round(Math.min(val,maxVal)/maxVal*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="font-size:10px;color:var(--text3);width:${labelW||100}px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}</div>
+      <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
+        <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px;font-size:9px;color:#fff;font-weight:700">${w>20?ccFmt(val):''}</div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);width:36px;text-align:right;font-family:'JetBrains Mono',monospace">${ccFmt(val)}</div>
+    </div>`;
+  }
 
+  function dummyNote() {
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--yellow-lt);border:0.5px solid #f5d08a;border-radius:7px;margin-bottom:10px;font-size:10px;color:var(--yellow-txt)">
+      ⚠ Sebagian data di bawah adalah <b>dummy</b> — belum terhubung ke data real GH ini</div>`;
+  }
+
+  function secLbl(txt) { return `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 6px">${txt}</div>`; }
+
+  // ── DETAIL RENDERERS per kategori ──
+  function detailKesiapan() {
+    return dummyNote()
+      + `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          ${miniStat('Suhu GH','Normal','var(--green-txt)')}
+          ${miniStat('Kelembaban','78%','var(--green-txt)')}
+          ${miniStat('Pompa bermasalah','2','var(--red-txt)')}
+          ${miniStat('Irigasi','OK','var(--green-txt)')}
+        </div>`
+      + secLbl('Checklist kesiapan')
+      + ['Talang bersih','Pompa irigasi','Cek nozzle','Media tanam siap','Label periode terpasang'].map((x,i) =>
+          `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+            <span>${i===2?'⚠️':'✅'}</span>
+            <span style="color:var(--text)">${x}</span>
+            <span style="margin-left:auto;font-size:10px;color:${i===2?'var(--yellow-txt)':'var(--green-txt)'}">${i===2?'perlu cek ulang':'ok'}</span>
+          </div>`
+        ).join('');
+  }
+
+  function detailPop() {
+    const survPct = r.popAwal>0?(r.popAkhir/r.popAwal*100):0;
+    const survCol = survPct>=95?'var(--green-txt)':survPct>=90?'var(--yellow-txt)':'var(--red-txt)';
+    const popCol  = popPct>=100?'var(--green-txt)':popPct>=90?'var(--yellow-txt)':'var(--red-txt)';
+    const grCol   = grCrit?'var(--red-txt)':grWn?'var(--yellow-txt)':'var(--green-txt)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Pop akhir', ccFmt(r.popAkhir), popCol)}
+        ${miniStat('vs standar HST', popPct>0?popPct.toFixed(1)+'%':'—', popCol)}
+        ${miniStat('Survival rate', survPct>0?survPct.toFixed(1)+'%':'—', survCol)}
+        ${miniStat('Avg gramasi', r.avgGramasi>0?Math.round(r.avgGramasi)+'g':'—', grCol)}
+      </div>`;
+    if (varRows.length) {
+      const maxGr = Math.max(...varRows.map(x=>x.avgGramasi), 1);
+      html += secLbl('Gramasi per varian')
+        + varRows.map(x => hBar(x.varian||'—', Math.round(x.avgGramasi), Math.max(x.targetGramasi||maxGr,1),
+            x.avgGramasi>=(x.targetGramasi||0)?'var(--green)':'var(--yellow)', 90)).join('');
+    }
+    return html;
+  }
+
+  function detailSnt() {
+    const actDays = sntDays.length;
+    const maxSnt  = Math.max(...sntDays.map(d=>sntByDay[d]||0), 1);
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Total sanitasi', ccFmt(sntCount), sntCount>0?'var(--green-txt)':'var(--text)')}
+        ${miniStat('Periode ini', belumSnt?'Belum':'✓', belumSnt?'var(--yellow-txt)':'var(--green-txt)')}
+        ${miniStat('Hari aktif', actDays, actDays>0?'var(--green-txt)':'var(--text)')}
+      </div>`;
+    if (sntDays.length) {
+      html += secLbl('Tren harian (10 hari terakhir)')
+        + trendBars(sntDays, sntDays.map(d=>sntByDay[d]||0), maxSnt, (v)=>v>0?'var(--green)':'var(--border)');
+    }
+    if (sntKats.length) {
+      const maxKat = sntKats[0][1];
+      const KC = ['#A32D2D','#854F0B','#185FA5','#3B6D11','#534AB7'];
+      html += secLbl('Kategori tertinggi')
+        + sntKats.map(([k,v],i) => hBar(k, v, maxKat, KC[i]||'var(--green)', 110)).join('');
+    } else {
+      html += `<div style="font-size:11px;color:var(--text3);margin-top:6px">Belum ada data kategori sanitasi untuk GH ini</div>`;
+    }
+    return html;
+  }
+
+  function detailHPT() {
+    const lvlCol = hptLevel==='high'?'var(--red-txt)':hptLevel==='medium'?'var(--yellow-txt)':'var(--green-txt)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Risiko saat ini', hptLevel.toUpperCase(), lvlCol)}
+        ${miniStat('Total input', hptRows.length, 'var(--text)')}
+        ${miniStat('Data terbaru', latestHPT?fmtD(latestHPT.tgl):'—', 'var(--text)')}
+      </div>`;
+    if (hptHistory.length) {
+      html += secLbl('Riwayat pengamatan')
+        + hptHistory.map(x => {
+            const lv = risikoGlobal?risikoGlobal(x):'low';
+            const col = lv==='high'?'var(--red-txt)':lv==='medium'?'var(--yellow-txt)':'var(--green-txt)';
+            const bg  = lv==='high'?'var(--red-lt)':lv==='medium'?'var(--yellow-lt)':'var(--green-lt)';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);width:60px;flex-shrink:0">${fmtD(x.tgl)}</span>
+              <span style="flex:1;color:var(--text);padding:0 8px">${x.hama||x.penyakit||'—'}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:${bg};color:${col};font-weight:600">${lv}</span>
+            </div>`;
+          }).join('');
+    } else {
+      html += dummyNote()
+        + secLbl('Riwayat serangan (dummy)')
+        + [['DM (Downy Mildew)','Low'],['PM (Powdery Mildew)','Low'],['Thrips','Medium']].map(([n,lv]) => {
+            const col = lv==='High'?'var(--red-txt)':lv==='Medium'?'var(--yellow-txt)':'var(--green-txt)';
+            const bg  = lv==='High'?'var(--red-lt)':lv==='Medium'?'var(--yellow-lt)':'var(--green-lt)';
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+              <span style="color:var(--text)">${n}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:${bg};color:${col};font-weight:600">${lv}</span>
+            </div>`;
+          }).join('');
+    }
+    return html;
+  }
+
+  function detailPny() {
+    const avgEC = pnyRows.filter(x=>x.ecIn>0).length ? (pnyRows.filter(x=>x.ecIn>0).reduce((s,x)=>s+x.ecIn,0)/pnyRows.filter(x=>x.ecIn>0).length).toFixed(2) : null;
+    const avgPH = pnyRows.filter(x=>x.phIn>0).length ? (pnyRows.filter(x=>x.phIn>0).reduce((s,x)=>s+x.phIn,0)/pnyRows.filter(x=>x.phIn>0).length).toFixed(2) : null;
+    const ecCol = avgEC ? (avgEC>=2.5&&avgEC<=3.2?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
+    const phCol = avgPH ? (avgPH>=5.8&&avgPH<=6.3?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Avg EC in', avgEC||'—', ecCol)}
+        ${miniStat('Avg pH in', avgPH||'—', phCol)}
+        ${miniStat('Total input', pnyRows.length, 'var(--text)')}
+      </div>`;
+    if (pnyDays.length) {
+      html += secLbl('Tren EC & pH 7 hari terakhir')
+        + `<div style="display:flex;gap:4px;overflow-x:auto">
+            ${pnyDays.map(d => {
+              const x = pnyByDay[d];
+              const ecOk = x.ecIn>=2.5&&x.ecIn<=3.2, phOk = x.phIn>=5.8&&x.phIn<=6.3;
+              return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
+                <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${d.slice(5).split('-').reverse().join('/')}</div>
+                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${x.ecIn||'—'}</div>
+                <div style="font-size:9px;color:var(--text4);margin-bottom:3px">EC</div>
+                <div style="font-size:11px;font-weight:700;color:${phOk?'var(--green-txt)':'var(--red-txt)'}">${x.phIn||'—'}</div>
+                <div style="font-size:9px;color:var(--text4)">pH</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+    } else {
+      html += dummyNote()
+        + secLbl('Tren EC & pH (dummy)')
+        + `<div style="display:flex;gap:4px;overflow-x:auto">
+            ${[2.8,2.9,3.1,3.3,3.0,2.7,2.9].map((ec,i) => {
+              const ph2 = [6.0,6.1,5.9,6.2,6.3,6.4,6.1][i];
+              const ecOk=ec>=2.5&&ec<=3.2, phOk=ph2>=5.8&&ph2<=6.3;
+              const lbl = ['07','08','09','10','11','12','13'][i]+'/04';
+              return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
+                <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${lbl}</div>
+                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${ec}</div>
+                <div style="font-size:9px;color:var(--text4);margin-bottom:3px">EC</div>
+                <div style="font-size:11px;font-weight:700;color:${phOk?'var(--green-txt)':'var(--red-txt)'}">${ph2}</div>
+                <div style="font-size:9px;color:var(--text4)">pH</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+    }
+    return html;
+  }
+
+  function detailVigor() {
+    return dummyNote()
+      + `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+          ${miniStat('Growth rate/hari','+2.1cm','var(--green-txt)')}
+          ${miniStat('Ruas aktif','8','var(--text)')}
+          ${miniStat('Kondisi daun','Normal','var(--green-txt)')}
+        </div>`
+      + secLbl('Tren pertumbuhan (dummy)')
+      + trendBars(
+          ['07/04','08/04','09/04','10/04','11/04','12/04','13/04'].map(d=>'2026-'+d.split('/').reverse().join('-')),
+          [1.8,2.0,2.2,2.1,2.3,2.0,2.1], 2.5,
+          ()=>'var(--green)'
+        );
+  }
+
+  function detailEst() {
+    const grLabel = r.avgGramasi>0?'gramasi aktual':'asumsi 1kg';
+    const grCol   = r.avgGramasi>0?'var(--green-txt)':'var(--yellow-txt)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Est. total', estKg>0?ccFmt(estKg)+' kg':'—', estKg>0?'var(--green-txt)':'var(--yellow-txt)')}
+        ${miniStat('Avg gramasi', r.avgGramasi>0?Math.round(r.avgGramasi)+'g':'1.000g', grCol)}
+        ${miniStat('Pop akhir', ccFmt(r.popAkhir), 'var(--text)')}
+      </div>`;
+    if (varRows.length) {
+      html += secLbl('Estimasi per varian')
+        + varRows.map(x => {
+            const grV  = x.avgGramasi>0?x.avgGramasi:1000;
+            const estV = x.popAkhir>0?Math.round(x.popAkhir*grV/1000):Math.round((r.popAkhir/varRows.length)*grV/1000);
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:11px">
+              <span style="font-weight:700;color:var(--text)">${x.varian||'—'}</span>
+              <div style="display:flex;gap:14px;align-items:center">
+                <span style="color:var(--text3)">${x.avgGramasi>0?Math.round(x.avgGramasi)+'g':'1.000g'} avg</span>
+                <span style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green-txt)">${ccFmt(estV)} kg</span>
+              </div>
+            </div>`;
+          }).join('');
+    }
+    html += `<div style="font-size:10px;color:var(--text3);margin-top:6px">Rumus: pop akhir × avg gramasi · ${grLabel}</div>`;
+    return html;
+  }
+
+  function detailSemp() {
+    return dummyNote()
+      + `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+          ${miniStat('Jadwal aktif','0','var(--green-txt)')}
+          ${miniStat('Sesi bulan ini','3','var(--text)')}
+          ${miniStat('Realisasi','100%','var(--green-txt)')}
+        </div>`
+      + secLbl('Riwayat penyemprotan (dummy)')
+      + [['05/04','Fungisida','Selesai'],['28/03','Insektisida','Selesai'],['20/03','Fungisida','Selesai']].map(([tgl,jenis,status]) =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+            <div style="display:flex;gap:10px">
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--text3)">${tgl}</span>
+              <span style="color:var(--text)">${jenis}</span>
+            </div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt);font-weight:600">${status}</span>
+          </div>`
+        ).join('');
+  }
+
+  const DETAIL_FNS = {
+    kesiapan: detailKesiapan,
+    pop:      detailPop,
+    snt:      detailSnt,
+    hpt:      detailHPT,
+    pny:      detailPny,
+    vigor:    detailVigor,
+    est:      detailEst,
+    semp:     detailSemp,
+  };
+
+  // ── CAT CARD builder (clickable) ──
   function catCard(c) {
-    const bg   = c.soon || c.status==='—' ? 'var(--surface2)' :
-                 c.status==='ok'           ? 'var(--green-lt)' :
-                 c.status==='warn'         ? 'var(--yellow-lt)' : 'var(--red-lt)';
-    const bc   = c.soon || c.status==='—' ? 'var(--border)' :
-                 c.status==='ok'           ? '#b8dfc4' :
-                 c.status==='warn'         ? '#f5d08a' : '#f0b0b0';
-    const stTxt = c.soon || c.status==='—' ? 'build' :
-                  c.status==='ok' ? 'ok' : c.status==='warn' ? 'perlu perhatian' : 'kritis';
-    const stCol = c.soon || c.status==='—' ? 'var(--text4)' :
-                  c.status==='ok' ? 'var(--green-txt)' : c.status==='warn' ? 'var(--yellow-txt)' : 'var(--red-txt)';
-    return `<div style="background:${bg};border:1px solid ${bc};border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:3px">
+    const isActive = _ccActiveCat === c.id;
+    const bg  = isActive ? (c.soon?'var(--surface2)':stBg(c.status,c.soon)) : (c.soon?'var(--surface2)':stBg(c.status,c.soon));
+    const bc  = isActive ? 'var(--text)' : stBc(c.status,c.soon);
+    const bw  = isActive ? '2px' : '1px';
+    const txt = stTxt(c.status,c.soon);
+    const col = stCol(c.status,c.soon);
+    return `<div data-cat-id="${c.id}" onclick="ccToggleCatDetail('${c.id}')"
+      style="background:${bg};border:${bw} solid ${bc};border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:border .12s"
+      onmouseover="this.style.borderWidth='2px'" onmouseout="if('${c.id}'!==_ccActiveCat)this.style.borderWidth='1px'">
       <div style="font-size:13px">${c.icon}</div>
       <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3">${c.label}${c.soon?` <span style="font-size:8px;font-weight:400;color:var(--text4);background:var(--surface);padding:1px 5px;border-radius:3px;border:1px solid var(--border)">build</span>`:''}</div>
-      <div style="font-size:10px;font-weight:600;color:${stCol}">${stTxt}</div>
+      <div style="font-size:10px;font-weight:600;color:${col}">${txt}</div>
       <div style="font-size:10px;color:var(--text3);line-height:1.4;margin-top:1px">${c.detail}</div>
     </div>`;
   }
 
-  const ph = hstToPhase(r.hst);
-  const phLabel = ph ? ph.label : 'HST '+r.hst;
-  const phColor = ph ? ph.color : 'var(--text2)';
-  const dot = CC[clOf(r.gh)] || '#999';
-  const code = ghCodeOf(r.gh);
+  const CATS = [
+    { id:'kesiapan', icon:'🏗',  label:'Kesiapan GH',       soon:true,  status:'—',      detail:'Sedang dikembangkan' },
+    { id:'pop',      icon:'⚖️',  label:'Populasi & Gramasi', soon:false, status:popGrSt,  detail:'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—')+(r.avgGramasi>0?' · Gramasi: '+Math.round(r.avgGramasi)+'g':' · Gramasi: belum input') },
+    { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: belumSnt?'Belum dilakukan periode ini':'Total: '+ccFmt(sntCount)+' buah' },
+    { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: latestHPT?'Risiko '+hptLevel+' · '+fmtD(latestHPT.tgl):'Belum ada data HPT' },
+    { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
+    { id:'vigor',    icon:'⚡',  label:'Vigor',              soon:true,  status:'—',      detail:'Sedang dikembangkan' },
+    { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
+    { id:'semp',     icon:'🌿',  label:'Penyemprotan',       soon:false, status:'ok',     detail:'Tidak ada jadwal aktif' },
+  ];
 
-  panel.innerHTML = `<div class="card">
+  const ph    = hstToPhase(r.hst);
+  const phLbl = ph ? ph.label : 'HST '+r.hst;
+  const phCol = ph ? ph.color : 'var(--text2)';
+  const dot   = CC[clOf(r.gh)] || '#999';
+  const code  = ghCodeOf(r.gh);
+
+  panel.innerHTML = `<div class="card" id="ccGhCard">
     <div class="card-hd" style="border-left:3px solid ${dot}">
       <div style="display:flex;align-items:center;gap:10px">
         <span style="width:9px;height:9px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
         <div>
           <div class="card-title">${r.gh} <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);font-weight:400">(${code})</span></div>
           <div style="font-size:10px;color:var(--text3);margin-top:1px">
-            <span style="font-weight:700;color:${phColor}">${phLabel}</span>
+            <span style="font-weight:700;color:${phCol}">${phLbl}</span>
             · HST ${r.hst} · Periode ${r.periode||'—'}
           </div>
         </div>
-        <div style="margin-left:auto">${overallBadge}</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          ${overallBadge}
+          <span style="font-size:10px;color:var(--text4)">klik card untuk detail</span>
+        </div>
       </div>
     </div>
     <div style="padding:12px 16px">
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px" id="ccCatGrid">
         ${CATS.map(catCard).join('')}
       </div>
+      <div id="ccCatDetail" style="margin-top:10px"></div>
     </div>
   </div>`;
 
   panel.style.display = 'block';
   panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  // store refs for drill-down
+  panel._CATS = CATS;
+  panel._DETAIL_FNS = DETAIL_FNS;
+  panel._catCard = catCard;
+}
+
+// ── TOGGLE CAT DETAIL (drill-down) ──
+function ccToggleCatDetail(catId) {
+  const panel      = document.getElementById('ccGhIssuePanel');
+  const detailArea = document.getElementById('ccCatDetail');
+  if (!panel || !detailArea) return;
+
+  if (_ccActiveCat === catId) {
+    _ccActiveCat = null;
+    detailArea.innerHTML = '';
+    // reset card borders
+    document.querySelectorAll('[data-cat-id]').forEach(el => {
+      el.style.borderWidth = '1px';
+      el.style.borderColor = '';
+    });
+    return;
+  }
+
+  _ccActiveCat = catId;
+
+  // Update card borders
+  document.querySelectorAll('[data-cat-id]').forEach(el => {
+    const isAct = el.getAttribute('data-cat-id') === catId;
+    el.style.borderWidth = isAct ? '2px' : '1px';
+    el.style.borderColor = isAct ? 'var(--text)' : '';
+  });
+
+  const fn = panel._DETAIL_FNS && panel._DETAIL_FNS[catId];
+  if (!fn) { detailArea.innerHTML = ''; return; }
+
+  const cat = panel._CATS && panel._CATS.find(c=>c.id===catId);
+  const headerCol = cat
+    ? (cat.soon||cat.status==='—'?'var(--text3)':cat.status==='ok'?'var(--green-txt)':cat.status==='warn'?'var(--yellow-txt)':'var(--red-txt)')
+    : 'var(--text)';
+  const headerBg = cat
+    ? (cat.soon||cat.status==='—'?'var(--surface2)':cat.status==='ok'?'var(--green-lt)':cat.status==='warn'?'var(--yellow-lt)':'var(--red-lt)')
+    : 'var(--surface2)';
+
+  detailArea.innerHTML = `<div style="background:var(--surface2);border:0.5px solid var(--border);border-radius:10px;padding:13px 15px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${cat?cat.icon:''}</span>
+      <span style="font-size:12px;font-weight:700;color:var(--text)">${cat?cat.label:catId}</span>
+      <span style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:5px;background:${headerBg};color:${headerCol};font-weight:600">${cat?cat.detail:''}</span>
+    </div>
+    ${fn()}
+  </div>`;
+
+  detailArea.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
 
 // ── PHASE FILTER FROM DIST CLICK ──
