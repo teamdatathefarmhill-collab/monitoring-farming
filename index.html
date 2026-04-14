@@ -3223,7 +3223,7 @@ function tick() {
 //  URL GAS HPT — ganti dengan URL deployment GAS sheet HPT kamu
 // ══════════════════════════════════════════════════════════════
 const HPT_SHEET_ID  = '1xDLyY6ZtXabQ0TiVfoEeIBG3kYO1zoL7G-AKU2oa24U';
-const HPT_GID       = '26691770';
+const HPT_GID       = '590908293';
 const HPT_CSV_URL   = `https://docs.google.com/spreadsheets/d/${HPT_SHEET_ID}/export?format=csv&gid=${HPT_GID}`;
 
 let RAW_HPT = []; // parsed & computed rows
@@ -3231,6 +3231,18 @@ let HPT_TAB = 'hama'; // aktif tab
 
 // ── FETCH HPT ──
 async function fetchHpt(manual = false) {
+  // Clear cache jika format lama (wide format) — cek ada field 'kutukebul' yg sudah tidak ada
+  try {
+    const cached = localStorage.getItem('ft_hpt_cache');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (parsed.length && parsed[0].kutukebul !== undefined) {
+        localStorage.removeItem('ft_hpt_cache');
+        localStorage.removeItem('ft_hpt_cache_ts');
+      }
+    }
+  } catch(_) {}
+
   if (!manual) {
     const cached   = localStorage.getItem('ft_hpt_cache');
     const cachedAt = parseInt(localStorage.getItem('ft_hpt_cache_ts') || '0');
@@ -3244,11 +3256,18 @@ async function fetchHpt(manual = false) {
     const text = await resp.text();
     const rows = parseCSV(text);
     const data = computeHpt(rows);
-    localStorage.setItem('ft_hpt_cache',    JSON.stringify(data));
-    localStorage.setItem('ft_hpt_cache_ts', Date.now().toString());
+    // Hanya cache jika data tidak terlalu besar (max 2MB agar tidak bikin localStorage lambat)
+    try {
+      const json = JSON.stringify(data);
+      if (json.length < 2000000) {
+        localStorage.setItem('ft_hpt_cache',    json);
+        localStorage.setItem('ft_hpt_cache_ts', Date.now().toString());
+      }
+    } catch(_) {}
     applyHpt(data);
   } catch(e) {
-    document.getElementById('pgSubHpt').textContent = '⚠ Gagal memuat data HPT: ' + e.message;
+    const pgEl = document.getElementById('pgSubHpt');
+    if (pgEl) pgEl.textContent = '⚠ Gagal memuat data HPT: ' + e.message;
     console.error('[HPT]', e);
   }
 }
@@ -3484,7 +3503,7 @@ function renderHptMain(rows) {
           <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">${(g.tgl||'').slice(5).split('-').reverse().join('/')}</div>
           <div style="font-size:11px;color:var(--text3)">${katLabel}</div>
           <div style="font-size:11px;color:var(--text)">
-            ${topItem ? topItem.hptName + ' <span style="font-family:'JetBrains Mono',monospace;color:var(--text3)">' + topItem.nilai + '</span>' : '—'}
+            ${topItem ? topItem.hptName + ' <span style="font-family:monospace;color:var(--text3)">' + topItem.nilai + '</span>' : '—'}
           </div>
           <div style="text-align:right">${riskPill(ghStatus)}</div>
         </div>`;
@@ -3635,7 +3654,22 @@ function renderHptTrendChart(rows) {
   if (!chartEl) return;
   const ctx = chartEl.getContext('2d');
 
-  if (_hptChart) { _hptChart.destroy(); _hptChart = null; }
+  if (_hptChart) {
+    // Update existing chart instead of recreating (faster)
+    _hptChart.data.labels = allDays.map(d=>d.slice(5).split('-').reverse().join('/'));
+    _hptChart.data.datasets = visible.map(s => ({
+      label: s.label, data: s.data, borderColor: s.color,
+      backgroundColor: s.color+'15', borderWidth:2, pointRadius:3,
+      pointBackgroundColor: s.color, tension:.35, fill:false,
+    }));
+    _hptChart.update('none');
+    if (legEl) legEl.innerHTML = visible.map(s =>
+      `<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+        <span style="width:14px;height:3px;background:${s.color};border-radius:2px;display:inline-block"></span>${s.label}
+      </span>`
+    ).join('');
+    return;
+  }
 
   _hptChart = new Chart(ctx, {
     type:'line',
