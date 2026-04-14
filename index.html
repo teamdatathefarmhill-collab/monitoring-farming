@@ -4347,7 +4347,7 @@ function isEcAirBaku(r) {
 function isEcDev(r) {
   if (!r || !r.ecIn || r.ecIn <= 0) return false;
   if (isEcAirBaku(r)) return false; // air baku → skip
-  return r.ecIn < 2.5 || r.ecIn > 3.2;
+  return r.isEcDev(r);
 }
 function wxBg(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_BG))if(k.includes(key))return WX_BG[key];return'linear-gradient(135deg,#f0f4ff,#dbeafe)';}
 function modus(arr){const f={};let m=0,r='';arr.forEach(v=>{f[v]=(f[v]||0)+1;if(f[v]>m){m=f[v];r=v;}});return r;}
@@ -4448,14 +4448,14 @@ function setPnyTipe(tipe, el) {
 // ── CHIP STATUS ──
 function pnyStatus(r) {
   if (r.ecIn>0&&r.ecIn>EC_MAX) return 'warn';
-  if (r.ecIn>0&&r.ecIn<EC_MIN) return 'bad';
+  if (r.ecIn>0&&isEcDev(r)) return 'bad'; // pakai isEcDev: air baku jam 10-14 = ok
   if (r.phIn>0&&r.phIn>PH_MAX) return 'warn';
   if (r.phIn>0&&r.phIn<PH_MIN) return 'bad';
   return 'ok';
 }
 function pnyStatusPill(r) {
   if (r.ecIn>0&&r.ecIn>EC_MAX) return '<span class="pill p-w">EC Tinggi</span>';
-  if (r.ecIn>0&&r.ecIn<EC_MIN) return '<span class="pill p-b">EC Rendah</span>';
+  if (r.ecIn>0&&isEcDev(r)) return '<span class="pill p-b">EC Rendah</span>';
   if (r.phIn>0&&r.phIn>PH_MAX) return '<span class="pill p-w">pH Tinggi</span>';
   if (r.phIn>0&&r.phIn<PH_MIN) return '<span class="pill p-b">pH Rendah</span>';
   return '<span class="pill p-ok">Normal</span>';
@@ -4507,7 +4507,7 @@ function rebuildPny() {
   const alerts=[];
   latest.forEach(r=>{
     if(r.ecIn>0&&r.ecIn>EC_MAX) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas atas ${EC_MAX}`});
-    if(r.ecIn>0&&r.ecIn<EC_MIN) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${EC_MIN}`});
+    if(r.ecIn>0&&isEcDev(r)) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${EC_MIN}`}); // skip air baku
     if(r.phIn>0&&r.phIn>PH_MAX) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas atas ${PH_MAX}`});
     if(r.phIn>0&&r.phIn<PH_MIN) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas bawah ${PH_MIN}`});
   });
@@ -4530,9 +4530,9 @@ function renderPnyRekap(rows, latest, alerts) {
   if(!filtered.length){body.innerHTML='<tr><td colspan="12" class="es">Tidak ada data</td></tr>';}
   else {
     body.innerHTML = filtered.map((r,i)=>{
-      const ecSt=r.ecIn>0?(r.ecIn>EC_MAX||r.ecIn<EC_MIN?(r.ecIn>EC_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+      const ecSt=r.ecIn>0?(r.ecIn>EC_MAX?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
       const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
-      const rowCls=(r.ecIn>0&&r.ecIn>EC_MAX)?'rw':((r.ecIn>0&&r.ecIn<EC_MIN)||(r.phIn>0&&(r.phIn>PH_MAX||r.phIn<PH_MIN)))?'rc':'';
+      const st2=pnyStatus(r); const rowCls=st2==='bad'?'rc':st2==='warn'?'rw':'';
       const dot=CC[clOf(r.gh)]||'#999';
       const tipeTag=r.tipe.toLowerCase().includes('dutch')
         ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
@@ -4654,7 +4654,7 @@ function renderPnyJam(rows) {
   if(pjDetailSub) pjDetailSub.textContent=`${sorted.length} entri · diurutkan tanggal & jam`;
   if (!sorted.length) { body.innerHTML='<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
   body.innerHTML = sorted.map((r,i)=>{
-    const ecSt=r.ecIn>0?(r.ecIn>EC_MAX||r.ecIn<EC_MIN?(r.ecIn>EC_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
+    const ecSt=r.ecIn>0?(r.ecIn>EC_MAX?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
     const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
     const st=pnyStatus(r);
     const rowCls=st==='bad'?'rc':st==='warn'?'rw':'';
@@ -5134,9 +5134,12 @@ function renderSntTrend(rows) {
   const climatePlugin = {
     id: 'climateLabels',
     afterDraw(chart) {
+      // Hanya berlaku untuk sntTrendChart, skip chart lain
+      if (chart.canvas.id !== 'sntTrendChart') return;
       if (_isMin) return;
       const ctx2 = chart.ctx;
       const meta = chart.getDatasetMeta(0);
+      if (!meta || !meta.data) return;
       ctx2.save();
       ctx2.font = '13px sans-serif';
       ctx2.textAlign = 'center';
@@ -5150,11 +5153,13 @@ function renderSntTrend(rows) {
       ctx2.restore();
     }
   };
+  // Register global tapi aman karena ada canvas ID check di atas
+  try { Chart.unregister({id:'climateLabels'}); } catch(_) {}
+  Chart.register(climatePlugin);
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
   // Register inline plugin for Chart.js v4
-  try { Chart.unregister(climatePlugin); } catch(_) {}
-  Chart.register(climatePlugin);
+  // Register plugin hanya untuk chart ini, unregister setelah
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
   sntTrendChartObj = new Chart(ctx, {
     type: 'line',
@@ -5204,6 +5209,10 @@ function renderSntTrend(rows) {
     }
   });
 }
+
+// Unregister climate plugin setelah chart trend dibuat agar tidak affect chart lain
+// (sudah aman karena ada canvas ID check, tapi unregister buat jaga-jaga)
+// Tidak perlu unregister karena sudah ada ID check di plugin
 
 function sntWeekNum(d) {
   const onejan = new Date(d.getFullYear(),0,1);
