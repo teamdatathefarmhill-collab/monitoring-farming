@@ -4558,8 +4558,8 @@ function checkSntCode() {
 // ══════════════════════════════════════════════
 //  SANITASI MODULE  v2
 // ══════════════════════════════════════════════
-const SNT_SHEET_ID = '1YG2tCI4HLsJlueLv9iRx0_Ep-ub1rNFTDIaG2nUAn08';
-const SNT_GID      = '1342320262';
+const SNT_SHEET_ID = '1A5Bu0pEnTSMOZnSmB7c0ud3kVoCIC6p-HJ1AVbmegmQ';
+const SNT_GID      = '0';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
 
 let RAW_SNT_PERIODE = 'harian';
@@ -7053,18 +7053,26 @@ function ccShowGhIssue(ghName) {
   const fmtD  = s => s ? s.split('-').reverse().join('/') : '—';
 
   // ── SNT ──
-  const sntRows  = RAW_SNT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
-  const sntKeys  = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
-  const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
-  const sntCount = sntRows.reduce((s,x)=>s+(x.jml||0),0);
-  // Trend harian sanitasi
-  const sntByDay = {};
-  sntRows.forEach(x => { if(x.tgl) sntByDay[x.tgl] = (sntByDay[x.tgl]||0)+(x.jml||0); });
-  const sntDays = Object.keys(sntByDay).sort().slice(-7);
-  // Kategori sanitasi
+  // sntRowsPeriode: semua data GH ini di periode aktif → untuk total count & kategori
+  const sntRowsPeriode = RAW_SNT.filter(x =>
+    x.gh.trim().toUpperCase() === gh && normP(x.periode) === normP(r.periode)
+  );
+  // sntRowsRange: data GH ini dalam date range → untuk trend harian bar chart
+  const sntRowsRange = RAW_SNT.filter(x =>
+    x.gh.trim().toUpperCase() === gh
+    && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV)
+  );
+  const sntKeys  = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh.trim().toUpperCase()+'||'+normP(x.periode)));
+  const belumSnt = !sntKeys.has(gh+'||'+normP(r.periode));
+  // Total & kategori pakai periode
+  const sntCount = sntRowsPeriode.reduce((s,x)=>s+(x.jml||0),0);
   const sntKatMap = {};
-  sntRows.forEach(x => { const k=(x.trueSnt||x.kategori||'').trim(); if(k){sntKatMap[k]=(sntKatMap[k]||0)+(x.jml||0);} });
+  sntRowsPeriode.forEach(x => { const k=(x.trueSnt||x.kategori||'').trim(); if(k){sntKatMap[k]=(sntKatMap[k]||0)+(x.jml||0);} });
   const sntKats = Object.entries(sntKatMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  // Trend harian pakai date range
+  const sntByDay = {};
+  sntRowsRange.forEach(x => { if(x.tgl) sntByDay[x.tgl] = (sntByDay[x.tgl]||0)+(x.jml||0); });
+  const sntDays = Object.keys(sntByDay).sort().slice(-10);
 
   // ── HPT ──
   const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
@@ -7199,7 +7207,8 @@ function ccShowGhIssue(ghName) {
   }
 
   function detailSnt() {
-    const actDays = sntDays.length;
+    // actDays dari date range (trend harian), total dari periode
+    const actDays = new Set(sntRowsPeriode.filter(x=>x.tgl).map(x=>x.tgl)).size;
     const maxSnt  = Math.max(...sntDays.map(d=>sntByDay[d]||0), 1);
     let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
         ${miniStat('Total sanitasi', ccFmt(sntCount), sntCount>0?'var(--green-txt)':'var(--text)')}
@@ -7207,16 +7216,16 @@ function ccShowGhIssue(ghName) {
         ${miniStat('Hari aktif', actDays, actDays>0?'var(--green-txt)':'var(--text)')}
       </div>`;
     if (sntDays.length) {
-      html += secLbl('Tren harian (10 hari terakhir)')
+      html += secLbl('Tren harian (dalam date range)')
         + trendBars(sntDays, sntDays.map(d=>sntByDay[d]||0), maxSnt, (v)=>v>0?'var(--green)':'var(--border)');
     }
     if (sntKats.length) {
       const maxKat = sntKats[0][1];
       const KC = ['#A32D2D','#854F0B','#185FA5','#3B6D11','#534AB7'];
-      html += secLbl('Kategori tertinggi')
+      html += secLbl('Kategori tertinggi (periode ini)')
         + sntKats.map(([k,v],i) => hBar(k, v, maxKat, KC[i]||'var(--green)', 110)).join('');
     } else {
-      html += `<div style="font-size:11px;color:var(--text3);margin-top:6px">Belum ada data kategori sanitasi untuk GH ini</div>`;
+      html += `<div style="font-size:11px;color:var(--text3);margin-top:6px">Belum ada data kategori sanitasi untuk GH ini di periode ini</div>`;
     }
     return html;
   }
@@ -7691,12 +7700,11 @@ async function rebuildCC() {
 
 // ── INIT ──
 async function initCC() {
-  // Default: from = 30 hari lalu, to = hari ini
-  // Ini agar Total Sanitasi tidak 0 (data sanitasi diinput harian)
+  // Default: from = tanggal 1 bulan ini, to = hari ini
   const today = new Date();
-  const from30 = new Date(today); from30.setDate(from30.getDate() - 30);
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const todayStr = today.toISOString().slice(0,10);
-  const fromStr  = from30.toISOString().slice(0,10);
+  const fromStr  = firstOfMonth.toISOString().slice(0,10);
 
   const dfEl = document.getElementById('ccDateFrom');
   const dtEl = document.getElementById('ccDateTo');
