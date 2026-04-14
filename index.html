@@ -4320,6 +4320,27 @@ let RAW_PNY  = [];
 let PNY_TIPE = 'semua';
 let PNY_TAB  = 'rekap';
 
+// ── EC air baku checker ──
+// Sawahan: EC 0.6-0.8 jam 10-14 = normal (air baku)
+// Tohudan & Bergas: EC 0.6-0.7 jam 10-14 = normal (air baku)
+function isEcAirBaku(r) {
+  if (!r || !r.ecIn) return false;
+  const ec  = +r.ecIn;
+  const jam = parseInt((r.jam||'0').split(':')[0]) || 0;
+  const loc = (typeof clOf === 'function' ? clOf(r.gh||'') : (r.gh||'')).toUpperCase();
+  if (jam < 10 || jam > 14) return false;
+  if (loc.includes('SAWAHAN') && ec >= 0.6 && ec <= 0.8) return true;
+  if ((loc.includes('TOHUDAN') || loc.includes('BERGAS')) && ec >= 0.6 && ec <= 0.7) return true;
+  return false;
+}
+
+// Cek apakah EC deviasi (excludes air baku)
+function isEcDev(r) {
+  if (!r || !r.ecIn || r.ecIn <= 0) return false;
+  if (isEcAirBaku(r)) return false;
+  return r.ecIn < 2.5 || r.ecIn > 3.2;
+}
+
 const EC_MIN = 2.5, EC_MAX = 3.2;
 const PH_MIN = 5.8, PH_MAX = 6.3;
 const PNY_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18];
@@ -4332,23 +4353,7 @@ function wxIcon(c){const k=(c||'').toLowerCase().trim();for(const key of Object.
 // ── EC air baku checker ──
 // Sawahan: EC 0.6-0.8 jam 10-14 = normal (air baku)
 // Tohudan & Bergas: EC 0.6-0.7 jam 10-14 = normal (air baku)
-function isEcAirBaku(r) {
-  if (!r || !r.ecIn) return false;
-  const ec  = +r.ecIn;
-  const jam = parseInt((r.jam||'0').split(':')[0]) || 0;
-  const loc = clOf(r.gh||'').toUpperCase();
-  if (jam < 10 || jam > 14) return false; // hanya jam 10-14
-  if (loc === 'SAWAHAN'  && ec >= 0.6 && ec <= 0.8) return true;
-  if ((loc === 'TOHUDAN' || loc === 'BERGAS') && ec >= 0.6 && ec <= 0.7) return true;
-  return false;
-}
 
-// Cek apakah EC deviasi (excludes air baku)
-function isEcDev(r) {
-  if (!r || !r.ecIn || r.ecIn <= 0) return false;
-  if (isEcAirBaku(r)) return false; // air baku → skip
-  return r.isEcDev(r);
-}
 function wxBg(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_BG))if(k.includes(key))return WX_BG[key];return'linear-gradient(135deg,#f0f4ff,#dbeafe)';}
 function modus(arr){const f={};let m=0,r='';arr.forEach(v=>{f[v]=(f[v]||0)+1;if(f[v]>m){m=f[v];r=v;}});return r;}
 
@@ -4480,7 +4485,9 @@ function rebuildPny() {
   const nowH = n.getHours();
   const wxSrc = rows.filter(r=>parseInt((r.jam||'0').split(':')[0])<=nowH);
   const wxR   = wxSrc.length ? wxSrc : rows;
-  const cuacaModus = modus(wxR.map(r=>r.cuaca).filter(Boolean))||'—';
+  // Pakai avg score: Cerah=100, Cerah Berawan=75, Berawan=50, Mendung=25, Hujan=0
+  const _wxArr = wxR.map(r=>r.cuaca).filter(Boolean);
+  const cuacaModus = _wxArr.length ? (avgClimate(_wxArr)||'—') : '—';
   const avgSuhu = wxR.length ? wxR.reduce((s,r)=>s+r.suhu,0)/wxR.length : 0;
   const avgRH   = wxR.length ? wxR.reduce((s,r)=>s+r.rh,0)/wxR.length   : 0;
   const wxCard = document.getElementById('pnyWxCard');
@@ -4806,6 +4813,37 @@ const SNT_GID      = '0';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
 
 let RAW_SNT_PERIODE = 'harian';
+// ── Climate scoring functions (global) ──
+const WX_SCORE_MAP = [
+  { key:'cerah berawan', score:75 },
+  { key:'cerah',         score:100 },
+  { key:'berawan',       score:50 },
+  { key:'mendung',       score:25 },
+  { key:'hujan',         score:0 },
+  { key:'gerimis',       score:10 },
+];
+function wxScoreOf(c) {
+  const k = (c||'').toLowerCase().trim();
+  const found = WX_SCORE_MAP.find(w => k.includes(w.key));
+  return found ? found.score : 50;
+}
+function wxFromScore(avg) {
+  if (avg > 87.5) return 'cerah';
+  if (avg > 62.5) return 'cerah berawan';
+  if (avg > 37.5) return 'berawan';
+  if (avg > 12.5) return 'mendung';
+  return 'hujan';
+}
+function avgClimate(arr) {
+  if (!arr || !arr.length) return null;
+  const avg = arr.reduce((s,v) => s + wxScoreOf(v), 0) / arr.length;
+  return wxFromScore(avg);
+}
+window.avgClimate = avgClimate;
+window.wxIco = wxIco;
+const WX_ICO = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','mendung':'☁️','hujan':'🌧️','hujan lebat':'⛈️','gerimis':'🌦️'};
+function wxIco(c) { const k=(c||'').toLowerCase().trim(); for(const key of Object.keys(WX_ICO)) if(k.includes(key)) return WX_ICO[key]; return null; }
+
 let sntTrendChartObj = null;
 let sntPieChartObj   = null;
 let sntBarChartObj   = null;
@@ -5101,34 +5139,7 @@ function renderSntTrend(rows) {
       }
     });
   }
-  // Skor cuaca: Cerah=100, Cerah Berawan=75, Berawan=50, Mendung=25, Hujan=0
-  const WX_SCORE_MAP = [
-    { key:'cerah berawan', score:75 },
-    { key:'cerah',         score:100 },
-    { key:'berawan',       score:50 },
-    { key:'mendung',       score:25 },
-    { key:'hujan',         score:0 },
-    { key:'gerimis',       score:10 },
-  ];
-  function wxScoreOf(c) {
-    const k = (c||'').toLowerCase().trim();
-    const found = WX_SCORE_MAP.find(w => k.includes(w.key));
-    return found ? found.score : 50; // default berawan
-  }
-  function wxFromScore(avg) {
-    if (avg > 87.5) return 'cerah';
-    if (avg > 62.5) return 'cerah berawan';
-    if (avg > 37.5) return 'berawan';
-    if (avg > 12.5) return 'mendung';
-    return 'hujan';
-  }
-  function avgClimate(arr) {
-    if (!arr || !arr.length) return null;
-    const avg = arr.reduce((s,v) => s + wxScoreOf(v), 0) / arr.length;
-    return wxFromScore(avg);
-  }
-  const WX_ICO = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','mendung':'☁️','hujan':'🌧️','hujan lebat':'⛈️','gerimis':'🌦️'};
-  function wxIco(c) { const k=(c||'').toLowerCase().trim(); for(const key of Object.keys(WX_ICO)) if(k.includes(key)) return WX_ICO[key]; return null; }
+  // wxScoreOf, wxFromScore, avgClimate, wxIco — sudah didefinisikan global di bawah
 
   // Custom plugin: gambar ikon cuaca di atas tiap titik
   const climatePlugin = {
@@ -5158,8 +5169,6 @@ function renderSntTrend(rows) {
   Chart.register(climatePlugin);
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
-  // Register inline plugin for Chart.js v4
-  // Register plugin hanya untuk chart ini, unregister setelah
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
   sntTrendChartObj = new Chart(ctx, {
     type: 'line',
@@ -5905,6 +5914,27 @@ function renderSntLastTable(rows) {
 <script>
 // ══════════════════════════════════════════════
 //  COMMAND CENTER MODULE
+
+// ── Re-expose EC air baku helpers (in case called before Script 1 fully runs) ──
+if (typeof isEcAirBaku === 'undefined') {
+  window.isEcAirBaku = function(r) {
+    if (!r || !r.ecIn) return false;
+    const ec  = +r.ecIn;
+    const jam = parseInt((r.jam||'0').split(':')[0]) || 0;
+    const loc = (r.gh||'').toUpperCase();
+    if (jam < 10 || jam > 14) return false;
+    if (loc.includes('SAWAHAN') && ec >= 0.6 && ec <= 0.8) return true;
+    if ((loc.includes('TOHUDAN') || loc.includes('BERGAS')) && ec >= 0.6 && ec <= 0.7) return true;
+    return false;
+  };
+}
+if (typeof isEcDev === 'undefined') {
+  window.isEcDev = function(r) {
+    if (!r || !r.ecIn || r.ecIn <= 0) return false;
+    if (isEcAirBaku(r)) return false;
+    return r.ecIn < 2.5 || r.ecIn > 3.2;
+  };
+}
 // ══════════════════════════════════════════════
 let CC_ACTIVE_ID  = null;
 let CC_GH_FILTER   = 'semua';
