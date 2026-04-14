@@ -6914,6 +6914,24 @@ function ghCodeOf(ghName) {
   return abbr + num;
 }
 
+// ── SNT: hitung hari sejak record terakhir per GH ──
+function sntDaysSinceLastRecord(ghName) {
+  const gh = ghName.trim().toUpperCase();
+  // Cari tanggal terbaru dari semua record RAW_SNT untuk GH ini
+  let latest = null;
+  RAW_SNT.forEach(x => {
+    if (x.gh.trim().toUpperCase() === gh && x.tgl) {
+      if (!latest || x.tgl > latest) latest = x.tgl;
+    }
+  });
+  if (!latest) return null; // tidak ada record sama sekali
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const last  = new Date(latest);
+  last.setHours(0,0,0,0);
+  return Math.floor((today - last) / (1000*60*60*24));
+}
+
 // ── BUILD PHASE TIMELINE ──
 function ccBuildPhaseTimeline() {
   const container = document.getElementById('ccPhaseTimeline');
@@ -6942,10 +6960,13 @@ function ccBuildPhaseTimeline() {
   function ghIssueLevel(r) {
     const gh = r.gh.trim().toUpperCase();
 
-    // SNT
+    // SNT — cek periode dan record terakhir (mulai HST 8)
     const normP = s => String(s||'').trim().toLowerCase();
     const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
     const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
+    // Warning: HST >= 8 dan tidak ada record sanitasi > 7 hari (atau tidak ada sama sekali)
+    const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
+    const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
 
     // HPT
     const hptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
@@ -6963,7 +6984,7 @@ function ccBuildPhaseTimeline() {
     const grWn   = grWarn(r);
 
     if (hptLevel==='high' || grCrit || popPct < 75) return 'kritis';
-    if (belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90) return 'isu';
+    if (sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90) return 'isu';
     return 'ok';
   }
 
@@ -7113,14 +7134,22 @@ function ccShowGhIssue(ghName) {
 
   // ── STATUS ──
   const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
-  const hasIsu    = belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
+  const hasIsu    = sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
   const overallBadge = hasKritis
     ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
     : hasIsu
       ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
       : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
 
-  const sntSt = belumSnt ? 'warn' : 'ok';
+  // Cek record sanitasi terakhir (HST >= 8)
+  const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
+  const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
+  const sntSt = sntNoRecord ? 'warn' : belumSnt ? 'warn' : 'ok';
+  const sntDetailTxt = sntNoRecord
+    ? (daysSinceSnt === null
+        ? 'Belum ada record sanitasi sejak tanam'
+        : daysSinceSnt + ' hari tanpa pengamatan — perlu konfirmasi')
+    : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
   const hptSt = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
   const pnySt = pnyDev ? 'warn' : 'ok';
   const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
@@ -7218,12 +7247,27 @@ function ccShowGhIssue(ghName) {
     const actDays = new Set(sntRowsPeriode.filter(x=>x.tgl).map(x=>x.tgl)).size;
     const maxSnt  = Math.max(...sntDays.map(d => Math.max(sntByDay[d]||0, sulamByDay[d]||0)), 1);
 
-    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+    // Warning banner jika tidak ada record > 7 hari
+    const warnBanner = sntNoRecord ? `
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;background:var(--yellow-lt);border:1px solid #f5d08a;border-radius:8px;margin-bottom:10px;font-size:11px;color:var(--yellow-txt)">
+        <span style="font-size:14px;flex-shrink:0">⚠️</span>
+        <div>
+          <div style="font-weight:700;margin-bottom:2px">
+            ${daysSinceSnt === null
+              ? 'Belum ada record sanitasi sejak tanam'
+              : daysSinceSnt + ' hari tanpa pengamatan sanitasi'}
+          </div>
+          <div style="opacity:.85">Perlu konfirmasi ke tim — apakah memang tidak ada sanitasi atau belum diinput?</div>
+        </div>
+      </div>` : '';
+
+    let html = warnBanner + `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
         ${miniStat('Total sanitasi', ccFmt(sntCount), sntCount>0?'var(--green-txt)':'var(--text)')}
-        ${miniStat('Total sulaman', ccFmt(sulamCount), sulamCount>0?'var(--blue-txt, #134880)':'var(--text)')}
+        ${miniStat('Total sulaman', ccFmt(sulamCount), sulamCount>0?'#134880':'var(--text)')}
         ${miniStat('Periode ini', belumSnt?'Belum':'✓', belumSnt?'var(--yellow-txt)':'var(--green-txt)')}
         ${miniStat('Hari aktif', actDays, actDays>0?'var(--green-txt)':'var(--text)')}
-      </div>`;
+      </div>
+      ${daysSinceSnt !== null ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px">Record terakhir: <b>${daysSinceSnt} hari lalu</b></div>` : ''}`;
 
     if (sntDays.length) {
       html += secLbl('Tren harian (dalam date range)')
@@ -7438,7 +7482,7 @@ function ccShowGhIssue(ghName) {
   const CATS = [
     { id:'kesiapan', icon:'🏗',  label:'Kesiapan GH',       soon:true,  status:'—',      detail:'Sedang dikembangkan' },
     { id:'pop',      icon:'⚖️',  label:'Populasi & Gramasi', soon:false, status:popGrSt,  detail:'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—')+(r.avgGramasi>0?' · Gramasi: '+Math.round(r.avgGramasi)+'g':' · Gramasi: belum input') },
-    { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: belumSnt?'Belum dilakukan periode ini':'Total: '+ccFmt(sntCount)+' buah' },
+    { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
     { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: latestHPT?'Risiko '+hptLevel+' · '+fmtD(latestHPT.tgl):'Belum ada data HPT' },
     { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
     { id:'vigor',    icon:'⚡',  label:'Vigor',              soon:true,  status:'—',      detail:'Sedang dikembangkan' },
