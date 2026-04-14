@@ -1251,27 +1251,53 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       <!-- KPI STATS -->
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px" id="hptKpiRow"></div>
 
-      <!-- TREND CHART -->
+      <!-- TREND HAMA (line chart) -->
       <div class="card" style="margin-bottom:14px">
         <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div>
-            <div class="card-title">📈 Tren Hama &amp; Penyakit</div>
-            <div class="card-sub">Nilai per jenis HPT berdasarkan tanggal input</div>
+            <div class="card-title">🦟 Monitoring Hama — Tren</div>
+            <div class="card-sub">Rata-rata nilai per jenis hama berdasarkan tanggal</div>
           </div>
-          <select class="si" id="hptTrendGH" onchange="rebuildHpt()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
         </div>
         <div style="padding:12px 16px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-            <span style="font-size:11px;color:var(--text3)">Kategori:</span>
-            <button id="hptBtnHama"     class="fbtn active" onclick="hptSetKat('hama')"     style="font-size:11px;padding:4px 12px">🦟 Hama</button>
-            <button id="hptBtnPenyakit" class="fbtn active" onclick="hptSetKat('penyakit')" style="font-size:11px;padding:4px 12px">🍂 Penyakit</button>
-            <div style="width:1px;height:18px;background:var(--border);margin:0 2px"></div>
-            <div id="hptItemToggles" style="display:flex;gap:5px;flex-wrap:wrap"></div>
-          </div>
-          <canvas id="hptTrendCanvas" height="170"></canvas>
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px;flex-wrap:wrap" id="hptItemToggles"></div>
+          <canvas id="hptTrendCanvas" height="110"></canvas>
           <div id="hptTrendLegend" style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"></div>
         </div>
       </div>
+
+      <!-- TABEL PENYAKIT -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <div>
+            <div class="card-title">🍂 Monitoring Penyakit — Tabel per GH</div>
+            <div class="card-sub">Nilai PM / DM Intensitas & Insidensi + GSB per GH · diurutkan HST</div>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse" id="hptPenyakitTbl">
+            <thead><tr style="background:var(--hdr)">
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700">GH</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">HST</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">PM Intensitas</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">PM Insidensi</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">DM Intensitas</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">DM Insidensi</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">GSB</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+            </tr></thead>
+            <tbody id="hptPenyakitBody"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- hidden compat -->
+      <div style="display:none" id="hptBtnHama"></div>
+      <div style="display:none" id="hptBtnPenyakit"></div>
 
       <!-- MAIN GRID: ringkasan + alert -->
       <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px;align-items:start">
@@ -3525,28 +3551,39 @@ function renderHptMain(rows) {
   // ── Ranking HPT ──
   const rankEl = document.getElementById('hptRankBody');
   if (rankEl) {
-    const hptCount = {};
-    rows.forEach(r => { hptCount[r.hptName] = (hptCount[r.hptName]||0) + 1; });
-    const ranked = Object.entries(hptCount).sort((a,b)=>b[1]-a[1]).slice(0,7);
+    // Hitung frekuensi: berapa GH unik yang pernah ada HPT ini dalam range (bukan count rows)
+    const hptGHSet = {};
+    const hptTotalNilai = {};
+    rows.forEach(r => {
+      if (!r.hptName) return;
+      if (!hptGHSet[r.hptName]) hptGHSet[r.hptName] = new Set();
+      hptGHSet[r.hptName].add(r.gh + '|' + r.tgl); // unique per GH per hari
+      hptTotalNilai[r.hptName] = (hptTotalNilai[r.hptName]||0) + r.nilai;
+    });
+    const ranked = Object.entries(hptGHSet)
+      .map(([name, set]) => [name, set.size])
+      .sort((a,b)=>b[1]-a[1]).slice(0,7);
     const maxCnt = ranked[0]?.[1] || 1;
-    rankEl.innerHTML = ranked.map(([name,cnt]) => {
+    rankEl.innerHTML = ranked.length ? ranked.map(([name,cnt]) => {
       const katRow = rows.find(r=>r.hptName===name);
       const isP = katRow && katRow.kat && katRow.kat.toLowerCase().includes('penyakit');
       const col = isP ? '#A32D2D' : '#854F0B';
       const w   = Math.round(cnt/maxCnt*100);
+      const avgNilai = cnt>0 ? (hptTotalNilai[name]/cnt).toFixed(1) : 0;
       return `<div style="margin-bottom:9px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
           <span style="font-size:11px;color:var(--text)">${name}</span>
           <div style="display:flex;gap:8px;align-items:center">
             <span style="font-size:10px;color:var(--text3)">${isP?'Penyakit':'Hama'}</span>
-            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${cnt}</span>
+            <span style="font-size:10px;color:var(--text4)">avg ${avgNilai}</span>
+            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${cnt}x</span>
           </div>
         </div>
         <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
           <div style="width:${w}%;height:100%;background:${col};border-radius:3px"></div>
         </div>
       </div>`;
-    }).join('');
+    }).join('') : '<div style="font-size:11px;color:var(--text3)">Tidak ada data dalam range ini</div>';
   }
 
   // ── Alert: GH perlu tindakan ──
@@ -3626,12 +3663,16 @@ function renderHptTrendChart(rows) {
     (!_hptTo   || (r.tgl||'') <= _hptTo)
   );
 
-  // Build series: per unique hptName, collect {tgl, totalNilai}
+  // Build series: rata-rata per hari jika semua GH, sum jika filter 1 GH
+  const ghFilterVal = document.getElementById('hptGHFilter')?.value || '';
+  const useAvg = !ghFilterVal; // avg jika semua GH, sum jika spesifik GH
   const seriesMap = {};
+  const seriesCount = {}; // count GH per tgl per hptName untuk avg
   filteredForChart.forEach(r => {
     if (!r.tgl || !r.hptName) return;
-    if (!seriesMap[r.hptName]) seriesMap[r.hptName] = { kat: r.kat, points:{} };
+    if (!seriesMap[r.hptName]) { seriesMap[r.hptName] = { kat: r.kat, points:{} }; seriesCount[r.hptName] = {}; }
     seriesMap[r.hptName].points[r.tgl] = (seriesMap[r.hptName].points[r.tgl]||0) + r.nilai;
+    seriesCount[r.hptName][r.tgl] = (seriesCount[r.hptName][r.tgl]||0) + 1;
   });
 
   const allDays = [...new Set(filteredForChart.map(r=>r.tgl).filter(Boolean))].sort();
@@ -3640,19 +3681,24 @@ function renderHptTrendChart(rows) {
   const allSeries = Object.entries(seriesMap).map(([name,{kat,points}], i) => ({
     key: name, label: name, kat: (kat||'').toLowerCase().includes('penyakit')?'penyakit':'hama',
     color: COLORS[i % COLORS.length],
-    data: allDays.map(d => points[d]||0)
+    data: allDays.map(d => {
+      const total = points[d]||0;
+      const cnt   = seriesCount[name][d]||1;
+      return useAvg ? Math.round(total/cnt*10)/10 : total;
+    })
   }));
 
+  const hamaSeries = allSeries.filter(s => s.kat === 'hama');
+  const penyakitSeries = allSeries.filter(s => s.kat === 'penyakit');
   if (!_hptActiveItems) {
     _hptActiveItems = {};
-    allSeries.forEach(s => { _hptActiveItems[s.key] = true; });
+    hamaSeries.forEach(s => { _hptActiveItems[s.key] = true; });
   }
 
   // Render toggle UI
   const toggleEl = document.getElementById('hptItemToggles');
   if (toggleEl) {
-    const katFiltered = allSeries.filter(s => (_hptKatHama&&s.kat==='hama')||(_hptKatPenyakit&&s.kat==='penyakit'));
-    toggleEl.innerHTML = katFiltered.map(s => {
+    toggleEl.innerHTML = hamaSeries.map(s => {
       const on = _hptActiveItems[s.key] !== false;
       return `<button onclick="hptToggleItem('${s.key.replace(/'/g,"\'")}')"
         style="font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;
@@ -3665,9 +3711,8 @@ function renderHptTrendChart(rows) {
   }
 
   // Build visible datasets
-  const visible = allSeries.filter(s =>
-    (_hptKatHama&&s.kat==='hama'||_hptKatPenyakit&&s.kat==='penyakit') && _hptActiveItems[s.key]!==false
-  );
+  const visible = hamaSeries.filter(s => _hptActiveItems[s.key] !== false);
+  renderHptPenyakitTable(filteredForChart, allDays, penyakitSeries);
 
   const chartEl = document.getElementById('hptTrendCanvas');
   if (!chartEl) return;
@@ -3727,13 +3772,77 @@ function renderHptTrendChart(rows) {
 }
 
 function hptSetKat(kat) {
-  if (kat==='hama')     _hptKatHama     = !_hptKatHama;
-  if (kat==='penyakit') _hptKatPenyakit = !_hptKatPenyakit;
-  const bH = document.getElementById('hptBtnHama');
-  const bP = document.getElementById('hptBtnPenyakit');
-  if (bH) bH.className = 'fbtn' + (_hptKatHama?' active':'');
-  if (bP) bP.className = 'fbtn' + (_hptKatPenyakit?' active':'');
   renderHptTrendChart([...RAW_HPT]);
+}
+
+function renderHptPenyakitTable(rows, allDays, penyakitSeries) {
+  const tbody = document.getElementById('hptPenyakitBody');
+  if (!tbody) return;
+
+  // Group by GH — ambil latest value per HPT per GH dalam range
+  const PENYAKIT_NAMES = ['PM (Intensitas)','PM (Insidensi)','DM (Intensitas)','DM (Insidensi)','GSB'];
+  const ghMap = {};
+  rows.filter(r => PENYAKIT_NAMES.some(p => r.hptName && r.hptName.toLowerCase().includes(p.toLowerCase().split(' ')[0]) && (r.kat||'').toLowerCase().includes('penyakit'))).forEach(r => {
+    if (!ghMap[r.gh]) ghMap[r.gh] = { gh:r.gh, hst:r.hst, vals:{} };
+    if (r.hst > ghMap[r.gh].hst) ghMap[r.gh].hst = r.hst;
+    if (!ghMap[r.gh].vals[r.hptName]) ghMap[r.gh].vals[r.hptName] = [];
+    ghMap[r.gh].vals[r.hptName].push(r.nilai);
+  });
+
+  // Also get penyakit rows from penyakitSeries
+  rows.filter(r => (r.kat||'').toLowerCase().includes('penyakit')).forEach(r => {
+    if (!ghMap[r.gh]) ghMap[r.gh] = { gh:r.gh, hst:r.hst, vals:{} };
+    if (r.hst > ghMap[r.gh].hst) ghMap[r.gh].hst = r.hst;
+    if (!ghMap[r.gh].vals[r.hptName]) ghMap[r.gh].vals[r.hptName] = [];
+    ghMap[r.gh].vals[r.hptName].push(r.nilai);
+  });
+
+  const ghRows = Object.values(ghMap).sort((a,b) => {
+    const info = RAW.find(r => r.gh.toLowerCase() === a.gh.toLowerCase());
+    const infoB = RAW.find(r => r.gh.toLowerCase() === b.gh.toLowerCase());
+    return (info?.hst||a.hst) - (infoB?.hst||b.hst);
+  });
+
+  function avg(arr) { return arr&&arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0; }
+  function skorCell(val, warn, crit) {
+    const v = Math.round(val*10)/10;
+    if (!v) return `<td style="text-align:right;padding:6px 8px;font-size:11px;color:var(--text4)">0</td><td style="text-align:center;padding:6px 8px"><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:var(--green-lt);color:var(--green-txt)">Low</span></td>`;
+    const col = v>=crit?'var(--red-lt),var(--red-txt)':v>=warn?'var(--yellow-lt),var(--yellow-txt)':'var(--green-lt),var(--green-txt)';
+    const [bg,tc] = col.split(',');
+    const lbl = v>=crit?'Critical':v>=warn?'High':'Low';
+    return `<td style="text-align:right;padding:6px 8px;font-size:11px;font-weight:600;color:${tc.trim()}">${v}</td><td style="text-align:center;padding:6px 8px"><span style="font-size:9px;padding:1px 6px;border-radius:4px;background:${bg.trim()};color:${tc.trim()}">${lbl}</span></td>`;
+  }
+
+  if (!ghRows.length) {
+    tbody.innerHTML = '<tr><td colspan="12" style="padding:20px;text-align:center;color:var(--text4)">Tidak ada data penyakit dalam range ini</td></tr>';
+    return;
+  }
+
+  const dot = gh => CC[clOf(gh)] || '#999';
+  let no = 1;
+  tbody.innerHTML = ghRows.map(g => {
+    const info = RAW.find(r => r.gh.toLowerCase() === g.gh.toLowerCase());
+    const hst  = info?.hst || g.hst;
+    const pmI  = avg(g.vals['PM (Intensitas)']||g.vals['pm (intensitas)']||[]);
+    const pmIn = avg(g.vals['PM (Insidensi)']||g.vals['pm (insidensi)']||[]);
+    const dmI  = avg(g.vals['DM (Intensitas)']||g.vals['dm (intensitas)']||[]);
+    const dmIn = avg(g.vals['DM (Insidensi)']||g.vals['dm (insidensi)']||[]);
+    const gsb  = avg(g.vals['GSB']||g.vals['gsb']||[]);
+    if (!pmI && !pmIn && !dmI && !dmIn && !gsb) return '';
+    return `<tr style="border-bottom:0.5px solid var(--border)">
+      <td style="padding:6px 10px;font-size:12px;font-weight:700">
+        <div style="display:flex;align-items:center;gap:5px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${dot(g.gh)};flex-shrink:0;display:inline-block"></span>${g.gh}
+        </div>
+      </td>
+      <td style="padding:6px 8px;text-align:center"><span style="font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--surface2)">HST ${hst}</span></td>
+      ${skorCell(pmI,  10, 25)}
+      ${skorCell(pmIn, 10, 25)}
+      ${skorCell(dmI,  10, 25)}
+      ${skorCell(dmIn, 10, 25)}
+      ${skorCell(gsb,  5,  15)}
+    </tr>`;
+  }).filter(Boolean).join('') || '<tr><td colspan="12" style="padding:20px;text-align:center;color:var(--text4)">Tidak ada data penyakit dalam range ini</td></tr>';
 }
 
 function hptToggleItem(key) {
@@ -4878,6 +4987,47 @@ function renderSntTrend(rows) {
   });
   const data = _keys.map(k => grouped[k].size);
 
+  // ── Climate per hari dari RAW_PNY ──
+  const climateByDay = {};
+  if (!_isMin) {
+    RAW_PNY.forEach(r => {
+      if (r.tgl && r.cuaca && r.cuaca.trim()) {
+        if (!climateByDay[r.tgl]) climateByDay[r.tgl] = [];
+        climateByDay[r.tgl].push(r.cuaca.trim().toLowerCase());
+      }
+    });
+  }
+  // Modus cuaca per hari
+  function modusArr(arr) {
+    if (!arr || !arr.length) return null;
+    const freq = {};
+    arr.forEach(v => { freq[v] = (freq[v]||0)+1; });
+    return Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+  }
+  const WX_ICO = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','mendung':'☁️','hujan':'🌧️','hujan lebat':'⛈️','gerimis':'🌦️'};
+  function wxIco(c) { const k=(c||'').toLowerCase().trim(); for(const key of Object.keys(WX_ICO)) if(k.includes(key)) return WX_ICO[key]; return null; }
+
+  // Custom plugin: gambar ikon cuaca di atas tiap titik
+  const climatePlugin = {
+    id: 'climateLabels',
+    afterDraw(chart) {
+      if (_isMin) return;
+      const ctx2 = chart.ctx;
+      const meta = chart.getDatasetMeta(0);
+      ctx2.save();
+      ctx2.font = '13px sans-serif';
+      ctx2.textAlign = 'center';
+      meta.data.forEach((pt, i) => {
+        const dayKey = _keys[i];
+        const cuaca  = modusArr(climateByDay[dayKey]);
+        const icon   = cuaca ? wxIco(cuaca) : null;
+        if (!icon) return;
+        ctx2.fillText(icon, pt.x, pt.y - 16);
+      });
+      ctx2.restore();
+    }
+  };
+
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
   sntTrendChartObj = new Chart(ctx, {
@@ -4925,7 +5075,8 @@ function renderSntTrend(rows) {
         y: { beginAtZero:true, grid:{color:'rgba(0,0,0,.06)'}, ticks:{font:{size:10},precision:0},
              title:{display:true,text:'Jumlah GH',font:{size:10},color:'var(--text3)'} }
       }
-    }
+    },
+    plugins: [climatePlugin]
   });
 }
 
