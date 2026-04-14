@@ -3965,6 +3965,8 @@ fetchStandarGramasi().then(() => {
   if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
 });
 fetchData();
+// Pre-fetch cuaca data di background
+setTimeout(() => { if (!RAW_CUACA.length) fetchCuaca(); }, 2000);
 // Fetch semai di background agar kolom Semai di dashboard langsung terisi
 setTimeout(() => fetchSemai(true), 1500);
 
@@ -5195,36 +5197,25 @@ function renderSntTrend(rows) {
   });
   const data = _keys.map(k => grouped[k].size);
 
-  // ── Climate per hari dari RAW_CUACA (Log Cuaca sheet) ──
-  // cuacaHarian(tgl) sudah pakai avg skor dari sheet tersebut
-
-  // Custom plugin: gambar ikon cuaca di atas tiap titik
-  const climatePlugin = {
-    id: 'climateLabels',
-    afterDraw(chart) {
-      // Hanya berlaku untuk sntTrendChart, skip chart lain
-      if (chart.canvas.id !== 'sntTrendChart') return;
-      if (_isMin) return;
-      const ctx2 = chart.ctx;
-      const meta = chart.getDatasetMeta(0);
-      if (!meta || !meta.data) return;
-      ctx2.save();
-      ctx2.font = '13px sans-serif';
-      ctx2.textAlign = 'center';
-      meta.data.forEach((pt, i) => {
-        const dayKey = _keys[i];
-        // Pakai RAW_CUACA dedicated sheet, fallback ke RAW_PNY jika belum ada
-        const cuaca  = (RAW_CUACA.length ? cuacaHarian(dayKey) : null);
-        const icon   = cuaca ? wxIco(cuaca) : null;
-        if (!icon) return;
-        ctx2.fillText(icon, pt.x, pt.y - 16);
-      });
-      ctx2.restore();
-    }
-  };
-  // Register global tapi aman karena ada canvas ID check di atas
-  try { Chart.unregister({id:'climateLabels'}); } catch(_) {}
-  Chart.register(climatePlugin);
+  // ── Helper: draw climate icons on chart canvas ──
+  function drawClimateIcons(chart) {
+    if (_isMin) return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+    const ctx2 = chart.ctx;
+    ctx2.save();
+    ctx2.font = '14px sans-serif';
+    ctx2.textAlign = 'center';
+    ctx2.textBaseline = 'bottom';
+    meta.data.forEach((pt, i) => {
+      const dayKey = _keys[i];
+      const cuaca  = cuacaHarian(dayKey);
+      const icon   = cuaca ? wxIco(cuaca) : null;
+      if (!icon) return;
+      ctx2.fillText(icon, pt.x, pt.y - 4);
+    });
+    ctx2.restore();
+  }
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
@@ -5245,6 +5236,9 @@ function renderSntTrend(rows) {
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      animation: {
+        onComplete() { drawClimateIcons(this); }
+      },
       onClick(evt, _, chart) {
         // Use keys captured at render time — immune to rebuildSnt re-runs
         const pts = chart.getElementsAtEventForMode(evt,'nearest',{intersect:true},true);
