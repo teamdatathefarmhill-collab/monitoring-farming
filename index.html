@@ -502,7 +502,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
-    <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
+    <div class="nav-item" id="nav-penyemprotan" onclick="switchPage('penyemprotan')"><span class="nav-icon">🌿</span> Penyemprotan</div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
     <div class="nav-section">Pemantauan</div>
@@ -1611,6 +1611,94 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div><!-- /pnyViewJam -->
 
     </div><!-- /view-penyiraman -->
+
+    <!-- ═══════════ VIEW: PENYEMPROTAN ═══════════ -->
+    <div id="view-penyemprotan" style="display:none">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🌿 Monitoring Penyemprotan</div>
+          <div class="ph-sub" id="sempSub">Memuat data…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="si" id="sempGHFilter" onchange="rebuildSemp()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+          <select class="si" id="sempPestFilter" onchange="rebuildSemp()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua Pestisida</option></select>
+          <input type="date" id="sempDateFrom" onchange="rebuildSemp()" style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <span style="font-size:12px;color:var(--text3)">—</span>
+          <input type="date" id="sempDateTo" onchange="rebuildSemp()" style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <button class="fbtn" onclick="fetchSemp(true)">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="up-strip" id="sempUpStrip">
+        <span>📡 Data Penyemprotan dari Google Sheets · Diperbarui: <b id="sempUpAt">—</b></span>
+        <span id="sempCnt" style="color:var(--text2);font-weight:600">— entri</span>
+      </div>
+
+      <!-- KPI -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px" id="sempKpiRow"></div>
+
+      <!-- TAB SWITCH -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="fbtn active" id="sempTabAmb" onclick="setSempTab('pengambilan',this)" style="font-size:11px">📋 Pengambilan Obat</button>
+        <button class="fbtn" id="sempTabGuna" onclick="setSempTab('penggunaan',this)" style="font-size:11px">🌿 Penggunaan / Aplikasi</button>
+      </div>
+
+      <!-- PENGAMBILAN TABLE -->
+      <div id="sempViewPengambilan" class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <div class="card-title">📋 Data Pengambilan Pestisida</div>
+          <div class="card-sub">Pengambilan dari gudang per GH per sesi</div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th>Tanggal</th><th>GH</th><th>Pestisida</th>
+              <th class="r">Konsentrasi</th><th class="r">Jml Pakai</th>
+              <th class="c">Sterilisasi</th><th>Operator</th>
+            </tr></thead>
+            <tbody id="sempAmbBody"><tr><td colspan="8" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PENGGUNAAN TABLE -->
+      <div id="sempViewPenggunaan" style="display:none" class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <div class="card-title">🌿 Data Penggunaan / Aplikasi</div>
+          <div class="card-sub">Kondisi suhu & RH saat aplikasi penyemprotan</div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th>Tanggal</th><th>GH</th><th>Pestisida</th>
+              <th class="r">Jumlah</th>
+              <th class="r">Suhu Mulai</th><th class="r">RH Mulai (%)</th>
+              <th class="r">Suhu Selesai</th><th class="r">RH Selesai (%)</th>
+              <th class="c">Waktu Mulai</th><th class="c">Waktu Selesai</th>
+              <th>Keterangan</th><th>Operator</th>
+            </tr></thead>
+            <tbody id="sempGunaBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- BOTTOM GRID -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd"><div class="card-title">📊 Penggunaan pestisida</div></div>
+          <div style="padding:12px 14px" id="sempRankBody"></div>
+        </div>
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div class="card-title">⚠ GH belum disemprot bulan ini</div>
+            <span class="pill p-w" id="sempBelumBadge">—</span>
+          </div>
+          <div style="padding:10px 12px" id="sempBelumBody"></div>
+        </div>
+      </div>
+
+    </div><!-- /view-penyemprotan -->
 
     <!-- ═══════════ VIEW: SEMAI ═══════════ -->
     <div id="view-semai" style="display:none">
@@ -3042,7 +3130,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline','view-penyemprotan'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -3068,6 +3156,7 @@ function switchPage(page) {
   if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
   if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
+  if (page === 'penyemprotan') initSemp();
   if (page === 'commandcenter') initCC();
   if (page === 'timeline') initTimeline();
   if (page === 'montimeline') initMonTimeline();
@@ -7087,6 +7176,275 @@ function ghCodeOf(ghName) {
   const num = n.split(' ')[1] || '';
   const abbr = loc === 'TOHUDAN' ? 'TH' : loc === 'BERGAS' ? 'BG' : loc === 'COLOMADU' ? 'CL' : loc === 'SAWAHAN' ? 'SW' : loc.slice(0,2);
   return abbr + num;
+}
+
+// ══════════════════════════════════════════════
+//  PENYEMPROTAN MODULE
+// ══════════════════════════════════════════════
+const SEMP_SHEET_ID = '1ljx-BFRjZX7VRZIWyHVRfjTNMiCKODtBmptmfc15Fc4';
+const SEMP_GID_AMB  = '1052743700'; // Penyemprotan_Pengambilan
+const SEMP_GID_GUNA = '313644161';  // Penyemprotan_Penggunaan
+const SEMP_URL_AMB  = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_AMB}`;
+const SEMP_URL_GUNA = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_GUNA}`;
+
+let RAW_SEMP_AMB  = [];
+let RAW_SEMP_GUNA = [];
+let SEMP_TAB = 'pengambilan';
+
+function parseSempCsv(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const hdrs = splitCSVRow(lines[0]).map(h => h.trim());
+  return lines.slice(1).map(l => {
+    const cells = splitCSVRow(l);
+    const o = {};
+    hdrs.forEach((h,i) => { o[h] = (cells[i]||'').trim(); });
+    return o;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+function sempParseDate(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (!isNaN(d)) return d.toISOString().slice(0,10);
+  const m = s.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+  return s.slice(0,10);
+}
+
+function sempParseAmb(rows) {
+  return rows.map(r => {
+    const get = (...keys) => { for(const k of keys){ const found=Object.keys(r).find(c=>c.toLowerCase().includes(k.toLowerCase())); if(found)return r[found]||''; } return ''; };
+    const tglRaw = get('tanggal');
+    return {
+      tgl: sempParseDate(tglRaw), tglRaw,
+      gh: get('gh'),
+      pestisida: get('nama pestisida','pestisida'),
+      konsentrasi: get('konsentrasi'),
+      jmlPakai: get('jumlah pemakaia','jumlah pakai','jumlah'),
+      sterilisasi: get('sterilisasi'),
+      operator: get('operator'),
+    };
+  }).filter(r => r.gh);
+}
+
+function sempParseGuna(rows) {
+  return rows.map(r => {
+    const get = (...keys) => { for(const k of keys){ const found=Object.keys(r).find(c=>c.toLowerCase().includes(k.toLowerCase())); if(found)return r[found]||''; } return ''; };
+    const tglRaw = get('tanggal');
+    return {
+      tgl: sempParseDate(tglRaw), tglRaw,
+      gh: get('gh'),
+      pestisida: get('nama pestisida','pestisida'),
+      jumlah: get('jumlah'),
+      suhuMulai: parseFloat(get('suhu mulai'))||0,
+      rhMulai: parseFloat(get('rh mulai'))||0,
+      suhuSelesai: parseFloat(get('suhu selesai'))||0,
+      rhSelesai: parseFloat(get('rh selesai'))||0,
+      waktuMulai: get('waktu mulai'),
+      waktuSelesai: get('waktu selesai'),
+      varian: get('varian'),
+      keterangan: get('keterangan'),
+      operator: get('operator'),
+    };
+  }).filter(r => r.gh);
+}
+
+async function fetchSemp(manual=false) {
+  const subEl = document.getElementById('sempSub');
+  if (subEl) subEl.textContent = 'Memuat data penyemprotan…';
+  try {
+    const [respAmb, respGuna] = await Promise.all([
+      fetch(SEMP_URL_AMB  + '&_t=' + Date.now()),
+      fetch(SEMP_URL_GUNA + '&_t=' + Date.now()),
+    ]);
+    RAW_SEMP_AMB  = respAmb.ok  ? sempParseAmb(parseSempCsv(await respAmb.text()))   : [];
+    RAW_SEMP_GUNA = respGuna.ok ? sempParseGuna(parseSempCsv(await respGuna.text()))  : [];
+
+    const now = new Date();
+    const upAt = now.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) + ' ' + now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    const upEl = document.getElementById('sempUpAt'); if(upEl) upEl.textContent = upAt;
+    const strip = document.getElementById('sempUpStrip'); if(strip) strip.classList.add('show');
+    const cntEl = document.getElementById('sempCnt'); if(cntEl) cntEl.textContent = (RAW_SEMP_AMB.length + RAW_SEMP_GUNA.length) + ' entri';
+
+    rebuildSemp();
+  } catch(e) {
+    if (subEl) subEl.textContent = '⚠ Gagal memuat: ' + e.message;
+    console.error('[SEMP]', e);
+  }
+}
+
+function initSemp() {
+  // Set default date range = awal bulan ini
+  const today = new Date();
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  const fromEl = document.getElementById('sempDateFrom');
+  const toEl   = document.getElementById('sempDateTo');
+  if (fromEl && !fromEl.value) fromEl.value = first.toISOString().slice(0,10);
+  if (toEl   && !toEl.value)   toEl.value   = today.toISOString().slice(0,10);
+  if (!RAW_SEMP_AMB.length && !RAW_SEMP_GUNA.length) fetchSemp(false);
+  else rebuildSemp();
+}
+
+function setSempTab(tab, el) {
+  SEMP_TAB = tab;
+  document.getElementById('sempViewPengambilan').style.display = tab==='pengambilan'?'':'none';
+  document.getElementById('sempViewPenggunaan').style.display  = tab==='penggunaan' ?'':'none';
+  document.querySelectorAll('#sempTabAmb,#sempTabGuna').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function rebuildSemp() {
+  const ghF   = document.getElementById('sempGHFilter')?.value   || '';
+  const pestF = document.getElementById('sempPestFilter')?.value || '';
+  const from  = document.getElementById('sempDateFrom')?.value   || '';
+  const to    = document.getElementById('sempDateTo')?.value     || '';
+
+  const filterRow = r => {
+    if (ghF   && !(r.gh||'').toLowerCase().includes(ghF.toLowerCase())) return false;
+    if (pestF && !(r.pestisida||'').toLowerCase().includes(pestF.toLowerCase())) return false;
+    if (from  && (r.tgl||'') < from) return false;
+    if (to    && (r.tgl||'') > to)   return false;
+    return true;
+  };
+
+  const amb  = RAW_SEMP_AMB.filter(filterRow);
+  const guna = RAW_SEMP_GUNA.filter(filterRow);
+
+  // Populate filters
+  const ghSel = document.getElementById('sempGHFilter');
+  if (ghSel) {
+    const allGHs = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA].map(r=>r.gh).filter(Boolean))].sort();
+    const prev = ghSel.value;
+    ghSel.innerHTML = '<option value="">Semua GH</option>' + allGHs.map(g=>`<option value="${g}" ${g===prev?'selected':''}>${g}</option>`).join('');
+  }
+  const pestSel = document.getElementById('sempPestFilter');
+  if (pestSel) {
+    const allPest = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA].map(r=>r.pestisida).filter(Boolean))].sort();
+    const prev = pestSel.value;
+    pestSel.innerHTML = '<option value="">Semua Pestisida</option>' + allPest.map(p=>`<option value="${p}" ${p===prev?'selected':''}>${p}</option>`).join('');
+  }
+
+  // KPI
+  const totalSesi = new Set([...amb.map(r=>r.gh+'|'+r.tgl), ...guna.map(r=>r.gh+'|'+r.tgl)]).size;
+  const ghSudah   = new Set([...amb.map(r=>r.gh), ...guna.map(r=>r.gh)].filter(Boolean)).size;
+  const allActiveGH = RAW.filter(r=>r.hst<=65).length;
+  const ghBelum   = Math.max(0, allActiveGH - ghSudah);
+  const pestUsed  = new Set([...amb.map(r=>r.pestisida), ...guna.map(r=>r.pestisida)].filter(Boolean)).size;
+  const kpiEl = document.getElementById('sempKpiRow');
+  if (kpiEl) kpiEl.innerHTML =
+    miniStat2('Total sesi', totalSesi, 'var(--text)') +
+    miniStat2('GH sudah disemprot', ghSudah, '#185FA5') +
+    miniStat2('GH belum (aktif)', ghBelum, ghBelum>0?'#c87800':'var(--green-txt)') +
+    miniStat2('Pestisida digunakan', pestUsed, 'var(--text)');
+
+  const subEl = document.getElementById('sempSub');
+  if (subEl) subEl.textContent = `Data Penyemprotan · ${amb.length} pengambilan · ${guna.length} aplikasi`;
+
+  // Tabel pengambilan
+  const ambBody = document.getElementById('sempAmbBody');
+  if (ambBody) {
+    ambBody.innerHTML = amb.length ? amb.map((r,i) => {
+      const dot = CC[clOf(r.gh)] || '#999';
+      const sterilOk = r.sterilisasi && !r.sterilisasi.toLowerCase().includes('tidak ada');
+      return `<tr>
+        <td class="no-col">${i+1}</td>
+        <td class="mono" style="font-size:11px">${fmtTgl(r.tgl)}</td>
+        <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+        <td style="font-weight:700">${r.pestisida||'—'}</td>
+        <td class="r" style="font-size:11px">${r.konsentrasi||'—'}</td>
+        <td class="r" style="font-size:11px">${r.jmlPakai||'—'}</td>
+        <td class="c"><span class="pill ${sterilOk?'p-ok':'p-w'}" style="font-size:9px">${r.sterilisasi||'—'}</span></td>
+        <td style="font-size:11px;color:var(--text3)">${r.operator||'—'}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="8" class="es">Tidak ada data pengambilan dalam range ini</td></tr>';
+  }
+
+  // Tabel penggunaan
+  const gunaBody = document.getElementById('sempGunaBody');
+  if (gunaBody) {
+    gunaBody.innerHTML = guna.length ? guna.map((r,i) => {
+      const dot = CC[clOf(r.gh)] || '#999';
+      const rhBad  = r.rhMulai > 80;
+      const suhuBad = r.suhuMulai > 32;
+      const kondisi = (rhBad || suhuBad) ? 'Tidak Ideal' : 'Ideal';
+      const kondCol = (rhBad || suhuBad) ? 'p-b' : 'p-ok';
+      return `<tr>
+        <td class="no-col">${i+1}</td>
+        <td class="mono" style="font-size:11px">${fmtTgl(r.tgl)}</td>
+        <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+        <td style="font-weight:700">${r.pestisida||'—'}</td>
+        <td class="r" style="font-size:11px">${r.jumlah||'—'}</td>
+        <td class="r" style="font-size:11px;color:${suhuBad?'var(--red)':'var(--text)'}">${r.suhuMulai||'—'}°</td>
+        <td class="r" style="font-size:11px;color:${rhBad?'var(--red)':'var(--text)'}">${r.rhMulai||'—'}%</td>
+        <td class="r" style="font-size:11px">${r.suhuSelesai||'—'}°</td>
+        <td class="r" style="font-size:11px">${r.rhSelesai||'—'}%</td>
+        <td class="c" style="font-size:10px;color:var(--text3)">${r.waktuMulai||'—'}</td>
+        <td class="c" style="font-size:10px;color:var(--text3)">${r.waktuSelesai||'—'}</td>
+        <td style="font-size:10px;color:var(--text3)">${r.keterangan||'—'}</td>
+        <td style="font-size:11px;color:var(--text3)">${r.operator||'—'}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="13" class="es">Tidak ada data penggunaan dalam range ini</td></tr>';
+  }
+
+  // Ranking pestisida
+  const rankEl = document.getElementById('sempRankBody');
+  if (rankEl) {
+    const pestMap = {};
+    [...amb, ...guna].forEach(r => {
+      if (!r.pestisida) return;
+      if (!pestMap[r.pestisida]) pestMap[r.pestisida] = { cnt:0, ghs:new Set() };
+      pestMap[r.pestisida].cnt++;
+      pestMap[r.pestisida].ghs.add(r.gh);
+    });
+    const ranked = Object.entries(pestMap).sort((a,b)=>b[1].cnt-a[1].cnt);
+    const maxCnt = ranked[0]?.[1].cnt || 1;
+    rankEl.innerHTML = ranked.length ? ranked.map(([name,s]) => {
+      const w = Math.round(s.cnt/maxCnt*100);
+      return `<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;font-weight:700;color:var(--text)">${name}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:10px;color:var(--text3)">${s.ghs.size} GH</span>
+            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#185FA5">${s.cnt}x</span>
+          </div>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="width:${w}%;height:100%;background:#185FA5;border-radius:3px"></div>
+        </div>
+      </div>`;
+    }).join('') : '<div style="font-size:11px;color:var(--text3)">Belum ada data</div>';
+  }
+
+  // GH belum disemprot
+  const belumEl = document.getElementById('sempBelumBody');
+  const badgeEl = document.getElementById('sempBelumBadge');
+  if (belumEl) {
+    const ghSudahSet = new Set([...amb.map(r=>r.gh), ...guna.map(r=>r.gh)].filter(Boolean).map(g=>g.trim().toUpperCase()));
+    const belumList  = RAW.filter(r => r.hst<=65 && r.hst>=0 && !ghSudahSet.has(r.gh.trim().toUpperCase()));
+    if (badgeEl) {
+      badgeEl.textContent = belumList.length + ' GH';
+      badgeEl.className = 'pill ' + (belumList.length>0?'p-w':'p-ok');
+    }
+    belumEl.innerHTML = belumList.length
+      ? belumList.sort((a,b)=>b.hst-a.hst).map(r => {
+          const dot = CC[clOf(r.gh)]||'#999';
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;background:var(--surface2);margin-bottom:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:700;color:var(--text)">${r.gh}</div>
+              <div style="font-size:10px;color:var(--text3)">HST ${r.hst}</div>
+            </div>
+            <span class="pill p-w" style="font-size:9px">belum</span>
+          </div>`;
+        }).join('')
+      : '<div style="font-size:11px;color:var(--green-txt);padding:8px">✓ Semua GH aktif sudah disemprot</div>';
+  }
+}
+
+function fmtTgl(iso) {
+  if (!iso) return '—';
+  return iso.slice(5).split('-').reverse().join('/');
 }
 
 // ── SNT: hitung hari sejak record terakhir per GH ──
