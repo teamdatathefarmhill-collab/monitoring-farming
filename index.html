@@ -3153,9 +3153,15 @@ function switchPage(page) {
 
   if (page === 'dashboard' || page === 'gramasi') rebuild();
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
-  if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
+  if (page === 'penyiraman') {
+    if (!RAW_PNY.length) fetchPny(false);
+    if (!RAW_CUACA.length) fetchCuaca();
+  }
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
-  if (page === 'sanitasi' && !RAW_SNT.length) fetchSnt(false);
+  if (page === 'sanitasi') {
+    if (!RAW_SNT.length) fetchSnt(false);
+    if (!RAW_CUACA.length) fetchCuaca();
+  }
   if (page === 'penyemprotan') initSemp();
   if (page === 'commandcenter') initCC();
   if (page === 'timeline') initTimeline();
@@ -4485,9 +4491,15 @@ function rebuildPny() {
   const nowH = n.getHours();
   const wxSrc = rows.filter(r=>parseInt((r.jam||'0').split(':')[0])<=nowH);
   const wxR   = wxSrc.length ? wxSrc : rows;
-  // Pakai avg score: Cerah=100, Cerah Berawan=75, Berawan=50, Mendung=25, Hujan=0
-  const _wxArr = wxR.map(r=>r.cuaca).filter(Boolean);
-  const cuacaModus = _wxArr.length ? (avgClimate(_wxArr)||'—') : '—';
+  // Cuaca hari ini: prioritas dari RAW_CUACA, fallback ke RAW_PNY
+  const todayIso = new Date().toISOString().slice(0,10);
+  let cuacaModus = '—';
+  if (RAW_CUACA.length) {
+    cuacaModus = cuacaHarian(todayIso) || '—';
+  } else {
+    const _wxArr = wxR.map(r=>r.cuaca).filter(Boolean);
+    cuacaModus = _wxArr.length ? (avgClimate(_wxArr)||'—') : '—';
+  }
   const avgSuhu = wxR.length ? wxR.reduce((s,r)=>s+r.suhu,0)/wxR.length : 0;
   const avgRH   = wxR.length ? wxR.reduce((s,r)=>s+r.rh,0)/wxR.length   : 0;
   const wxCard = document.getElementById('pnyWxCard');
@@ -4809,6 +4821,10 @@ function checkSntCode() {
 //  SANITASI MODULE  v2
 // ══════════════════════════════════════════════
 const SNT_SHEET_ID = '1A5Bu0pEnTSMOZnSmB7c0ud3kVoCIC6p-HJ1AVbmegmQ';
+const CUACA_SHEET_ID = '1XjxNjlAEElX03oi06Io-lGyza0aeNJ9Cmf5d84NiQ2I';
+const CUACA_GID      = '2083317549';
+const CUACA_CSV_URL  = `https://docs.google.com/spreadsheets/d/${CUACA_SHEET_ID}/export?format=csv&gid=${CUACA_GID}`;
+let RAW_CUACA = []; // [{tgl:'2026-04-12', jam:'08:00', cuaca:'Cerah', skor:100}]
 const SNT_GID      = '0';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
 
@@ -4881,6 +4897,56 @@ function sntInitDates() {
     df.value = d60.toISOString().slice(0,10);
   }
   if (dt && !dt.value) dt.value = today;
+}
+
+// ── FETCH CUACA ──
+async function fetchCuaca() {
+  try {
+    const resp = await fetch(CUACA_CSV_URL + '&_t=' + Date.now());
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const text = await resp.text();
+    const lines = text.trim().split('\n');
+    if (lines.length < 2) return;
+    const hdrs = lines[0].split(',').map(h => h.replace(/"/g,'').trim().toLowerCase());
+    RAW_CUACA = lines.slice(1).map(l => {
+      const cells = l.split(',').map(c => c.replace(/"/g,'').trim());
+      const o = {};
+      hdrs.forEach((h,i) => { o[h] = cells[i]||''; });
+      // Parse tanggal ke YYYY-MM-DD
+      let tgl = '';
+      const dateRaw = o['date'] || o['tanggal'] || '';
+      if (dateRaw) {
+        const d = new Date(dateRaw);
+        if (!isNaN(d)) tgl = d.toISOString().slice(0,10);
+        else {
+          const m = dateRaw.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
+          if (m) {
+            const yr = m[3].length===2 ? '20'+m[3] : m[3];
+            tgl = yr+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+          }
+        }
+      }
+      const cuaca = (o['cuaca'] || '').trim();
+      const skor  = parseFloat(o['skoring'] || o['skor'] || '0') || 0;
+      const jam   = (o['time'] || o['jam'] || '').trim();
+      return { tgl, jam, cuaca, skor };
+    }).filter(r => r.tgl && r.cuaca);
+    console.log('[CUACA] loaded', RAW_CUACA.length, 'rows');
+  } catch(e) {
+    console.error('[CUACA] fetch error:', e);
+  }
+}
+
+// Helper: avg cuaca per hari dari RAW_CUACA
+function cuacaHarian(tglIso) {
+  const rows = RAW_CUACA.filter(r => r.tgl === tglIso);
+  if (!rows.length) return null;
+  const avgSkor = rows.reduce((s,r) => s + r.skor, 0) / rows.length;
+  if (avgSkor > 87.5) return 'cerah';
+  if (avgSkor > 62.5) return 'cerah berawan';
+  if (avgSkor > 37.5) return 'berawan';
+  if (avgSkor > 12.5) return 'mendung';
+  return 'hujan';
 }
 
 // ── FETCH ──
@@ -5129,17 +5195,8 @@ function renderSntTrend(rows) {
   });
   const data = _keys.map(k => grouped[k].size);
 
-  // ── Climate per hari dari RAW_PNY — pakai avg score ──
-  const climateByDay = {};
-  if (!_isMin) {
-    RAW_PNY.forEach(r => {
-      if (r.tgl && r.cuaca && r.cuaca.trim()) {
-        if (!climateByDay[r.tgl]) climateByDay[r.tgl] = [];
-        climateByDay[r.tgl].push(r.cuaca.trim().toLowerCase());
-      }
-    });
-  }
-  // wxScoreOf, wxFromScore, avgClimate, wxIco — sudah didefinisikan global di bawah
+  // ── Climate per hari dari RAW_CUACA (Log Cuaca sheet) ──
+  // cuacaHarian(tgl) sudah pakai avg skor dari sheet tersebut
 
   // Custom plugin: gambar ikon cuaca di atas tiap titik
   const climatePlugin = {
@@ -5156,7 +5213,8 @@ function renderSntTrend(rows) {
       ctx2.textAlign = 'center';
       meta.data.forEach((pt, i) => {
         const dayKey = _keys[i];
-        const cuaca  = avgClimate(climateByDay[dayKey]);
+        // Pakai RAW_CUACA dedicated sheet, fallback ke RAW_PNY jika belum ada
+        const cuaca  = (RAW_CUACA.length ? cuacaHarian(dayKey) : null);
         const icon   = cuaca ? wxIco(cuaca) : null;
         if (!icon) return;
         ctx2.fillText(icon, pt.x, pt.y - 16);
