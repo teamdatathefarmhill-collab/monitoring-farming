@@ -5152,6 +5152,9 @@ function renderSntTrend(rows) {
   };
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
+  // Register inline plugin for Chart.js v4
+  try { Chart.unregister(climatePlugin); } catch(_) {}
+  Chart.register(climatePlugin);
   const ctx = document.getElementById('sntTrendChart').getContext('2d');
   sntTrendChartObj = new Chart(ctx, {
     type: 'line',
@@ -5198,8 +5201,7 @@ function renderSntTrend(rows) {
         y: { beginAtZero:true, grid:{color:'rgba(0,0,0,.06)'}, ticks:{font:{size:10},precision:0},
              title:{display:true,text:'Jumlah GH',font:{size:10},color:'var(--text3)'} }
       }
-    },
-    plugins: [climatePlugin]
+    }
   });
 }
 
@@ -7666,7 +7668,7 @@ function ccShowGhIssue(ghName) {
     && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV)
   );
   const sntKeys  = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh.trim().toUpperCase()+'||'+normP(x.periode)));
-  const belumSnt = !sntKeys.has(gh+'||'+normP(r.periode));
+  const belumSnt = r.hst > 7 && !sntKeys.has(gh+'||'+normP(r.periode)); // HST 0-7 ok jika belum ada
   // Total & kategori pakai periode
   const sntCount = sntRowsPeriode.reduce((s,x)=>s+(x.jml||0),0);
   const sntKatMap = {};
