@@ -5091,7 +5091,7 @@ function renderSntTrend(rows) {
   });
   const data = _keys.map(k => grouped[k].size);
 
-  // ── Climate per hari dari RAW_PNY ──
+  // ── Climate per hari dari RAW_PNY — pakai avg score ──
   const climateByDay = {};
   if (!_isMin) {
     RAW_PNY.forEach(r => {
@@ -5101,12 +5101,31 @@ function renderSntTrend(rows) {
       }
     });
   }
-  // Modus cuaca per hari
-  function modusArr(arr) {
+  // Skor cuaca: Cerah=100, Cerah Berawan=75, Berawan=50, Mendung=25, Hujan=0
+  const WX_SCORE_MAP = [
+    { key:'cerah berawan', score:75 },
+    { key:'cerah',         score:100 },
+    { key:'berawan',       score:50 },
+    { key:'mendung',       score:25 },
+    { key:'hujan',         score:0 },
+    { key:'gerimis',       score:10 },
+  ];
+  function wxScoreOf(c) {
+    const k = (c||'').toLowerCase().trim();
+    const found = WX_SCORE_MAP.find(w => k.includes(w.key));
+    return found ? found.score : 50; // default berawan
+  }
+  function wxFromScore(avg) {
+    if (avg > 87.5) return 'cerah';
+    if (avg > 62.5) return 'cerah berawan';
+    if (avg > 37.5) return 'berawan';
+    if (avg > 12.5) return 'mendung';
+    return 'hujan';
+  }
+  function avgClimate(arr) {
     if (!arr || !arr.length) return null;
-    const freq = {};
-    arr.forEach(v => { freq[v] = (freq[v]||0)+1; });
-    return Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+    const avg = arr.reduce((s,v) => s + wxScoreOf(v), 0) / arr.length;
+    return wxFromScore(avg);
   }
   const WX_ICO = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','mendung':'☁️','hujan':'🌧️','hujan lebat':'⛈️','gerimis':'🌦️'};
   function wxIco(c) { const k=(c||'').toLowerCase().trim(); for(const key of Object.keys(WX_ICO)) if(k.includes(key)) return WX_ICO[key]; return null; }
@@ -5123,7 +5142,7 @@ function renderSntTrend(rows) {
       ctx2.textAlign = 'center';
       meta.data.forEach((pt, i) => {
         const dayKey = _keys[i];
-        const cuaca  = modusArr(climateByDay[dayKey]);
+        const cuaca  = avgClimate(climateByDay[dayKey]);
         const icon   = cuaca ? wxIco(cuaca) : null;
         if (!icon) return;
         ctx2.fillText(icon, pt.x, pt.y - 16);
@@ -7469,16 +7488,19 @@ function fmtTgl(iso) {
 }
 
 // ── SNT: hitung hari sejak record terakhir per GH ──
-function sntDaysSinceLastRecord(ghName) {
-  const gh = ghName.trim().toUpperCase();
-  // Cari tanggal terbaru dari semua record RAW_SNT untuk GH ini
+function sntDaysSinceLastRecord(ghName, periode) {
+  const gh    = ghName.trim().toUpperCase();
+  const normP = s => String(s||'').trim().toLowerCase();
+  const periodeNorm = normP(periode);
+  // Cari tanggal terbaru dari record RAW_SNT untuk GH ini DALAM PERIODE AKTIF SAJA
   let latest = null;
   RAW_SNT.forEach(x => {
-    if (x.gh.trim().toUpperCase() === gh && x.tgl) {
-      if (!latest || x.tgl > latest) latest = x.tgl;
-    }
+    if (x.gh.trim().toUpperCase() !== gh) return;
+    // Filter: hanya periode yang sama dengan periode aktif GH
+    if (periodeNorm && normP(x.periode) !== periodeNorm) return;
+    if (x.tgl && (!latest || x.tgl > latest)) latest = x.tgl;
   });
-  if (!latest) return null; // tidak ada record sama sekali
+  if (!latest) return null; // tidak ada record di periode ini
   const today = new Date();
   today.setHours(0,0,0,0);
   const last  = new Date(latest);
@@ -7523,7 +7545,7 @@ function ccBuildPhaseTimeline() {
     // - Belum ada record sama sekali + HST > 7 → warning
     // - Ada record terakhir: jika hari ini - tgl record terakhir > 7 → warning (berlaku dari HST berapapun)
     // - HST 0-7 dan belum ada record → ok (wajar)
-    const daysSinceSnt = sntDaysSinceLastRecord(r.gh); // null = belum ada record
+    const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode); // null = belum ada record periode ini
     const sntNoRecord  = daysSinceSnt === null
       ? r.hst > 7  // belum pernah ada record, warning hanya jika sudah HST > 7
       : daysSinceSnt > 7; // ada record tapi sudah > 7 hari lalu → warning
@@ -7700,7 +7722,7 @@ function ccShowGhIssue(ghName) {
     : 'Belum ada data HPT';
 
   // ── SNT WARNING: sama dengan logika di timeline ──
-  const daysSinceSnt = sntDaysSinceLastRecord(r.gh); // null = belum pernah ada record
+  const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode); // null = belum ada record periode ini
   const sntNoRecord  = daysSinceSnt === null
     ? r.hst > 7   // belum ada record sama sekali, warning mulai HST > 7
     : daysSinceSnt > 7; // ada record tapi > 7 hari lalu → warning (dari HST berapapun)
