@@ -499,8 +499,8 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     <div class="nav-section">Menu</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
-    <div class="nav-item" id="nav-sanitasi" onclick="showSanitasiMaintenance()"><span class="nav-icon">🧹</span> Sanitasi <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
-    <div class="nav-item" id="nav-hpt" onclick="showHptMaintenance()"><span class="nav-icon">🐛</span> HPT <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
+    <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
+    <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="showPenyiramanMaintenance()"><span class="nav-icon">💧</span> Penyiraman <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
@@ -1232,9 +1232,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="ph-sub" id="pgSubHpt">Menghubungkan ke Google Sheets…</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <select class="si" id="hptGHFilter" onchange="rebuildHpt()" style="width:170px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
-          <select class="si" id="hptDateFilter" onchange="rebuildHpt()" style="width:145px;padding-left:10px;background-image:none"><option value="">Semua Tanggal</option></select>
-          <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:130px">
+          <select class="si" id="hptGHFilter" onchange="rebuildHpt()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+          <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:120px">
+          <span style="font-size:11px;color:var(--text3)">Periode:</span>
+          <input type="date" id="hptDateFrom" onchange="rebuildHpt()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
+          <span style="font-size:12px;color:var(--text3)">—</span>
+          <input type="date" id="hptDateTo" onchange="rebuildHpt()"
+            style="background:var(--surface);border:1.5px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:8px;font-size:12px;font-family:inherit">
           <button class="fbtn" onclick="fetchHpt(true)">🔄 Refresh</button>
         </div>
       </div>
@@ -3400,11 +3405,15 @@ function applyHpt(data) {
   ghSel.innerHTML = '<option value="">Semua GH</option>' +
     ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
 
-  const dateSel = document.getElementById('hptDateFilter');
-  const dateList = [...new Set(data.map(r => r.tgl))].filter(Boolean).sort().reverse();
-  const prevDate = dateSel.value;
-  dateSel.innerHTML = '<option value="">Semua Tanggal</option>' +
-    dateList.map(d => `<option value="${d}" ${d===prevDate?'selected':''}>${d}</option>`).join('');
+  // Set default date range = awal bulan ini sampai hari ini (jika belum diset)
+  const fromEl = document.getElementById('hptDateFrom');
+  const toEl   = document.getElementById('hptDateTo');
+  if (fromEl && !fromEl.value) {
+    const today = new Date();
+    const first = new Date(today.getFullYear(), today.getMonth(), 1);
+    fromEl.value = first.toISOString().slice(0,10);
+    toEl.value   = today.toISOString().slice(0,10);
+  }
 
   rebuildHpt();
 }
@@ -3416,12 +3425,14 @@ let HPT_ACTIVE_ITEMS = {};
 
 function rebuildHpt() {
   const ghVal   = document.getElementById('hptGHFilter')?.value   || '';
-  const dateVal = document.getElementById('hptDateFilter')?.value || '';
+  const fromVal = document.getElementById('hptDateFrom')?.value   || '';
+  const toVal   = document.getElementById('hptDateTo')?.value     || '';
   const qHpt    = (document.getElementById('hptSearch')?.value || '').toLowerCase().trim();
 
   let rows = [...RAW_HPT];
   if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
-  if (dateVal) rows = rows.filter(r => r.tgl === dateVal);
+  if (fromVal) rows = rows.filter(r => (r.tgl||'') >= fromVal);
+  if (toVal)   rows = rows.filter(r => (r.tgl||'') <= toVal);
   if (qHpt)    rows = rows.filter(r => r.gh.toLowerCase().includes(qHpt));
 
   // KPI
@@ -3607,15 +3618,23 @@ let _hptKatHama = true, _hptKatPenyakit = true;
 let _hptActiveItems = null;
 
 function renderHptTrendChart(rows) {
+  // Apply date range filter for chart
+  const _hptFrom = document.getElementById('hptDateFrom')?.value || '';
+  const _hptTo   = document.getElementById('hptDateTo')?.value   || '';
+  let filteredForChart = rows.filter(r =>
+    (!_hptFrom || (r.tgl||'') >= _hptFrom) &&
+    (!_hptTo   || (r.tgl||'') <= _hptTo)
+  );
+
   // Build series: per unique hptName, collect {tgl, totalNilai}
   const seriesMap = {};
-  rows.forEach(r => {
+  filteredForChart.forEach(r => {
     if (!r.tgl || !r.hptName) return;
     if (!seriesMap[r.hptName]) seriesMap[r.hptName] = { kat: r.kat, points:{} };
     seriesMap[r.hptName].points[r.tgl] = (seriesMap[r.hptName].points[r.tgl]||0) + r.nilai;
   });
 
-  const allDays = [...new Set(rows.map(r=>r.tgl).filter(Boolean))].sort();
+  const allDays = [...new Set(filteredForChart.map(r=>r.tgl).filter(Boolean))].sort();
   const COLORS = ['#E24B4A','#BA7517','#378ADD','#7F77DD','#1D9E75','#D4537E','#854F0B','#185FA5'];
 
   const allSeries = Object.entries(seriesMap).map(([name,{kat,points}], i) => ({
@@ -7143,6 +7162,13 @@ function ccShowGhIssue(ghName) {
   const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
   const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
 
+  // ── HPT status from new long format (harus sebelum hasKritis/hasIsu) ──
+  const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+  const hptSt = hptMaxLvl>=3 ? 'crit' : hptMaxLvl>=2 ? 'warn' : 'ok';
+  const hptDetailStr = latestHPT
+    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
+    : 'Belum ada data HPT';
+
   // ── SNT WARNING: cek record terakhir (HST >= 8) ──
   const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
   const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
@@ -7161,12 +7187,6 @@ function ccShowGhIssue(ghName) {
     : hasIsu
       ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
       : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
-  // HPT status from new long format
-  const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
-  const hptSt = hptMaxLvl>=3 ? 'crit' : hptMaxLvl>=2 ? 'warn' : 'ok';
-  const hptDetailStr = latestHPT
-    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
-    : 'Belum ada data HPT';
   const pnySt = pnyDev ? 'warn' : 'ok';
   const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
   const grSt  = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
