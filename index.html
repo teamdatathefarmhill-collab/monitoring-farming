@@ -3153,17 +3153,13 @@ function switchPage(page) {
 
   if (page === 'dashboard' || page === 'gramasi') rebuild();
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
-  if (page === 'penyiraman') {
-    if (!RAW_PNY.length) fetchPny(false);
-    if (!RAW_CUACA.length) fetchCuaca();
-  }
+  if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
   if (page === 'sanitasi') {
-    if (!RAW_CUACA.length) {
-      fetchCuaca(); // fetch cuaca dulu, setelah load paksa chart update
-    }
     if (!RAW_SNT.length) fetchSnt(false);
-    else rebuildSnt(); // kalau sudah ada data, rebuild agar chart terbentuk lalu cuaca di-overlay
+    else rebuildSnt();
+    // Cuaca dari RAW_PNY — pastikan sudah ter-fetch
+    if (!RAW_PNY.length) fetchPny(false);
   }
   if (page === 'penyemprotan') initSemp();
   if (page === 'commandcenter') initCC();
@@ -3968,8 +3964,7 @@ fetchStandarGramasi().then(() => {
   if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
 });
 fetchData();
-// Pre-fetch cuaca data di background
-setTimeout(() => { if (!RAW_CUACA.length) fetchCuaca(); }, 2000);
+
 // Fetch semai di background agar kolom Semai di dashboard langsung terisi
 setTimeout(() => fetchSemai(true), 1500);
 
@@ -4390,6 +4385,8 @@ async function fetchPny(silent) {
     RAW_PNY = parsePnyCsv(await resp.text());
     populatePnyGHFilter();
     rebuildPny();
+  // Cuaca dari RAW_PNY — update sanitasi chart jika sedang ditampilkan
+  if (sntTrendChartObj) { try { sntTrendChartObj.update('none'); } catch(_) {} }
     document.getElementById('pnyErrBanner').style.display = 'none';
   } catch(e) {
     document.getElementById('pnyErrBanner').style.display = 'flex';
@@ -4496,15 +4493,12 @@ function rebuildPny() {
   const nowH = n.getHours();
   const wxSrc = rows.filter(r=>parseInt((r.jam||'0').split(':')[0])<=nowH);
   const wxR   = wxSrc.length ? wxSrc : rows;
-  // Cuaca hari ini: prioritas dari RAW_CUACA, fallback ke RAW_PNY
+  // Cuaca hari ini dari RAW_PNY (avg score)
   const todayIso = new Date().toISOString().slice(0,10);
-  let cuacaModus = '—';
-  if (RAW_CUACA.length) {
-    cuacaModus = cuacaHarian(todayIso) || '—';
-  } else {
-    const _wxArr = wxR.map(r=>r.cuaca).filter(Boolean);
-    cuacaModus = _wxArr.length ? (avgClimate(_wxArr)||'—') : '—';
-  }
+  const cuacaModus = cuacaHarian(todayIso) || (function(){
+    const arr = wxR.map(r=>r.cuaca).filter(Boolean);
+    return arr.length ? (avgClimate(arr)||'—') : '—';
+  })();
   const avgSuhu = wxR.length ? wxR.reduce((s,r)=>s+r.suhu,0)/wxR.length : 0;
   const avgRH   = wxR.length ? wxR.reduce((s,r)=>s+r.rh,0)/wxR.length   : 0;
   const wxCard = document.getElementById('pnyWxCard');
@@ -4826,10 +4820,7 @@ function checkSntCode() {
 //  SANITASI MODULE  v2
 // ══════════════════════════════════════════════
 const SNT_SHEET_ID = '1A5Bu0pEnTSMOZnSmB7c0ud3kVoCIC6p-HJ1AVbmegmQ';
-const CUACA_SHEET_ID = '1XjxNjlAEElX03oi06Io-lGyza0aeNJ9Cmf5d84NiQ2I';
-const CUACA_GID      = '2083317549';
-const CUACA_CSV_URL  = `https://docs.google.com/spreadsheets/d/${CUACA_SHEET_ID}/export?format=csv&gid=${CUACA_GID}`;
-let RAW_CUACA = []; // [{tgl:'2026-04-12', jam:'08:00', cuaca:'Cerah', skor:100}]
+// RAW_PNY_CUACA_UNUSED: pakai RAW_PNY yang sudah tersedia (field cuaca per row)
 const SNT_GID      = '0';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
 
@@ -4905,75 +4896,20 @@ function sntInitDates() {
 }
 
 // ── FETCH CUACA ──
-async function fetchCuaca() {
-  try {
-    const resp = await fetch(CUACA_CSV_URL + '&_t=' + Date.now());
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const text = await resp.text();
-    const lines = text.trim().split('\n');
-    if (lines.length < 2) return;
-    // Pakai splitCSVRow yang sudah ada (handle quoted fields)
-    const hdrs = (typeof splitCSVRow === 'function' ? splitCSVRow(lines[0]) : lines[0].split(','))
-      .map(h => h.replace(/"/g,'').trim().toLowerCase());
-    console.log('[CUACA] headers:', hdrs);
 
-    RAW_CUACA = lines.slice(1).map(l => {
-      const cells = (typeof splitCSVRow === 'function' ? splitCSVRow(l) : l.split(','))
-        .map(c => c.replace(/"/g,'').trim());
-      const o = {};
-      hdrs.forEach((h,i) => { o[h] = cells[i]||''; });
 
-      // Parse skoring — yang penting ini
-      const skor = parseFloat(o['skoring'] || o['skor'] || o['score'] || '0') || 0;
-
-      // Parse tanggal — handle: "12-Apr-26", "12/04/2026", "2026-04-12", "Apr 12 2026"
-      let tgl = '';
-      const dateRaw = (o['date'] || o['tanggal'] || '').trim();
-      if (dateRaw) {
-        const MONTHS = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
-                        jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
-        // "12-Apr-26" atau "12-Apr-2026"
-        const m1 = dateRaw.match(/^(\d{1,2})[-\/](\w{3,})[-\/](\d{2,4})$/);
-        if (m1) {
-          const mo = MONTHS[m1[2].slice(0,3).toLowerCase()] || '01';
-          const yr = m1[3].length===2 ? '20'+m1[3] : m1[3];
-          tgl = yr+'-'+mo+'-'+m1[1].padStart(2,'0');
-        } else {
-          // "Apr-12-26" atau JS Date parseable
-          const d = new Date(dateRaw);
-          if (!isNaN(d)) {
-            // Shift timezone issue: pakai UTC
-            tgl = d.toISOString().slice(0,10);
-          } else {
-            // "12/04/2026" d/m/yyyy
-            const m2 = dateRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
-            if (m2) {
-              const yr = m2[3].length===2 ? '20'+m2[3] : m2[3];
-              tgl = yr+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');
-            }
-          }
-        }
-      }
-      return { tgl, skor };
-    }).filter(r => r.tgl && r.skor > 0);
-    console.log('[CUACA] loaded', RAW_CUACA.length, 'rows, sample:', RAW_CUACA[0]);
-    // Paksa redraw chart sanitasi setelah data cuaca tersedia
-    if (sntTrendChartObj) {
-      sntTrendChartObj.update('none'); // triggers onComplete → drawClimateIcons
-    } else if (window._lastSntChart) {
-      try { window._lastSntChart.update('none'); } catch(_) {}
-    }
-  } catch(e) {
-    console.error('[CUACA] fetch error:', e);
-  }
+// Helper: avg cuaca per hari dari RAW_PNY (sudah ter-fetch via GAS)
+// Scoring: Cerah=100, Cerah Berawan=75, Berawan=50, Mendung=25, Hujan=0
+const WX_SCORE = {'cerah berawan':75,'cerah':100,'berawan':50,'mendung':25,'hujan':0,'gerimis':10};
+function wxScore(c) {
+  const k = (c||'').toLowerCase().trim();
+  const key = Object.keys(WX_SCORE).find(w => k.includes(w));
+  return key !== undefined ? WX_SCORE[key] : 50;
 }
-
-// Helper: avg skoring per hari → label cuaca
-// Skoring: Cerah=100, Cerah Berawan=75 (>62.5), Berawan=50 (>37.5), Mendung=25 (>12.5), Hujan=0
 function cuacaHarian(tglIso) {
-  const rows = RAW_CUACA.filter(r => r.tgl === tglIso && r.skor > 0);
+  const rows = RAW_PNY.filter(r => r.tgl === tglIso && r.cuaca && r.cuaca.trim());
   if (!rows.length) return null;
-  const avg = rows.reduce((s,r) => s + r.skor, 0) / rows.length;
+  const avg = rows.reduce((s,r) => s + wxScore(r.cuaca), 0) / rows.length;
   if (avg > 87.5) return 'cerah';
   if (avg > 62.5) return 'cerah berawan';
   if (avg > 37.5) return 'berawan';
