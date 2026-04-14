@@ -501,7 +501,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
-    <div class="nav-item" id="nav-penyiraman" onclick="showPenyiramanMaintenance()"><span class="nav-icon">💧</span> Penyiraman <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
+    <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
     <div class="nav-item soon"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag">soon</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
@@ -3551,39 +3551,41 @@ function renderHptMain(rows) {
   // ── Ranking HPT ──
   const rankEl = document.getElementById('hptRankBody');
   if (rankEl) {
-    // Hitung frekuensi: berapa GH unik yang pernah ada HPT ini dalam range (bukan count rows)
-    const hptGHSet = {};
-    const hptTotalNilai = {};
+    // Hitung: berapa total nilai > 0 per jenis HPT (sum nilai, bukan count rows)
+    const hptStats = {};
     rows.forEach(r => {
-      if (!r.hptName) return;
-      if (!hptGHSet[r.hptName]) hptGHSet[r.hptName] = new Set();
-      hptGHSet[r.hptName].add(r.gh + '|' + r.tgl); // unique per GH per hari
-      hptTotalNilai[r.hptName] = (hptTotalNilai[r.hptName]||0) + r.nilai;
+      if (!r.hptName || r.nilai <= 0) return; // skip nilai 0
+      if (!hptStats[r.hptName]) hptStats[r.hptName] = { kat:r.kat, totalNilai:0, ghSet:new Set(), cnt:0 };
+      hptStats[r.hptName].totalNilai += r.nilai;
+      hptStats[r.hptName].ghSet.add(r.gh);
+      hptStats[r.hptName].cnt++;
     });
-    const ranked = Object.entries(hptGHSet)
-      .map(([name, set]) => [name, set.size])
-      .sort((a,b)=>b[1]-a[1]).slice(0,7);
-    const maxCnt = ranked[0]?.[1] || 1;
-    rankEl.innerHTML = ranked.length ? ranked.map(([name,cnt]) => {
-      const katRow = rows.find(r=>r.hptName===name);
-      const isP = katRow && katRow.kat && katRow.kat.toLowerCase().includes('penyakit');
+    const ranked = Object.entries(hptStats)
+      .map(([name, s]) => ({ name, kat:s.kat, totalNilai:s.totalNilai, ghCount:s.ghSet.size, cnt:s.cnt }))
+      .filter(s => s.totalNilai > 0)
+      .sort((a,b) => b.totalNilai - a.totalNilai)
+      .slice(0,8);
+    const maxTotal = ranked[0]?.totalNilai || 1;
+    rankEl.innerHTML = ranked.length ? ranked.map(s => {
+      const isP = (s.kat||'').toLowerCase().includes('penyakit');
       const col = isP ? '#A32D2D' : '#854F0B';
-      const w   = Math.round(cnt/maxCnt*100);
-      const avgNilai = cnt>0 ? (hptTotalNilai[name]/cnt).toFixed(1) : 0;
+      const w   = Math.round(s.totalNilai/maxTotal*100);
+      const avg = (s.totalNilai/s.cnt).toFixed(1);
       return `<div style="margin-bottom:9px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
-          <span style="font-size:11px;color:var(--text)">${name}</span>
-          <div style="display:flex;gap:8px;align-items:center">
+          <span style="font-size:11px;color:var(--text)">${s.name}</span>
+          <div style="display:flex;gap:6px;align-items:center">
             <span style="font-size:10px;color:var(--text3)">${isP?'Penyakit':'Hama'}</span>
-            <span style="font-size:10px;color:var(--text4)">avg ${avgNilai}</span>
-            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${cnt}x</span>
+            <span style="font-size:10px;color:var(--text4)">${s.ghCount} GH</span>
+            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${Math.round(s.totalNilai)}</span>
           </div>
         </div>
         <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
           <div style="width:${w}%;height:100%;background:${col};border-radius:3px"></div>
         </div>
+        <div style="font-size:9px;color:var(--text4);margin-top:1px">avg per record: ${avg}</div>
       </div>`;
-    }).join('') : '<div style="font-size:11px;color:var(--text3)">Tidak ada data dalam range ini</div>';
+    }).join('') : '<div style="font-size:11px;color:var(--text3)">Tidak ada data dengan nilai > 0 dalam range ini</div>';
   }
 
   // ── Alert: GH perlu tindakan ──
@@ -3663,16 +3665,12 @@ function renderHptTrendChart(rows) {
     (!_hptTo   || (r.tgl||'') <= _hptTo)
   );
 
-  // Build series: rata-rata per hari jika semua GH, sum jika filter 1 GH
-  const ghFilterVal = document.getElementById('hptGHFilter')?.value || '';
-  const useAvg = !ghFilterVal; // avg jika semua GH, sum jika spesifik GH
+  // Build series: total per hari (sum semua GH)
   const seriesMap = {};
-  const seriesCount = {}; // count GH per tgl per hptName untuk avg
   filteredForChart.forEach(r => {
     if (!r.tgl || !r.hptName) return;
-    if (!seriesMap[r.hptName]) { seriesMap[r.hptName] = { kat: r.kat, points:{} }; seriesCount[r.hptName] = {}; }
+    if (!seriesMap[r.hptName]) seriesMap[r.hptName] = { kat: r.kat, points:{} };
     seriesMap[r.hptName].points[r.tgl] = (seriesMap[r.hptName].points[r.tgl]||0) + r.nilai;
-    seriesCount[r.hptName][r.tgl] = (seriesCount[r.hptName][r.tgl]||0) + 1;
   });
 
   const allDays = [...new Set(filteredForChart.map(r=>r.tgl).filter(Boolean))].sort();
@@ -3681,11 +3679,7 @@ function renderHptTrendChart(rows) {
   const allSeries = Object.entries(seriesMap).map(([name,{kat,points}], i) => ({
     key: name, label: name, kat: (kat||'').toLowerCase().includes('penyakit')?'penyakit':'hama',
     color: COLORS[i % COLORS.length],
-    data: allDays.map(d => {
-      const total = points[d]||0;
-      const cnt   = seriesCount[name][d]||1;
-      return useAvg ? Math.round(total/cnt*10)/10 : total;
-    })
+    data: allDays.map(d => Math.round((points[d]||0)*10)/10)
   }));
 
   const hamaSeries = allSeries.filter(s => s.kat === 'hama');
