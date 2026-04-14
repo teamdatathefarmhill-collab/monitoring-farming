@@ -7069,10 +7069,18 @@ function ccShowGhIssue(ghName) {
   const sntKatMap = {};
   sntRowsPeriode.forEach(x => { const k=(x.trueSnt||x.kategori||'').trim(); if(k){sntKatMap[k]=(sntKatMap[k]||0)+(x.jml||0);} });
   const sntKats = Object.entries(sntKatMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  // Trend harian pakai date range
-  const sntByDay = {};
-  sntRowsRange.forEach(x => { if(x.tgl) sntByDay[x.tgl] = (sntByDay[x.tgl]||0)+(x.jml||0); });
+  // Trend harian pakai date range (sanitasi + sulaman terpisah)
+  const sntByDay   = {};
+  const sulamByDay = {};
+  sntRowsRange.forEach(x => {
+    if(x.tgl) {
+      sntByDay[x.tgl]   = (sntByDay[x.tgl]||0)   + (x.jml||0);
+      sulamByDay[x.tgl] = (sulamByDay[x.tgl]||0) + (x.jmlSulam||0);
+    }
+  });
   const sntDays = Object.keys(sntByDay).sort().slice(-10);
+  // Total sulaman per periode
+  const sulamCount = sntRowsPeriode.reduce((s,x)=>s+(x.jmlSulam||0),0);
 
   // ── HPT ──
   const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
@@ -7207,18 +7215,46 @@ function ccShowGhIssue(ghName) {
   }
 
   function detailSnt() {
-    // actDays dari date range (trend harian), total dari periode
     const actDays = new Set(sntRowsPeriode.filter(x=>x.tgl).map(x=>x.tgl)).size;
-    const maxSnt  = Math.max(...sntDays.map(d=>sntByDay[d]||0), 1);
-    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+    const maxSnt  = Math.max(...sntDays.map(d => Math.max(sntByDay[d]||0, sulamByDay[d]||0)), 1);
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
         ${miniStat('Total sanitasi', ccFmt(sntCount), sntCount>0?'var(--green-txt)':'var(--text)')}
+        ${miniStat('Total sulaman', ccFmt(sulamCount), sulamCount>0?'var(--blue-txt, #134880)':'var(--text)')}
         ${miniStat('Periode ini', belumSnt?'Belum':'✓', belumSnt?'var(--yellow-txt)':'var(--green-txt)')}
         ${miniStat('Hari aktif', actDays, actDays>0?'var(--green-txt)':'var(--text)')}
       </div>`;
+
     if (sntDays.length) {
       html += secLbl('Tren harian (dalam date range)')
-        + trendBars(sntDays, sntDays.map(d=>sntByDay[d]||0), maxSnt, (v)=>v>0?'var(--green)':'var(--border)');
+        + `<div style="display:flex;align-items:flex-end;gap:3px;height:64px">
+          ${sntDays.map(d => {
+            const sntV   = sntByDay[d]||0;
+            const sulamV = sulamByDay[d]||0;
+            const maxV   = Math.max(sntV, sulamV, 1);
+            const hSnt   = sntV   > 0 ? Math.max(Math.round(sntV/maxSnt*56),   4) : 0;
+            const hSulam = sulamV > 0 ? Math.max(Math.round(sulamV/maxSnt*56), 4) : 0;
+            const lbl    = d.slice(5).split('-').reverse().join('/');
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;height:56px">
+                ${sulamV > 0 ? `<div style="width:100%;height:${hSulam}px;background:#185FA5;border-radius:2px 2px 0 0;opacity:.85" title="Sulam: ${sulamV}"></div>` : ''}
+                ${sntV   > 0 ? `<div style="width:100%;height:${hSnt}px;background:var(--green);border-radius:${sulamV>0?'0':'2px 2px'} 0 0;opacity:.9" title="Sanitasi: ${sntV}"></div>` : ''}
+                ${sntV===0&&sulamV===0 ? `<div style="width:100%;height:3px;background:var(--border);border-radius:2px"></div>` : ''}
+              </div>
+              <div style="font-size:8px;color:var(--text3)">${lbl}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:12px;margin-top:5px">
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:2px;background:var(--green);display:inline-block"></span>Sanitasi
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:2px;background:#185FA5;display:inline-block"></span>Sulaman
+          </span>
+        </div>`;
     }
+
     if (sntKats.length) {
       const maxKat = sntKats[0][1];
       const KC = ['#A32D2D','#854F0B','#185FA5','#3B6D11','#534AB7'];
