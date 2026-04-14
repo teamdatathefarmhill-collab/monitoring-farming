@@ -7132,16 +7132,7 @@ function ccShowGhIssue(ghName) {
   const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
   const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
 
-  // ── STATUS ──
-  const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
-  const hasIsu    = sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
-  const overallBadge = hasKritis
-    ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
-    : hasIsu
-      ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
-      : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
-
-  // Cek record sanitasi terakhir (HST >= 8)
+  // ── SNT WARNING: cek record terakhir (HST >= 8) ──
   const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
   const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
   const sntSt = sntNoRecord ? 'warn' : belumSnt ? 'warn' : 'ok';
@@ -7150,6 +7141,15 @@ function ccShowGhIssue(ghName) {
         ? 'Belum ada record sanitasi sejak tanam'
         : daysSinceSnt + ' hari tanpa pengamatan — perlu konfirmasi')
     : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
+
+  // ── STATUS ──
+  const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
+  const hasIsu    = sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
+  const overallBadge = hasKritis
+    ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
+    : hasIsu
+      ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
+      : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
   const hptSt = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
   const pnySt = pnyDev ? 'warn' : 'ok';
   const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
