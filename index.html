@@ -4909,11 +4909,32 @@ function wxScore(c) {
 function cuacaHarian(tglIso) {
   const rows = RAW_PNY.filter(r => r.tgl === tglIso && r.cuaca && r.cuaca.trim());
   if (!rows.length) return null;
-  const avg = rows.reduce((s,r) => s + wxScore(r.cuaca), 0) / rows.length;
-  if (avg > 87.5) return 'cerah';
-  if (avg > 62.5) return 'cerah berawan';
-  if (avg > 37.5) return 'berawan';
-  if (avg > 12.5) return 'mendung';
+
+  // Step 1: ambil 1 skor per jam unik (avg skor semua GH di jam itu)
+  const byJam = {};
+  rows.forEach(r => {
+    const jam = (r.jam||'').slice(0,5); // "08:00"
+    if (!jam) return;
+    if (!byJam[jam]) byJam[jam] = [];
+    byJam[jam].push(wxScore(r.cuaca));
+  });
+
+  const jamKeys = Object.keys(byJam);
+  if (!jamKeys.length) return null;
+
+  // Step 2: avg skor per jam → satu nilai per jam
+  const skorPerJam = jamKeys.map(jam => {
+    const arr = byJam[jam];
+    return arr.reduce((s,v) => s+v, 0) / arr.length;
+  });
+
+  // Step 3: avg dari semua jam unik → kondisi harian
+  const avgHarian = skorPerJam.reduce((s,v) => s+v, 0) / skorPerJam.length;
+
+  if (avgHarian > 87.5) return 'cerah';
+  if (avgHarian > 62.5) return 'cerah berawan';
+  if (avgHarian > 37.5) return 'berawan';
+  if (avgHarian > 12.5) return 'mendung';
   return 'hujan';
 }
 
