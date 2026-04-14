@@ -1234,6 +1234,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <select class="si" id="hptGHFilter" onchange="rebuildHpt()" style="width:170px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
           <select class="si" id="hptDateFilter" onchange="rebuildHpt()" style="width:145px;padding-left:10px;background-image:none"><option value="">Semua Tanggal</option></select>
+          <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:130px">
           <button class="fbtn" onclick="fetchHpt(true)">🔄 Refresh</button>
         </div>
       </div>
@@ -1242,127 +1243,105 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <span id="hptCnt" style="color:var(--text2);font-weight:600">— entri</span>
       </div>
 
-      <!-- STAT CARDS -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:18px">
-        <div class="sc g">
-          <div class="sc-lbl">Entri Terbaru</div>
-          <div class="sc-val g" id="hptSc1" style="font-size:20px;line-height:1.2">—</div>
-          <div class="sc-note" id="hptSc1n">Tanggal input terakhir</div>
+      <!-- KPI STATS -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px" id="hptKpiRow"></div>
+
+      <!-- TREND CHART -->
+      <div class="card" style="margin-bottom:14px">
+        <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div class="card-title">📈 Tren Hama &amp; Penyakit</div>
+            <div class="card-sub">Nilai per jenis HPT berdasarkan tanggal input</div>
+          </div>
+          <select class="si" id="hptTrendGH" onchange="rebuildHpt()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
         </div>
-        <div class="sc b">
-          <div class="sc-lbl">GH Terpantau</div>
-          <div class="sc-val b" id="hptSc2">—</div>
-          <div class="sc-note" id="hptSc2n">GH dengan data HPT</div>
-        </div>
-        <div class="sc">
-          <div class="sc-lbl">Avg PM Intensitas</div>
-          <div class="sc-val" id="hptSc3" style="color:#7b2d8b">—</div>
-          <div class="sc-note" id="hptSc3n">Rata-rata semua GH</div>
-        </div>
-        <div class="sc">
-          <div class="sc-lbl">Avg DM Intensitas</div>
-          <div class="sc-val" id="hptSc4" style="color:#1a6a8a">—</div>
-          <div class="sc-note" id="hptSc4n">Rata-rata semua GH</div>
+        <div style="padding:12px 16px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text3)">Kategori:</span>
+            <button id="hptBtnHama"     class="fbtn active" onclick="hptSetKat('hama')"     style="font-size:11px;padding:4px 12px">🦟 Hama</button>
+            <button id="hptBtnPenyakit" class="fbtn active" onclick="hptSetKat('penyakit')" style="font-size:11px;padding:4px 12px">🍂 Penyakit</button>
+            <div style="width:1px;height:18px;background:var(--border);margin:0 2px"></div>
+            <div id="hptItemToggles" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+          </div>
+          <canvas id="hptTrendCanvas" height="170"></canvas>
+          <div id="hptTrendLegend" style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap"></div>
         </div>
       </div>
 
-      <!-- MAIN LAYOUT: Tabel kiri + Recent Findings kanan -->
-      <div style="display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start;margin-bottom:18px">
+      <!-- MAIN GRID: ringkasan + alert -->
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:14px;margin-bottom:14px;align-items:start">
 
-        <!-- TABEL REKAP HPT (summary per GH, data terbaru) -->
+        <!-- Tabel ringkasan per GH -->
         <div class="card" style="margin-bottom:0">
           <div class="card-hd">
             <div>
-              <div class="card-title">📋 Rekap HPT per GH</div>
-              <div class="card-sub" id="hptTblSub">Data terbaru per GH · 1 baris per GH</div>
-            </div>
-            <div class="sw" style="gap:8px">
-              <div style="display:flex;gap:4px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
-                <button class="fbtn active" id="hptTabHama"     onclick="setHptTab('hama',this)"     style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🦟 Hama</button>
-                <button class="fbtn"        id="hptTabPenyakit" onclick="setHptTab('penyakit',this)" style="padding:4px 12px;border:none;border-radius:6px;font-size:11px">🍂 Penyakit</button>
-              </div>
-              <input class="si" type="text" id="hptSearch" placeholder="Cari GH…" oninput="rebuildHpt()" style="width:130px">
+              <div class="card-title">📋 Ringkasan per GH</div>
+              <div class="card-sub">Status &amp; HPT tertinggi per GH · data terbaru</div>
             </div>
           </div>
-
-          <!-- HAMA TABLE -->
-          <div id="hptViewHama" class="tw">
-            <table>
-              <thead><tr>
-                <th style="width:28px">#</th><th>Greenhouse</th>
-                <th class="c">Periode</th><th class="c">HST</th>
-                <th class="c">Tgl Input</th>
-                <th class="r">Kutu Kebul</th><th class="r">Thrips</th>
-                <th class="r">Ulat/Kupu²</th><th class="r">Tungau/Daun</th>
-                <th class="r">Tikus</th><th class="r">Aphids</th>
-                <th class="c">Risiko</th>
-              </tr></thead>
-              <tbody id="hptBodyHama"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
-            </table>
-          </div>
-
-          <!-- PENYAKIT TABLE -->
-          <div id="hptViewPenyakit" class="tw" style="display:none">
-            <table>
-              <thead><tr>
-                <th style="width:28px">#</th><th>Greenhouse</th>
-                <th class="c">Periode</th><th class="c">HST</th>
-                <th class="c">Tgl Input</th>
-                <th class="r">PM Insidensi (%)</th><th class="r">PM Intensitas (%)</th>
-                <th class="r">DM Insidensi (%)</th><th class="r">DM Intensitas (%)</th>
-                <th class="r">GSB</th><th class="c">Risiko</th>
-              </tr></thead>
-              <tbody id="hptBodyPenyakit"><tr><td colspan="11" class="es">Memuat…</td></tr></tbody>
-            </table>
+          <div style="padding:10px 16px">
+            <div style="display:grid;grid-template-columns:170px 70px 80px 1fr 90px;margin-bottom:5px">
+              <div style="font-size:10px;color:var(--text3)">GH · HST</div>
+              <div style="font-size:10px;color:var(--text3)">Tgl</div>
+              <div style="font-size:10px;color:var(--text3)">Kategori</div>
+              <div style="font-size:10px;color:var(--text3)">HPT · Nilai</div>
+              <div style="font-size:10px;color:var(--text3);text-align:right">Status</div>
+            </div>
+            <div id="hptTblBody"><div class="es">Memuat…</div></div>
           </div>
         </div>
 
-        <!-- PANEL KANAN: Alert + Recent Findings -->
+        <!-- Panel kanan: rank + alert -->
         <div style="display:flex;flex-direction:column;gap:12px">
 
-          <!-- Alert HPT -->
+          <!-- HPT ranking -->
           <div class="card" style="margin-bottom:0">
             <div class="card-hd">
-              <div><div class="card-title">🚨 Alert HPT</div>
-              <div class="card-sub">GH serangan tinggi</div></div>
-              <span class="pill p-b" id="hptAlertBadge">—</span>
+              <div class="card-title">📊 HPT paling sering muncul</div>
             </div>
-            <div id="hptAlertList" style="max-height:220px;overflow-y:auto"><div class="es">Memuat…</div></div>
+            <div style="padding:12px 14px" id="hptRankBody"><div class="es">Memuat…</div></div>
           </div>
 
-          <!-- Recent Findings -->
+          <!-- Alert -->
           <div class="card" style="margin-bottom:0">
             <div class="card-hd">
-              <div><div class="card-title">🔍 Recent Findings</div>
-              <div class="card-sub" id="hptFindingSub">Temuan terbaru per GH</div></div>
+              <div><div class="card-title">🚨 GH perlu tindakan</div></div>
+              <span class="pill p-b" id="hptAlertBadge">—</span>
             </div>
-            <div id="hptFindings" style="max-height:460px;overflow-y:auto">
-              <div class="es">Memuat…</div>
-            </div>
+            <div style="padding:10px 12px" id="hptAlertBody"><div class="es">Memuat…</div></div>
           </div>
 
         </div>
-      </div><!-- /grid -->
+      </div>
 
-      <!-- GH HEALTH CARDS (bawah penuh) -->
+      <!-- HEALTH CARDS -->
       <div class="card">
         <div class="card-hd">
           <div><div class="card-title">🌿 Greenhouse Health Cards</div>
-          <div class="card-sub" id="hptCardSub">Status serangan per GH · data terbaru</div></div>
-          <div style="display:flex;gap:5px">
-            <span class="pill p-ok" style="font-size:9.5px">Low Risk</span>
-            <span class="pill p-w"  style="font-size:9.5px">Medium</span>
-            <span class="pill p-b"  style="font-size:9.5px">High Risk</span>
-          </div>
+          <div class="card-sub" id="hptCardSub">Status per GH · data terbaru</div></div>
         </div>
-        <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:11px" id="hptCards">
+        <div style="padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px" id="hptCards">
           <div class="es" style="grid-column:1/-1">Memuat…</div>
         </div>
       </div>
 
+      <!-- hidden compat elements -->
+      <div style="display:none" id="hptBodyHama"></div>
+      <div style="display:none" id="hptBodyPenyakit"></div>
+      <div style="display:none" id="hptViewHama"></div>
+      <div style="display:none" id="hptViewPenyakit"></div>
+      <div style="display:none" id="hptAlertList"></div>
+      <div style="display:none" id="hptFindings"></div>
+      <div style="display:none" id="hptSc1"></div><div style="display:none" id="hptSc1n"></div>
+      <div style="display:none" id="hptSc2"></div><div style="display:none" id="hptSc2n"></div>
+      <div style="display:none" id="hptSc3"></div><div style="display:none" id="hptSc3n"></div>
+      <div style="display:none" id="hptSc4"></div><div style="display:none" id="hptSc4n"></div>
+      <div style="display:none" id="hptTabHama"></div><div style="display:none" id="hptTabPenyakit"></div>
+      <div style="display:none" id="hptTblSub"></div><div style="display:none" id="hptFindingSub"></div>
+
     </div><!-- /view-hpt -->
 
-    <!-- ═══════════ VIEW: PENYIRAMAN ═══════════ -->
+        <!-- ═══════════ VIEW: PENYIRAMAN ═══════════ -->
     <div id="view-penyiraman" style="display:none">
 
       <div class="ph">
@@ -3276,7 +3255,7 @@ async function fetchHpt(manual = false) {
 
 // ── PARSE CSV ──
 function parseCSV(text) {
-  const lines = text.split('\n').filter(l => l.trim());
+  const lines = text.trim().split('\n');
   if (lines.length < 2) return [];
   const header = splitCSVRow(lines[0]);
   return lines.slice(1).map(l => {
@@ -3299,103 +3278,95 @@ function splitCSVRow(row) {
   return r;
 }
 
-// ── HITUNG PM/DM INTENSITAS (R formula) ──
-function hitungIntensitas(s1, s2, s3, s4) {
-  const scores = [+s1||0, +s2||0, +s3||0, +s4||0];
-  // Cari idx (1-based) dari skor max — sama dengan which.max di R
-  let idxMax = 0;
-  scores.forEach((v, i) => { if (v > scores[idxMax]) idxMax = i; });
-  const pembagi = 25 * (idxMax + 1); // 25 * idx (1-based)
-  if (!pembagi) return 0;
-  const intensitas = ((1*scores[0]) + (2*scores[1]) + (3*scores[2]) + (4*scores[3])) / pembagi * 100;
-  return Math.round(intensitas * 100) / 100;
-}
-
-function hitungInsidensi(val, total = 1300) {
-  const n = +val || 0;
-  return Math.round((n / total * 100) * 100) / 100;
-}
-
-// ── COMPUTE: normalise kolom & hitung intensitas ──
-// Kolom sheet (dari Google Form):
-// Timestamp, Email Address, GH,
-// Kutu kebul, Thrips, Ulat/Kupu-kupu, Tungau (per daun), Tikus, Aphids, Ulat Kompos, Kutu Putih,
-// PM (Insidensi), Skor 1 [PM], Skor 2 [PM], Skor 3 [PM], Skor 4 [PM],
-// DM (Insidensi), Skor 1 [DM], Skor 2 [DM], Skor 3 [DM], Skor 4 [DM], GSB
-
+// ── PARSE long-format HPT (Nama GH | Periode | Tanggal | HST | HPT | Keterangan | Nilai | Status) ──
 function computeHpt(rows) {
   return rows.map(r => {
-    // Cari kolom secara fleksibel (case insensitive, partial match)
-    const get = (...keys) => {
-      for (const key of keys) {
-        const k = Object.keys(r).find(col => col.toLowerCase().includes(key.toLowerCase()));
-        if (k) return r[k] || '0';
+    const get = key => {
+      const k = Object.keys(r).find(c => c.toLowerCase().trim() === key.toLowerCase());
+      return k ? (r[k]||'').trim() : '';
+    };
+    const gh       = get('nama gh') || get('greenhouse') || get('gh') || '—';
+    const periode  = get('periode');
+    const hst      = parseInt(get('hst')) || 0;
+    const hptName  = get('hpt');
+    const kat      = get('keterangan');
+    const nilai    = parseFloat(get('nilai')) || 0;
+    const status   = get('status'); // Low / Medium / High / Critical
+    let tglRaw     = get('tanggal');
+    let tglIso     = '';
+    if (tglRaw) {
+      const d = new Date(tglRaw);
+      if (!isNaN(d)) tglIso = d.toISOString().slice(0,10);
+      else {
+        const m = tglRaw.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+        if (m) tglIso = m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+        else tglIso = tglRaw.slice(0,10);
       }
-      return '0';
-    };
-    const getExact = key => r[key] || '0';
-
-    // Kolom Skor — Google Form menghasilkan header "Skor 1", "Skor 2" dst
-    // Karena ada dua blok (PM & DM), Google Sheets biasanya memberi suffix ".1"
-    // Kita handle dengan mencari urutan kolom berdasarkan index
-    const keys    = Object.keys(r);
-    const tsPM    = keys.findIndex(k => k.toLowerCase().includes('pm (insidensi)'));
-    const tsDM    = keys.findIndex(k => k.toLowerCase().includes('dm (insidensi)'));
-
-    // PM Skor: 4 kolom setelah "PM (Insidensi)"
-    const pmS1 = tsPM >= 0 ? (+r[keys[tsPM+1]]||0) : 0;
-    const pmS2 = tsPM >= 0 ? (+r[keys[tsPM+2]]||0) : 0;
-    const pmS3 = tsPM >= 0 ? (+r[keys[tsPM+3]]||0) : 0;
-    const pmS4 = tsPM >= 0 ? (+r[keys[tsPM+4]]||0) : 0;
-
-    // DM Skor: 4 kolom setelah "DM (Insidensi)"
-    const dmS1 = tsDM >= 0 ? (+r[keys[tsDM+1]]||0) : 0;
-    const dmS2 = tsDM >= 0 ? (+r[keys[tsDM+2]]||0) : 0;
-    const dmS3 = tsDM >= 0 ? (+r[keys[tsDM+3]]||0) : 0;
-    const dmS4 = tsDM >= 0 ? (+r[keys[tsDM+4]]||0) : 0;
-
-    const pmInsidensiRaw = tsPM >= 0 ? (+r[keys[tsPM]]||0) : 0;
-    const dmInsidensiRaw = tsDM >= 0 ? (+r[keys[tsDM]]||0) : 0;
-
-    const pmIntensitas = hitungIntensitas(pmS1, pmS2, pmS3, pmS4);
-    const dmIntensitas = hitungIntensitas(dmS1, dmS2, dmS3, dmS4);
-    const pmInsidensi  = hitungInsidensi(pmInsidensiRaw);
-    const dmInsidensi  = hitungInsidensi(dmInsidensiRaw);
-
-    const gh = get('gh','greenhouse','nama gh') || '—';
-    let tgl  = get('timestamp','waktu');
-    // Ambil tanggal saja dari timestamp
-    if (tgl) {
-      const d = new Date(tgl);
-      if (!isNaN(d)) tgl = d.toLocaleDateString('id-ID',{day:'2-digit',month:'2-digit',year:'numeric'});
-      else tgl = tgl.slice(0,10);
     }
+    if (!gh || gh === '—') return null;
+    return { gh, periode, hst, hptName, kat, nilai, status, tgl: tglIso, tglRaw };
+  }).filter(Boolean);
+}
 
-    const email = get('email') || '—';
-    const alias = email.split('@')[0];
+// ── risikoGlobal dari new format: ambil status tertinggi per GH ──
+function statusLevel(s) {
+  s = (s||'').toLowerCase();
+  if (s === 'critical') return 4;
+  if (s === 'high')     return 3;
+  if (s === 'medium')   return 2;
+  if (s === 'low')      return 1;
+  return 0;
+}
 
-    return {
-      gh, tgl, email, alias,
-      kutukebul  : +get('kutu kebul','kutukebul') || 0,
-      thrips     : +get('thrips')                 || 0,
-      ulat       : +get('ulat/kupu','ulat')       || 0,
-      tungau     : +get('tungau')                 || 0,
-      tikus      : +get('tikus')                  || 0,
-      aphids     : +get('aphids')                 || 0,
-      ulatkompos : +get('ulat kompos')            || 0,
-      kutukukih  : +get('kutu putih')             || 0,
-      pmInsidensi, pmIntensitas,
-      dmInsidensi, dmIntensitas,
-      gsb        : +get('gsb')                    || 0,
-    };
-  }).filter(r => r.gh && r.gh !== '—');
+function statusLabel(level) {
+  if (level >= 4) return 'critical';
+  if (level >= 3) return 'high';
+  if (level >= 2) return 'medium';
+  return 'low';
+}
+
+// risikoGlobal: dipakai di CC cards - ambil max status dari RAW_HPT per GH
+function risikoGlobal(r) {
+  // r = row dari RAW (dashboard) dengan field .gh
+  // cari semua HPT rows untuk GH ini, ambil status tertinggi
+  const gh = r.gh ? r.gh.trim().toUpperCase() : '';
+  const hptForGH = RAW_HPT.filter(x => x.gh.trim().toUpperCase() === gh);
+  if (!hptForGH.length) return 'low';
+  const maxLvl = hptForGH.reduce((m,x) => Math.max(m, statusLevel(x.status)), 0);
+  const lbl = statusLabel(maxLvl);
+  if (lbl === 'critical') return 'high'; // map critical → high for CC compat
+  return lbl;
+}
+
+// Helper: get latest entry per GH from RAW_HPT
+function hptLatestPerGH(rows) {
+  const map = {};
+  rows.forEach(r => { if (!map[r.gh] || r.tgl > map[r.gh].tgl) map[r.gh] = r; });
+  return Object.values(map);
+}
+
+// Helper: get all unique HPT items per GH (latest date)
+function hptSummaryPerGH(rows) {
+  // group by GH+hptName, take latest tgl per group
+  const map = {};
+  rows.forEach(r => {
+    const key = r.gh + '||' + r.hptName;
+    if (!map[key] || r.tgl > map[key].tgl) map[key] = r;
+  });
+  // then group by GH
+  const ghMap = {};
+  Object.values(map).forEach(r => {
+    if (!ghMap[r.gh]) ghMap[r.gh] = { gh:r.gh, periode:r.periode, hst:r.hst, tgl:r.tgl, items:[] };
+    if (r.tgl > ghMap[r.gh].tgl) { ghMap[r.gh].tgl=r.tgl; ghMap[r.gh].hst=r.hst; }
+    ghMap[r.gh].items.push(r);
+  });
+  return Object.values(ghMap).sort((a,b) => a.gh.localeCompare(b.gh));
 }
 
 // ── APPLY HPT DATA ──
 function applyHpt(data) {
   RAW_HPT = data;
 
-  // Update header strip
   const now = new Date();
   document.getElementById('hptUpAt').textContent =
     now.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' +
@@ -3404,14 +3375,12 @@ function applyHpt(data) {
   if (strip) strip.classList.add('show');
   document.getElementById('hptCnt').textContent = data.length + ' entri';
 
-  // Populate GH filter
   const ghSel = document.getElementById('hptGHFilter');
   const ghList = [...new Set(data.map(r => r.gh))].sort();
   const prevGH = ghSel.value;
   ghSel.innerHTML = '<option value="">Semua GH</option>' +
     ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
 
-  // Populate date filter
   const dateSel = document.getElementById('hptDateFilter');
   const dateList = [...new Set(data.map(r => r.tgl))].filter(Boolean).sort().reverse();
   const prevDate = dateSel.value;
@@ -3421,7 +3390,11 @@ function applyHpt(data) {
   rebuildHpt();
 }
 
-// ── REBUILD HPT VIEW ──
+// ── REBUILD HPT ──
+let HPT_KAT_HAMA     = true;
+let HPT_KAT_PENYAKIT = true;
+let HPT_ACTIVE_ITEMS = {};
+
 function rebuildHpt() {
   const ghVal   = document.getElementById('hptGHFilter')?.value   || '';
   const dateVal = document.getElementById('hptDateFilter')?.value || '';
@@ -3432,291 +3405,295 @@ function rebuildHpt() {
   if (dateVal) rows = rows.filter(r => r.tgl === dateVal);
   if (qHpt)    rows = rows.filter(r => r.gh.toLowerCase().includes(qHpt));
 
-  // KPI Stats
-  const ghUniq = new Set(rows.map(r => r.gh)).size;
-  const avgPM  = rows.length ? rows.reduce((s,r)=>s+r.pmIntensitas,0)/rows.length : 0;
-  const avgDM  = rows.length ? rows.reduce((s,r)=>s+r.dmIntensitas,0)/rows.length : 0;
-  const lastTgl = rows.length ? [...rows].sort((a,b)=>b.tgl.localeCompare(a.tgl))[0].tgl : '—';
+  // KPI
+  const ghUniq   = new Set(rows.map(r => r.gh)).size;
+  const lastTgl  = rows.length ? [...rows].sort((a,b)=>b.tgl.localeCompare(a.tgl))[0].tgl : '—';
+  const critCount = new Set(rows.filter(r => statusLevel(r.status)>=4).map(r=>r.gh)).size;
+  const highCount = new Set(rows.filter(r => statusLevel(r.status)===3).map(r=>r.gh)).size;
+  const medCount  = new Set(rows.filter(r => statusLevel(r.status)===2).map(r=>r.gh)).size;
+  const lowCount  = new Set(rows.filter(r => statusLevel(r.status)<=1).map(r=>r.gh)).size;
 
-  document.getElementById('hptSc1').textContent = lastTgl;
-  document.getElementById('hptSc1n').textContent = rows.length + ' entri';
-  document.getElementById('hptSc2').textContent = ghUniq;
-  document.getElementById('hptSc2n').textContent = 'dari ' + RAW_HPT.length + ' entri total';
-  document.getElementById('hptSc3').textContent = avgPM.toFixed(1) + '%';
-  document.getElementById('hptSc3n').textContent = 'PM · ' + rows.length + ' entri';
-  document.getElementById('hptSc4').textContent = avgDM.toFixed(1) + '%';
-  document.getElementById('hptSc4n').textContent = 'DM · ' + rows.length + ' entri';
+  const el = id => document.getElementById(id);
+  if(el('hptSc1')) el('hptSc1').textContent = lastTgl;
+  if(el('hptSc1n')) el('hptSc1n').textContent = rows.length + ' entri';
+  if(el('hptSc2')) el('hptSc2').textContent = ghUniq;
+  if(el('hptSc2n')) el('hptSc2n').textContent = 'dari ' + RAW_HPT.length + ' entri total';
+  if(el('hptSc3')) { el('hptSc3').textContent = critCount; el('hptSc3').style.color='#A32D2D'; }
+  if(el('hptSc3n')) el('hptSc3n').textContent = 'GH kritis';
+  if(el('hptSc4')) { el('hptSc4').textContent = highCount; el('hptSc4').style.color='#854F0B'; }
+  if(el('hptSc4n')) el('hptSc4n').textContent = 'GH high risk';
 
-  // Page sub
-  const n = new Date();
-  const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][n.getDay()];
-  const tg = n.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
   const pgEl = document.getElementById('pgSubHpt');
-  if (pgEl) pgEl.textContent = `Data HPT · ${hr}, ${tg} · ${rows.length} entri ditampilkan`;
+  if (pgEl) pgEl.textContent = `Data HPT · ${rows.length} entri ditampilkan`;
 
-  renderHptTables(rows);
-  renderHptCards(rows);
-  renderHptAlerts(rows);
-  renderHptFindings(rows);
-
-  const subEl = document.getElementById('hptTblSub');
-  if (subEl) subEl.textContent = rows.length + ' entri ditampilkan · data terbaru per GH disorot';
+  renderHptMain(rows);
+  renderHptTrendChart(rows);
 }
 
-// ── RISIKO HAMA ──
-function risikoHama(r) {
-  const max = Math.max(r.kutukebul, r.thrips, r.ulat, r.tungau, r.tikus, r.aphids, r.ulatkompos, r.kutukukih);
-  if (max >= 10) return 'high';
-  if (max >= 5)  return 'medium';
-  return 'low';
-}
-
-function risikoPenyakit(r) {
-  const maxI = Math.max(r.pmIntensitas, r.dmIntensitas);
-  const maxIn = Math.max(r.pmInsidensi, r.dmInsidensi);
-  if (maxI >= 25 || maxIn >= 25) return 'high';
-  if (maxI >= 10 || maxIn >= 10) return 'medium';
-  return 'low';
-}
-
-function risikoGlobal(r) {
-  const h = risikoHama(r), p = risikoPenyakit(r);
-  if (h === 'high' || p === 'high') return 'high';
-  if (h === 'medium' || p === 'medium') return 'medium';
-  return 'low';
-}
-
+// ── PILL helper ──
 const riskPill = lvl =>
-  lvl === 'high'   ? '<span class="pill p-b">⚠ High Risk</span>' :
-  lvl === 'medium' ? '<span class="pill p-w">Medium Risk</span>' :
-                     '<span class="pill p-ok">Low Risk</span>';
+  lvl === 'critical' ? '<span class="pill p-b" style="background:#A32D2D;color:#fff">Critical</span>' :
+  lvl === 'high'     ? '<span class="pill p-b">High Risk</span>' :
+  lvl === 'medium'   ? '<span class="pill p-w">Medium</span>' :
+                       '<span class="pill p-ok">Low</span>';
 
-// Warna angka hama berdasarkan ambang
-function hamaNum(val, warn=5, crit=10) {
-  if (!val) return `<span style="color:var(--text4)">0</span>`;
-  const c = val >= crit ? 'var(--red)' : val >= warn ? '#c87800' : 'var(--green)';
-  return `<span style="color:${c};font-weight:700">${val}</span>`;
-}
-
-function penyakitNum(val, warn=10, crit=25) {
-  if (!val) return `<span style="color:var(--text4)">0</span>`;
-  const c = val >= crit ? 'var(--red)' : val >= warn ? '#c87800' : 'var(--text)';
-  return `<span style="color:${c};font-weight:700">${val.toFixed(1)}%</span>`;
-}
-
-// ── RENDER TABEL (summary: 1 baris per GH, data terbaru) ──
-function renderHptTables(rows) {
-  // Ambil entri terbaru per GH
-  const latestByGH = {};
-  rows.forEach(r => {
-    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
-  });
-  const summary = Object.values(latestByGH).sort((a,b) => a.gh.localeCompare(b.gh));
-
-  // Cross-ref Periode & HST dari RAW (dashboard data)
+// ── RENDER MAIN HPT VIEW ──
+function renderHptMain(rows) {
+  const summary = hptSummaryPerGH(rows);
   const getGHInfo = gh => RAW.find(r => r.gh.toLowerCase() === gh.toLowerCase()) || null;
 
-  // HAMA
-  const hamaBody = document.getElementById('hptBodyHama');
-  if (hamaBody) {
-    hamaBody.innerHTML = summary.length
-      ? summary.map((r, i) => {
-          const dot  = CC[clOf(r.gh)] || '#999';
-          const info = getGHInfo(r.gh);
-          const periodeCell = info
-            ? `<td class="c" style="font-size:11px;color:var(--text3)">${info.periode}</td><td class="c"><span class="hst-b" style="font-size:10px">HST ${info.hst}</span></td>`
-            : `<td class="c" style="color:var(--text4)">—</td><td class="c" style="color:var(--text4)">—</td>`;
-          return `<tr>
-            <td class="no-col">${i+1}</td>
-            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-            ${periodeCell}
-            <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
-            <td class="r">${hamaNum(r.kutukebul)}</td>
-            <td class="r">${hamaNum(r.thrips)}</td>
-            <td class="r">${hamaNum(r.ulat)}</td>
-            <td class="r">${hamaNum(r.tungau)}</td>
-            <td class="r">${hamaNum(r.tikus,2,5)}</td>
-            <td class="r">${hamaNum(r.aphids)}</td>
-            <td class="c">${riskPill(risikoHama(r))}</td>
-          </tr>`;
-        }).join('')
-      : '<tr><td colspan="12" class="es">Tidak ada data hama sesuai filter</td></tr>';
+  // ── KPI cards row (kritis/high/med/low) ──
+  const kpiEl = document.getElementById('hptKpiRow');
+  if (kpiEl) {
+    const ghMaxStatus = {};
+    rows.forEach(r => {
+      const lvl = statusLevel(r.status);
+      if (!ghMaxStatus[r.gh] || lvl > ghMaxStatus[r.gh]) ghMaxStatus[r.gh] = lvl;
+    });
+    const vals = Object.values(ghMaxStatus);
+    const crit = vals.filter(v=>v>=4).length;
+    const high = vals.filter(v=>v===3).length;
+    const med  = vals.filter(v=>v===2).length;
+    const low  = vals.filter(v=>v<=1).length;
+    kpiEl.innerHTML =
+      miniStat2('GH kritis',   crit, '#A32D2D') +
+      miniStat2('GH high risk',high, '#854F0B') +
+      miniStat2('GH medium',   med,  '#633806') +
+      miniStat2('GH low/aman', low,  '#27500A');
   }
 
-  // PENYAKIT
-  const penyakitBody = document.getElementById('hptBodyPenyakit');
-  if (penyakitBody) {
-    penyakitBody.innerHTML = summary.length
-      ? summary.map((r, i) => {
-          const dot  = CC[clOf(r.gh)] || '#999';
-          const info = getGHInfo(r.gh);
-          const periodeCell = info
-            ? `<td class="c" style="font-size:11px;color:var(--text3)">${info.periode}</td><td class="c"><span class="hst-b" style="font-size:10px">HST ${info.hst}</span></td>`
-            : `<td class="c" style="color:var(--text4)">—</td><td class="c" style="color:var(--text4)">—</td>`;
-          return `<tr>
-            <td class="no-col">${i+1}</td>
-            <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
-            ${periodeCell}
-            <td class="c mono" style="font-size:11px">${r.tgl||'—'}</td>
-            <td class="r">${penyakitNum(r.pmInsidensi)}</td>
-            <td class="r">${penyakitNum(r.pmIntensitas)}</td>
-            <td class="r">${penyakitNum(r.dmInsidensi)}</td>
-            <td class="r">${penyakitNum(r.dmIntensitas)}</td>
-            <td class="r">${hamaNum(r.gsb,2,5)}</td>
-            <td class="c">${riskPill(risikoPenyakit(r))}</td>
-          </tr>`;
-        }).join('')
-      : '<tr><td colspan="11" class="es">Tidak ada data penyakit sesuai filter</td></tr>';
+  // ── Tabel ringkasan per GH ──
+  const tblEl = document.getElementById('hptTblBody');
+  if (tblEl) {
+    if (!summary.length) { tblEl.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text4)">Tidak ada data</div>'; }
+    else {
+      tblEl.innerHTML = summary.map(g => {
+        const dot = CC[clOf(g.gh)] || '#999';
+        const info = getGHInfo(g.gh);
+        const ghMaxLvl = g.items.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+        const ghStatus = statusLabel(ghMaxLvl);
+        const topItem  = g.items.sort((a,b)=>statusLevel(b.status)-statusLevel(a.status))[0];
+        const katLabel = topItem ? topItem.kat : '—';
+        return `<div style="display:grid;grid-template-columns:170px 70px 80px 1fr 90px;padding:8px 0;border-top:0.5px solid var(--border);align-items:center">
+          <div>
+            <div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--text)">
+              <span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>${g.gh}
+            </div>
+            <div style="font-size:10px;color:var(--text3);margin-top:1px;padding-left:12px">HST ${g.hst} · ${info?info.periode:g.periode||'—'}</div>
+          </div>
+          <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">${(g.tgl||'').slice(5).split('-').reverse().join('/')}</div>
+          <div style="font-size:11px;color:var(--text3)">${katLabel}</div>
+          <div style="font-size:11px;color:var(--text)">
+            ${topItem ? topItem.hptName + ' <span style="font-family:'JetBrains Mono',monospace;color:var(--text3)">' + topItem.nilai + '</span>' : '—'}
+          </div>
+          <div style="text-align:right">${riskPill(ghStatus)}</div>
+        </div>`;
+      }).join('');
+    }
   }
-}
 
-// ── RENDER RECENT FINDINGS (panel kanan) ──
-function renderHptFindings(rows) {
-  const el  = document.getElementById('hptFindings');
-  const sub = document.getElementById('hptFindingSub');
-  if (!el) return;
-  if (!rows.length) { el.innerHTML = '<div class="es">Tidak ada temuan</div>'; return; }
-
-  // Terbaru per GH, sort by tgl desc
-  const latestByGH = {};
-  rows.forEach(r => {
-    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
-  });
-  const sorted = Object.values(latestByGH).sort((a,b) => b.tgl.localeCompare(a.tgl));
-
-  const HAMA_DEF = [
-    { key:'kutukebul', label:'Kutu Kebul', emoji:'🦟', warn:5, crit:10 },
-    { key:'thrips',    label:'Thrips',     emoji:'🐜', warn:5, crit:10 },
-    { key:'ulat',      label:'Ulat',       emoji:'🐛', warn:5, crit:10 },
-    { key:'tungau',    label:'Tungau',     emoji:'🕷', warn:5, crit:10 },
-    { key:'aphids',    label:'Aphids',     emoji:'🦗', warn:5, crit:10 },
-    { key:'tikus',     label:'Tikus',      emoji:'🐀', warn:2, crit:5  },
-  ];
-
-  el.innerHTML = sorted.map(r => {
-    const lvl   = risikoGlobal(r);
-    const dot   = CC[clOf(r.gh)] || '#999';
-    const bdr   = lvl==='high' ? 'var(--red)' : lvl==='medium' ? '#c87800' : 'var(--green-mid)';
-    const activeHama = HAMA_DEF.filter(h => r[h.key] > 0);
-
-    const hamaTags = activeHama.map(h => {
-      const col = r[h.key] >= h.crit ? 'var(--red-txt)' : 'var(--yellow-txt)';
-      const bg  = r[h.key] >= h.crit ? 'var(--red-lt)'  : 'var(--yellow-lt)';
-      return `<span style="background:${bg};color:${col};border-radius:5px;padding:2px 7px;font-size:10px;font-weight:700">${h.emoji} ${h.label} <b>${r[h.key]}</b></span>`;
+  // ── Ranking HPT ──
+  const rankEl = document.getElementById('hptRankBody');
+  if (rankEl) {
+    const hptCount = {};
+    rows.forEach(r => { hptCount[r.hptName] = (hptCount[r.hptName]||0) + 1; });
+    const ranked = Object.entries(hptCount).sort((a,b)=>b[1]-a[1]).slice(0,7);
+    const maxCnt = ranked[0]?.[1] || 1;
+    rankEl.innerHTML = ranked.map(([name,cnt]) => {
+      const katRow = rows.find(r=>r.hptName===name);
+      const isP = katRow && katRow.kat && katRow.kat.toLowerCase().includes('penyakit');
+      const col = isP ? '#A32D2D' : '#854F0B';
+      const w   = Math.round(cnt/maxCnt*100);
+      return `<div style="margin-bottom:9px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+          <span style="font-size:11px;color:var(--text)">${name}</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span style="font-size:10px;color:var(--text3)">${isP?'Penyakit':'Hama'}</span>
+            <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${cnt}</span>
+          </div>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="width:${w}%;height:100%;background:${col};border-radius:3px"></div>
+        </div>
+      </div>`;
     }).join('');
+  }
 
-    const penyakitLine = (r.pmIntensitas > 0 || r.dmIntensitas > 0)
-      ? `<div style="display:flex;gap:8px;margin-top:5px">
-           ${r.pmIntensitas > 0 ? `<span style="font-size:10px;color:#7b2d8b;font-weight:600">PM ${r.pmIntensitas.toFixed(1)}%</span>` : ''}
-           ${r.dmIntensitas > 0 ? `<span style="font-size:10px;color:#1a6a8a;font-weight:600">DM ${r.dmIntensitas.toFixed(1)}%</span>` : ''}
-         </div>` : '';
+  // ── Alert: GH perlu tindakan ──
+  const alertEl = document.getElementById('hptAlertBody');
+  if (alertEl) {
+    const ghMaxStatus = {};
+    rows.forEach(r => {
+      const lvl = statusLevel(r.status);
+      if (!ghMaxStatus[r.gh]) ghMaxStatus[r.gh] = { gh:r.gh, maxLvl:0, items:[] };
+      if (lvl > ghMaxStatus[r.gh].maxLvl) ghMaxStatus[r.gh].maxLvl = lvl;
+      if (lvl >= 3) ghMaxStatus[r.gh].items.push(r);
+    });
+    const needAction = Object.values(ghMaxStatus)
+      .filter(g => g.maxLvl >= 3)
+      .sort((a,b) => b.maxLvl - a.maxLvl);
+    const alertBadge = document.getElementById('hptAlertBadge');
+    if (alertBadge) alertBadge.textContent = needAction.length + ' aktif';
+    alertEl.innerHTML = needAction.length
+      ? needAction.map(g => {
+          const dot = CC[clOf(g.gh)] || '#999';
+          const topItems = g.items.sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2);
+          const desc = topItems.map(x=>x.hptName+': '+x.nilai).join(' · ');
+          return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:8px;background:var(--surface2);margin-bottom:6px">
+            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;margin-top:4px;display:inline-block"></span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:12px;font-weight:700;color:var(--text)">${g.gh}</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:2px">${desc}</div>
+            </div>
+            ${riskPill(statusLabel(g.maxLvl))}
+          </div>`;
+        }).join('')
+      : '<div style="padding:16px;text-align:center;color:var(--text4);font-size:12px">✅ Tidak ada GH yang perlu tindakan segera</div>';
+  }
 
-    return `<div style="border-bottom:1px solid var(--border);padding:11px 14px;transition:background .1s" onmouseover="this.style.background='var(--surface2)'" onmouseout="this.style.background=''">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
-        <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
-        <span style="font-size:12px;font-weight:800;flex:1">${r.gh}</span>
-        ${riskPill(lvl)}
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:6px;font-family:'JetBrains Mono',monospace">${r.tgl||'—'} · ${r.alias||'—'}</div>
-      ${activeHama.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:4px">${hamaTags}</div>`
-        : `<div style="font-size:10px;color:var(--text4);font-style:italic">Tidak ada hama terdeteksi</div>`}
-      ${penyakitLine}
-    </div>`;
-  }).join('');
-
-  if (sub) sub.textContent = `${sorted.length} GH · data terbaru`;
-}
-
-// ── RENDER HEALTH CARDS ──
-function renderHptCards(rows) {
+  // ── Health Cards (grid mini per GH) ──
   const cardsEl = document.getElementById('hptCards');
-  if (!cardsEl) return;
-  if (!rows.length) { cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data</div>'; return; }
-
-  // Ambil entri terbaru per GH
-  const latestByGH = {};
-  rows.forEach(r => {
-    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
-  });
-
-  // Hama icons
-  const hamaIcons = [
-    { key:'kutukebul', label:'Kutu Kebul', icon:'🦟' },
-    { key:'thrips',    label:'Thrips',     icon:'🐜' },
-    { key:'ulat',      label:'Ulat',       icon:'🐛' },
-    { key:'tungau',    label:'Tungau',     icon:'🕷' },
-    { key:'aphids',    label:'Aphids',     icon:'🦗' },
-  ];
-
-  cardsEl.innerHTML = Object.values(latestByGH).sort((a,b)=>a.gh.localeCompare(b.gh)).map(r => {
-    const lvl = risikoGlobal(r);
-    const borderColor = lvl==='high' ? 'var(--red)' : lvl==='medium' ? '#c87800' : 'var(--green-mid)';
-    const bgColor     = lvl==='high' ? 'rgba(192,32,32,.04)' : lvl==='medium' ? 'rgba(160,96,0,.04)' : 'rgba(26,122,58,.04)';
-    const dot = CC[clOf(r.gh)] || '#999';
-    const activeHama = hamaIcons.filter(h => r[h.key] > 0);
-    return `<div style="border:1.5px solid ${borderColor};border-radius:11px;padding:13px;background:${bgColor}">
-      <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
-        <span style="width:8px;height:8px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
-        <span style="font-size:12.5px;font-weight:800;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.gh}</span>
-      </div>
-      <div style="font-size:10px;color:var(--text3);margin-bottom:8px;font-family:'JetBrains Mono',monospace">${r.tgl||'—'}</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">
-        ${activeHama.length
-          ? activeHama.map(h => `<span title="${h.label}: ${r[h.key]}" style="font-size:13px;cursor:default">${h.icon}</span>`).join('')
-          : '<span style="font-size:10px;color:var(--text4)">Tidak ada hama</span>'}
-      </div>
-      <div style="display:flex;gap:5px;justify-content:space-between;margin-bottom:8px">
-        <span style="font-size:10px;color:#7b2d8b;font-weight:700">PM: ${r.pmIntensitas.toFixed(1)}%</span>
-        <span style="font-size:10px;color:#1a6a8a;font-weight:700">DM: ${r.dmIntensitas.toFixed(1)}%</span>
-      </div>
-      ${riskPill(lvl)}
-    </div>`;
-  }).join('');
-
-  const sub = document.getElementById('hptCardSub');
-  if (sub) sub.textContent = Object.keys(latestByGH).length + ' GH · data terbaru per GH';
+  if (cardsEl) {
+    if (!summary.length) { cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data</div>'; return; }
+    cardsEl.innerHTML = summary.map(g => {
+      const dot = CC[clOf(g.gh)] || '#999';
+      const maxLvl = g.items.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+      const ghStatus = statusLabel(maxLvl);
+      const borderColor = maxLvl>=4?'#A32D2D':maxLvl>=3?'var(--red)':maxLvl>=2?'#c87800':'var(--green-mid)';
+      const bgColor     = maxLvl>=3?'rgba(192,32,32,.04)':maxLvl>=2?'rgba(160,96,0,.04)':'rgba(26,122,58,.04)';
+      const topItems = g.items.sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,3);
+      return `<div style="border:1.5px solid ${borderColor};border-radius:11px;padding:12px;background:${bgColor}">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+          <span style="font-size:12px;font-weight:700;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${g.gh}</span>
+        </div>
+        <div style="font-size:9px;color:var(--text3);margin-bottom:7px;font-family:'JetBrains Mono',monospace">${(g.tgl||'').slice(5).split('-').reverse().join('/')} · HST ${g.hst}</div>
+        <div style="margin-bottom:8px">
+          ${topItems.map(x => {
+            const col = statusLevel(x.status)>=4?'#A32D2D':statusLevel(x.status)>=3?'var(--red)':statusLevel(x.status)>=2?'#c87800':'var(--text3)';
+            return `<div style="font-size:10px;color:${col};margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${x.hptName} <span style="font-family:'JetBrains Mono',monospace">${x.nilai}</span></div>`;
+          }).join('')}
+        </div>
+        ${riskPill(ghStatus)}
+      </div>`;
+    }).join('');
+    const sub = document.getElementById('hptCardSub');
+    if (sub) sub.textContent = summary.length + ' GH · data terbaru per GH';
+  }
 }
 
-// ── RENDER ALERTS ──
-function renderHptAlerts(rows) {
-  const alertEl    = document.getElementById('hptAlertList');
-  const alertBadge = document.getElementById('hptAlertBadge');
-  if (!alertEl) return;
+// ── TREND CHART ──
+let _hptChart = null;
+let _hptKatHama = true, _hptKatPenyakit = true;
+let _hptActiveItems = null;
 
-  // Ambil terbaru per GH
-  const latestByGH = {};
+function renderHptTrendChart(rows) {
+  // Build series: per unique hptName, collect {tgl, totalNilai}
+  const seriesMap = {};
   rows.forEach(r => {
-    if (!latestByGH[r.gh] || r.tgl > latestByGH[r.gh].tgl) latestByGH[r.gh] = r;
+    if (!r.tgl || !r.hptName) return;
+    if (!seriesMap[r.hptName]) seriesMap[r.hptName] = { kat: r.kat, points:{} };
+    seriesMap[r.hptName].points[r.tgl] = (seriesMap[r.hptName].points[r.tgl]||0) + r.nilai;
   });
 
-  const alerts = [];
-  Object.values(latestByGH).forEach(r => {
-    const lvl = risikoGlobal(r);
-    if (lvl === 'high') {
-      const hamaCrit = [];
-      if (r.kutukebul>=10) hamaCrit.push(`Kutu Kebul (${r.kutukebul})`);
-      if (r.thrips>=10)    hamaCrit.push(`Thrips (${r.thrips})`);
-      if (r.ulat>=10)      hamaCrit.push(`Ulat (${r.ulat})`);
-      if (r.aphids>=10)    hamaCrit.push(`Aphids (${r.aphids})`);
-      if (r.pmIntensitas>=25) hamaCrit.push(`PM Intensitas ${r.pmIntensitas.toFixed(1)}%`);
-      if (r.dmIntensitas>=25) hamaCrit.push(`DM Intensitas ${r.dmIntensitas.toFixed(1)}%`);
-      alerts.push({ ico:'🔴', title:`${r.gh} — Serangan Tinggi`, desc: hamaCrit.join(' · ') || 'Serangan di atas ambang batas', tgl: r.tgl });
-    } else if (lvl === 'medium') {
-      alerts.push({ ico:'🟡', title:`${r.gh} — Perlu Monitoring`, desc:`Beberapa indikator HPT mendekati ambang batas · ${r.tgl}`, tgl: r.tgl });
+  const allDays = [...new Set(rows.map(r=>r.tgl).filter(Boolean))].sort();
+  const COLORS = ['#E24B4A','#BA7517','#378ADD','#7F77DD','#1D9E75','#D4537E','#854F0B','#185FA5'];
+
+  const allSeries = Object.entries(seriesMap).map(([name,{kat,points}], i) => ({
+    key: name, label: name, kat: (kat||'').toLowerCase().includes('penyakit')?'penyakit':'hama',
+    color: COLORS[i % COLORS.length],
+    data: allDays.map(d => points[d]||0)
+  }));
+
+  if (!_hptActiveItems) {
+    _hptActiveItems = {};
+    allSeries.forEach(s => { _hptActiveItems[s.key] = true; });
+  }
+
+  // Render toggle UI
+  const toggleEl = document.getElementById('hptItemToggles');
+  if (toggleEl) {
+    const katFiltered = allSeries.filter(s => (_hptKatHama&&s.kat==='hama')||(_hptKatPenyakit&&s.kat==='penyakit'));
+    toggleEl.innerHTML = katFiltered.map(s => {
+      const on = _hptActiveItems[s.key] !== false;
+      return `<button onclick="hptToggleItem('${s.key.replace(/'/g,"\'")}')"
+        style="font-size:10px;font-weight:500;padding:3px 9px;border-radius:20px;
+               background:${on?s.color+'22':'transparent'};color:${on?s.color:'var(--text4)'};
+               border:1px solid ${on?s.color:'var(--border2)'};cursor:pointer;display:inline-flex;align-items:center;gap:3px;
+               opacity:${on?1:.4}">
+        <span style="width:6px;height:6px;border-radius:50%;background:${s.color};display:inline-block"></span>${s.label}
+      </button>`;
+    }).join('');
+  }
+
+  // Build visible datasets
+  const visible = allSeries.filter(s =>
+    (_hptKatHama&&s.kat==='hama'||_hptKatPenyakit&&s.kat==='penyakit') && _hptActiveItems[s.key]!==false
+  );
+
+  const chartEl = document.getElementById('hptTrendCanvas');
+  if (!chartEl) return;
+  const ctx = chartEl.getContext('2d');
+
+  if (_hptChart) { _hptChart.destroy(); _hptChart = null; }
+
+  _hptChart = new Chart(ctx, {
+    type:'line',
+    data:{
+      labels: allDays.map(d=>d.slice(5).split('-').reverse().join('/')),
+      datasets: visible.map(s => ({
+        label: s.label,
+        data: s.data,
+        borderColor: s.color,
+        backgroundColor: s.color+'15',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: s.color,
+        tension: .35,
+        fill: false,
+      }))
+    },
+    options:{
+      responsive:true,
+      interaction:{mode:'index',intersect:false},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(20,30,40,.9)',padding:10,cornerRadius:8,titleFont:{size:11},bodyFont:{size:11}}},
+      scales:{
+        x:{grid:{color:'rgba(128,128,128,.07)'},ticks:{font:{size:10},color:'var(--text3)'}},
+        y:{grid:{color:'rgba(128,128,128,.07)'},ticks:{font:{size:10},color:'var(--text3)'},beginAtZero:true}
+      }
     }
   });
 
-  alertBadge.textContent = alerts.length + ' aktif';
-  alertEl.innerHTML = alerts.length
-    ? alerts.map(a => `<div class="ai">
-        <span class="ai-ico">${a.ico}</span>
-        <div class="ai-body">
-          <div class="ai-title">${a.title}</div>
-          <div class="ai-desc">${a.desc}</div>
-        </div>
-      </div>`).join('')
-    : '<div class="es">✅ Tidak ada alert HPT aktif saat ini</div>';
+  // Legend
+  const legEl = document.getElementById('hptTrendLegend');
+  if (legEl) legEl.innerHTML = visible.map(s =>
+    `<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+      <span style="width:14px;height:3px;background:${s.color};border-radius:2px;display:inline-block"></span>${s.label}
+    </span>`
+  ).join('');
+}
+
+function hptSetKat(kat) {
+  if (kat==='hama')     _hptKatHama     = !_hptKatHama;
+  if (kat==='penyakit') _hptKatPenyakit = !_hptKatPenyakit;
+  const bH = document.getElementById('hptBtnHama');
+  const bP = document.getElementById('hptBtnPenyakit');
+  if (bH) bH.className = 'fbtn' + (_hptKatHama?' active':'');
+  if (bP) bP.className = 'fbtn' + (_hptKatPenyakit?' active':'');
+  renderHptTrendChart([...RAW_HPT]);
+}
+
+function hptToggleItem(key) {
+  if (!_hptActiveItems) _hptActiveItems = {};
+  _hptActiveItems[key] = _hptActiveItems[key] === false ? true : false;
+  renderHptTrendChart([...RAW_HPT]);
+}
+
+function miniStat2(lbl, val, col) {
+  return `<div style="background:var(--surface2);border-radius:8px;padding:9px 12px;text-align:center">
+    <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${val}</div>
+    <div style="font-size:10px;color:var(--text3);margin-top:2px">${lbl}</div>
+  </div>`;
 }
 
 // ── TAB SWITCH ──
@@ -6968,10 +6945,10 @@ function ccBuildPhaseTimeline() {
     const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
     const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
 
-    // HPT
-    const hptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
-    const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
-    const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
+    // HPT — new long format: ambil max status dari semua rows GH ini
+    const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh);
+    const hptMaxLvlTL = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    const hptLevel    = hptMaxLvlTL>=3?'high':hptMaxLvlTL>=2?'medium':'low';
 
     // PNY
     const pnyRows = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
@@ -7143,14 +7120,19 @@ function ccShowGhIssue(ghName) {
     : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
 
   // ── STATUS ──
-  const hasKritis = hptLevel==='high' || grCrit || popPct < 75;
-  const hasIsu    = sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90;
+  const hasKritis = hptMaxLvl>=3 || grCrit || popPct < 75;
+  const hasIsu    = sntNoRecord || belumSnt || hptMaxLvl>=2 || pnyDev || grWn || popPct < 90;
   const overallBadge = hasKritis
     ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
     : hasIsu
       ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
       : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
-  const hptSt = hptLevel==='high' ? 'crit' : hptLevel==='medium' ? 'warn' : 'ok';
+  // HPT status from new long format
+  const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+  const hptSt = hptMaxLvl>=3 ? 'crit' : hptMaxLvl>=2 ? 'warn' : 'ok';
+  const hptDetailStr = latestHPT
+    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
+    : 'Belum ada data HPT';
   const pnySt = pnyDev ? 'warn' : 'ok';
   const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
   const grSt  = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
@@ -7311,33 +7293,83 @@ function ccShowGhIssue(ghName) {
   }
 
   function detailHPT() {
-    const lvlCol = hptLevel==='high'?'var(--red-txt)':hptLevel==='medium'?'var(--yellow-txt)':'var(--green-txt)';
-    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-        ${miniStat('Risiko saat ini', hptLevel.toUpperCase(), lvlCol)}
-        ${miniStat('Total input', hptRows.length, 'var(--text)')}
-        ${miniStat('Data terbaru', latestHPT?fmtD(latestHPT.tgl):'—', 'var(--text)')}
+    // Ambil semua HPT rows untuk GH ini (dari RAW_HPT long format)
+    const allHptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase() === gh);
+    const hptInRange = allHptRows.filter(x => (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+
+    // Max status per GH
+    const maxLvl = allHptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    const ghStatus = statusLabel(maxLvl);
+    const lvlCol = maxLvl>=4?'var(--red-txt)':maxLvl>=3?'var(--red-txt)':maxLvl>=2?'var(--yellow-txt)':'var(--green-txt)';
+
+    // Latest tgl
+    const latestTgl = allHptRows.reduce((m,x)=>(!m||x.tgl>m)?x.tgl:m, null);
+    const daysSince = latestTgl ? Math.floor((new Date()-new Date(latestTgl))/(864e5)) : null;
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Status tertinggi', ghStatus.toUpperCase(), lvlCol)}
+        ${miniStat('Total record', allHptRows.length, 'var(--text)')}
+        ${miniStat('Data terbaru', latestTgl?fmtD(latestTgl):'—', 'var(--text)')}
+        ${miniStat('Hari lalu', daysSince!==null?daysSince+'h':'—', daysSince>7?'var(--yellow-txt)':'var(--green-txt)')}
       </div>`;
-    if (hptHistory.length) {
-      html += secLbl('Riwayat pengamatan')
-        + hptHistory.map(x => {
-            const lv = risikoGlobal?risikoGlobal(x):'low';
-            const col = lv==='high'?'var(--red-txt)':lv==='medium'?'var(--yellow-txt)':'var(--green-txt)';
-            const bg  = lv==='high'?'var(--red-lt)':lv==='medium'?'var(--yellow-lt)':'var(--green-lt)';
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
-              <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);width:60px;flex-shrink:0">${fmtD(x.tgl)}</span>
-              <span style="flex:1;color:var(--text);padding:0 8px">${x.hama||x.penyakit||'—'}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:${bg};color:${col};font-weight:600">${lv}</span>
-            </div>`;
-          }).join('');
+
+    if (allHptRows.length) {
+      // Group by hptName, sum nilai
+      const byHpt = {};
+      hptInRange.forEach(x => {
+        if (!byHpt[x.hptName]) byHpt[x.hptName] = {kat:x.kat,total:0,maxSt:0,lastTgl:''};
+        byHpt[x.hptName].total += x.nilai;
+        if (statusLevel(x.status) > byHpt[x.hptName].maxSt) byHpt[x.hptName].maxSt = statusLevel(x.status);
+        if (x.tgl > byHpt[x.hptName].lastTgl) byHpt[x.hptName].lastTgl = x.tgl;
+      });
+      const ranked = Object.entries(byHpt).sort((a,b)=>b[1].maxSt-a[1].maxSt||b[1].total-a[1].total);
+      const maxTotal = ranked.reduce((m,[,v])=>Math.max(m,v.total),1);
+
+      html += secLbl('HPT dalam date range ini');
+      if (ranked.length) {
+        html += ranked.map(([name,v]) => {
+          const col = v.maxSt>=4?'#A32D2D':v.maxSt>=3?'var(--red)':v.maxSt>=2?'#c87800':'var(--green)';
+          const stLbl = statusLabel(v.maxSt);
+          const w = Math.round(v.total/maxTotal*100);
+          const isP = (v.kat||'').toLowerCase().includes('penyakit');
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--text);width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+            <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
+              <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px">
+                <span style="font-size:9px;color:#fff;font-weight:700">${w>20?v.total.toFixed(1):''}</span>
+              </div>
+            </div>
+            <div style="width:60px;flex-shrink:0;text-align:right">
+              <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${col+'22'};color:${col};font-weight:600">${stLbl}</span>
+            </div>
+          </div>`;
+        }).join('');
+      } else {
+        html += `<div style="font-size:11px;color:var(--text3)">Tidak ada data HPT dalam date range ini</div>`;
+      }
+
+      // Riwayat terbaru
+      const recent = [...allHptRows].sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,6);
+      html += secLbl('Riwayat pengamatan terbaru');
+      html += recent.map(x => {
+        const col = statusLevel(x.status)>=4?'#A32D2D':statusLevel(x.status)>=3?'var(--red-txt)':statusLevel(x.status)>=2?'var(--yellow-txt)':'var(--green-txt)';
+        const bg  = statusLevel(x.status)>=4?'#fdecea':statusLevel(x.status)>=3?'var(--red-lt)':statusLevel(x.status)>=2?'var(--yellow-lt)':'var(--green-lt)';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);width:56px;flex-shrink:0">${fmtD(x.tgl)}</span>
+          <span style="flex:1;color:var(--text)">${x.hptName}</span>
+          <span style="color:var(--text3);font-family:'JetBrains Mono',monospace;width:36px;text-align:right">${x.nilai}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600;width:58px;text-align:center">${x.status}</span>
+        </div>`;
+      }).join('');
     } else {
       html += dummyNote()
         + secLbl('Riwayat serangan (dummy)')
-        + [['DM (Downy Mildew)','Low'],['PM (Powdery Mildew)','Low'],['Thrips','Medium']].map(([n,lv]) => {
+        + [['DM (Downy Mildew)',0,'Low'],['PM (Powdery Mildew)',0,'Low'],['Thrips',20,'Medium']].map(([n,v,lv]) => {
             const col = lv==='High'?'var(--red-txt)':lv==='Medium'?'var(--yellow-txt)':'var(--green-txt)';
             const bg  = lv==='High'?'var(--red-lt)':lv==='Medium'?'var(--yellow-lt)':'var(--green-lt)';
-            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
-              <span style="color:var(--text)">${n}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:${bg};color:${col};font-weight:600">${lv}</span>
+            return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+              <span style="flex:1;color:var(--text)">${n}</span>
+              <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600">${lv}</span>
             </div>`;
           }).join('');
     }
@@ -7483,7 +7515,7 @@ function ccShowGhIssue(ghName) {
     { id:'kesiapan', icon:'🏗',  label:'Kesiapan GH',       soon:true,  status:'—',      detail:'Sedang dikembangkan' },
     { id:'pop',      icon:'⚖️',  label:'Populasi & Gramasi', soon:false, status:popGrSt,  detail:'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—')+(r.avgGramasi>0?' · Gramasi: '+Math.round(r.avgGramasi)+'g':' · Gramasi: belum input') },
     { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
-    { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: latestHPT?'Risiko '+hptLevel+' · '+fmtD(latestHPT.tgl):'Belum ada data HPT' },
+    { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: hptDetailStr },
     { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
     { id:'vigor',    icon:'⚡',  label:'Vigor',              soon:true,  status:'—',      detail:'Sedang dikembangkan' },
     { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
