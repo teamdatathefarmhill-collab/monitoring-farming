@@ -4328,6 +4328,27 @@ const WX_ICON = {'cerah':'☀️','cerah berawan':'⛅','berawan':'🌥️','men
 const WX_BG   = {'cerah':'linear-gradient(135deg,#fffbe8,#fef3c7)','cerah berawan':'linear-gradient(135deg,#f0f4ff,#dbeafe)','berawan':'linear-gradient(135deg,#f3f4f6,#e5e7eb)','mendung':'linear-gradient(135deg,#f3f4f6,#e5e7eb)','hujan':'linear-gradient(135deg,#eff6ff,#dbeafe)','hujan lebat':'linear-gradient(135deg,#eff6ff,#bfdbfe)','gerimis':'linear-gradient(135deg,#eff6ff,#dbeafe)'};
 
 function wxIcon(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_ICON))if(k.includes(key))return WX_ICON[key];return'🌤️';}
+
+// ── EC air baku checker ──
+// Sawahan: EC 0.6-0.8 jam 10-14 = normal (air baku)
+// Tohudan & Bergas: EC 0.6-0.7 jam 10-14 = normal (air baku)
+function isEcAirBaku(r) {
+  if (!r || !r.ecIn) return false;
+  const ec  = +r.ecIn;
+  const jam = parseInt((r.jam||'0').split(':')[0]) || 0;
+  const loc = clOf(r.gh||'').toUpperCase();
+  if (jam < 10 || jam > 14) return false; // hanya jam 10-14
+  if (loc === 'SAWAHAN'  && ec >= 0.6 && ec <= 0.8) return true;
+  if ((loc === 'TOHUDAN' || loc === 'BERGAS') && ec >= 0.6 && ec <= 0.7) return true;
+  return false;
+}
+
+// Cek apakah EC deviasi (excludes air baku)
+function isEcDev(r) {
+  if (!r || !r.ecIn || r.ecIn <= 0) return false;
+  if (isEcAirBaku(r)) return false; // air baku → skip
+  return r.ecIn < 2.5 || r.ecIn > 3.2;
+}
 function wxBg(c){const k=(c||'').toLowerCase().trim();for(const key of Object.keys(WX_BG))if(k.includes(key))return WX_BG[key];return'linear-gradient(135deg,#f0f4ff,#dbeafe)';}
 function modus(arr){const f={};let m=0,r='';arr.forEach(v=>{f[v]=(f[v]||0)+1;if(f[v]>m){m=f[v];r=v;}});return r;}
 
@@ -6155,7 +6176,7 @@ function ccBadge(id) {
       const pny = ccFilteredPNY();
       const latestByGH = {};
       pny.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
-      const dev = Object.values(latestByGH).filter(r => (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))).length;
+      const dev = Object.values(latestByGH).filter(r => isEcDev(r)||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))).length;
       return dev > 0 ? {text: dev+' deviasi', cls:'p-w'} : {text:'ok', cls:'p-ok'};
     }
     case 'cc-gramasi': {
@@ -6222,7 +6243,7 @@ function ccAlerts(id) {
       const pny = ccFilteredPNY();
       const latestByGH = {};
       pny.forEach(r => { if (!latestByGH[r.gh]||r.tgl>latestByGH[r.gh].tgl) latestByGH[r.gh]=r; });
-      const dev = Object.values(latestByGH).filter(r => (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3)));
+      const dev = Object.values(latestByGH).filter(r => isEcDev(r)||(r.phIn&&(r.phIn<5.8||r.phIn>6.3)));
       if (!dev.length) return [{dot:'dot-green', text:'Semua EC & pH normal'}];
       return dev.slice(0,2).map(r => ({dot:'dot-amber', text: r.gh+' — deviasi EC/pH'}));
     }
@@ -6838,7 +6859,7 @@ function ccRenderDetail(id, panel) {
     const phArr = all.filter(r=>r.phIn>0).map(r=>r.phIn);
     const avgEC = ecArr.length ? (ecArr.reduce((s,v)=>s+v,0)/ecArr.length).toFixed(2) : '—';
     const avgPH = phArr.length ? (phArr.reduce((s,v)=>s+v,0)/phArr.length).toFixed(2) : '—';
-    const devEC = all.filter(r=>r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2));
+    const devEC = all.filter(r=>isEcDev(r));
     const devPH = all.filter(r=>r.phIn&&(r.phIn<5.8||r.phIn>6.3));
     const devAll = [...new Set([...devEC,...devPH].map(r=>r.gh))];
     const badge = devAll.length ? `<span class="pill p-w">${devAll.length} deviasi</span>` : `<span class="pill p-ok">EC & pH normal</span>`;
@@ -6853,7 +6874,7 @@ function ccRenderDetail(id, panel) {
         ? devAll.map(gh => {
             const r = latestByGH[gh];
             const issues = [];
-            if(r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2)) issues.push('EC in '+r.ecIn+' (std 2.5–3.2)');
+            if(isEcDev(r)) issues.push('EC in '+r.ecIn+' (std 2.5–3.2)');
             if(r.phIn&&(r.phIn<5.8||r.phIn>6.3)) issues.push('pH in '+r.phIn+' (std 5.8–6.3)');
             return ccAlertItem('⚠️', gh, issues.join(' · '));
           }).join('')
@@ -7496,10 +7517,16 @@ function ccBuildPhaseTimeline() {
     // SNT — cek periode dan record terakhir (mulai HST 8)
     const normP = s => String(s||'').trim().toLowerCase();
     const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
-    const belumSnt = !sntKeys.has(r.gh+'||'+normP(r.periode));
-    // Warning: HST >= 8 dan tidak ada record sanitasi > 7 hari (atau tidak ada sama sekali)
-    const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
-    const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
+    // belumSnt: belum sanitasi periode ini — hanya warning jika HST > 7
+    const belumSnt = r.hst > 7 && !sntKeys.has(r.gh+'||'+normP(r.periode));
+    // Logika warning sanitasi:
+    // - Belum ada record sama sekali + HST > 7 → warning
+    // - Ada record terakhir: jika hari ini - tgl record terakhir > 7 → warning (berlaku dari HST berapapun)
+    // - HST 0-7 dan belum ada record → ok (wajar)
+    const daysSinceSnt = sntDaysSinceLastRecord(r.gh); // null = belum ada record
+    const sntNoRecord  = daysSinceSnt === null
+      ? r.hst > 7  // belum pernah ada record, warning hanya jika sudah HST > 7
+      : daysSinceSnt > 7; // ada record tapi sudah > 7 hari lalu → warning
 
     // HPT — new long format: ambil max status dari semua rows GH ini
     const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh);
@@ -7509,7 +7536,7 @@ function ccBuildPhaseTimeline() {
     // PNY
     const pnyRows = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
     const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
-    const pnyDev = latestPNY && ((latestPNY.ecIn&&(latestPNY.ecIn<2.5||latestPNY.ecIn>3.2))||(latestPNY.phIn&&(latestPNY.phIn<5.8||latestPNY.phIn>6.3)));
+    const pnyDev = latestPNY && (isEcDev(latestPNY)||(latestPNY.phIn&&(latestPNY.phIn<5.8||latestPNY.phIn>6.3)));
 
     // Pop & Gramasi
     const popPct = pctPopVsStd(r);
@@ -7648,7 +7675,7 @@ function ccShowGhIssue(ghName) {
   // ── PNY ──
   const pnyRows   = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
   const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
-  const ecDev  = latestPNY && latestPNY.ecIn && (latestPNY.ecIn<2.5||latestPNY.ecIn>3.2);
+  const ecDev  = latestPNY && isEcDev(latestPNY);
   const phDev  = latestPNY && latestPNY.phIn && (latestPNY.phIn<5.8||latestPNY.phIn>6.3);
   const pnyDev = ecDev || phDev;
   const pnyByDay = {};
@@ -7672,13 +7699,15 @@ function ccShowGhIssue(ghName) {
     ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
     : 'Belum ada data HPT';
 
-  // ── SNT WARNING: cek record terakhir (HST >= 8) ──
-  const daysSinceSnt = r.hst >= 8 ? sntDaysSinceLastRecord(r.gh) : null;
-  const sntNoRecord  = r.hst >= 8 && (daysSinceSnt === null || daysSinceSnt > 7);
+  // ── SNT WARNING: sama dengan logika di timeline ──
+  const daysSinceSnt = sntDaysSinceLastRecord(r.gh); // null = belum pernah ada record
+  const sntNoRecord  = daysSinceSnt === null
+    ? r.hst > 7   // belum ada record sama sekali, warning mulai HST > 7
+    : daysSinceSnt > 7; // ada record tapi > 7 hari lalu → warning (dari HST berapapun)
   const sntSt = sntNoRecord ? 'warn' : belumSnt ? 'warn' : 'ok';
   const sntDetailTxt = sntNoRecord
     ? (daysSinceSnt === null
-        ? 'Belum ada record sanitasi sejak tanam'
+        ? 'Belum ada record sanitasi (HST '+r.hst+')'
         : daysSinceSnt + ' hari tanpa pengamatan — perlu konfirmasi')
     : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
 
@@ -7936,7 +7965,9 @@ function ccShowGhIssue(ghName) {
   function detailPny() {
     const avgEC = pnyRows.filter(x=>x.ecIn>0).length ? (pnyRows.filter(x=>x.ecIn>0).reduce((s,x)=>s+x.ecIn,0)/pnyRows.filter(x=>x.ecIn>0).length).toFixed(2) : null;
     const avgPH = pnyRows.filter(x=>x.phIn>0).length ? (pnyRows.filter(x=>x.phIn>0).reduce((s,x)=>s+x.phIn,0)/pnyRows.filter(x=>x.phIn>0).length).toFixed(2) : null;
-    const ecCol = avgEC ? (avgEC>=2.5&&avgEC<=3.2?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
+    // Cek avg EC — tapi air baku hanya berlaku per record (butuh cek per row)
+    const pnyDevRows = pnyRows.filter(x => isEcDev(x));
+    const ecCol = avgEC ? (pnyDevRows.length===0?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
     const phCol = avgPH ? (avgPH>=5.8&&avgPH<=6.3?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
     let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
         ${miniStat('Avg EC in', avgEC||'—', ecCol)}
@@ -7948,7 +7979,7 @@ function ccShowGhIssue(ghName) {
         + `<div style="display:flex;gap:4px;overflow-x:auto">
             ${pnyDays.map(d => {
               const x = pnyByDay[d];
-              const ecOk = x.ecIn>=2.5&&x.ecIn<=3.2, phOk = x.phIn>=5.8&&x.phIn<=6.3;
+              const ecOk = !isEcDev(x), phOk = x.phIn>=5.8&&x.phIn<=6.3;
               return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
                 <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${d.slice(5).split('-').reverse().join('/')}</div>
                 <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${x.ecIn||'—'}</div>
@@ -7964,7 +7995,7 @@ function ccShowGhIssue(ghName) {
         + `<div style="display:flex;gap:4px;overflow-x:auto">
             ${[2.8,2.9,3.1,3.3,3.0,2.7,2.9].map((ec,i) => {
               const ph2 = [6.0,6.1,5.9,6.2,6.3,6.4,6.1][i];
-              const ecOk=ec>=2.5&&ec<=3.2, phOk=ph2>=5.8&&ph2<=6.3;
+              const ecOk=ec>=2.5&&ec<=3.2, phOk=ph2>=5.8&&ph2<=6.3; // dummy data
               const lbl = ['07','08','09','10','11','12','13'][i]+'/04';
               return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
                 <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${lbl}</div>
@@ -8236,7 +8267,7 @@ function ccRenderPhaseDist() {
     const latestPNY = {};
     pnyFiltered.forEach(r => { if(!latestPNY[r.gh]||r.tgl>latestPNY[r.gh].tgl) latestPNY[r.gh]=r; });
     const pnyDev = Object.values(latestPNY).filter(r =>
-      (r.ecIn&&(r.ecIn<2.5||r.ecIn>3.2))||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))
+      isEcDev(r)||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))
     ).length;
 
     // Total masalah
@@ -8461,7 +8492,7 @@ function tlGetPNY(ghName) {
   const rows = RAW_PNY.filter(r => r.gh && r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
   if (!rows.length) return null;
   const latest = rows.reduce((best, r) => (r.tgl||'') > (best.tgl||'') ? r : best, rows[0]);
-  const ecDev = latest.ecIn > 0 && (latest.ecIn < 2.5 || latest.ecIn > 3.2);
+  const ecDev = isEcDev(latest);
   const phDev = latest.phIn > 0 && (latest.phIn < 5.8 || latest.phIn > 6.3);
   return (ecDev || phDev) ? 'warn' : 'ok';
 }
