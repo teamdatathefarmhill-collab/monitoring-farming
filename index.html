@@ -7576,29 +7576,24 @@ function ccBuildPhaseTimeline() {
   // Pre-compute issue level per GH
   function ghIssueLevel(r) {
     const gh = r.gh.trim().toUpperCase();
-
-    // SNT — cek periode dan record terakhir (mulai HST 8)
     const normP = s => String(s||'').trim().toLowerCase();
-    const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
-    // belumSnt: belum sanitasi periode ini — hanya warning jika HST > 7
-    const belumSnt = r.hst > 7 && !sntKeys.has(r.gh+'||'+normP(r.periode));
-    // Logika warning sanitasi:
-    // - Belum ada record sama sekali + HST > 7 → warning
-    // - Ada record terakhir: jika hari ini - tgl record terakhir > 7 → warning (berlaku dari HST berapapun)
-    // - HST 0-7 dan belum ada record → ok (wajar)
-    const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode); // null = belum ada record periode ini
-    const sntNoRecord  = daysSinceSnt === null
-      ? r.hst > 7  // belum pernah ada record, warning hanya jika sudah HST > 7
-      : daysSinceSnt > 7; // ada record tapi sudah > 7 hari lalu → warning
 
-    // HPT — new long format: ambil max status dari semua rows GH ini
-    const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh);
-    const hptMaxLvlTL = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    // SNT — cek periode aktif dan record terakhir
+    const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
+    const belumSnt = r.hst > 7 && !sntKeys.has(r.gh+'||'+normP(r.periode));
+    const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode);
+    const sntNoRecord  = daysSinceSnt === null
+      ? r.hst > 7
+      : daysSinceSnt > 7;
+
+    // HPT — pakai date range (konsisten dengan card)
+    const hptRowsTL   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const hptMaxLvlTL = hptRowsTL.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
     const hptLevel    = hptMaxLvlTL>=3?'high':hptMaxLvlTL>=2?'medium':'low';
 
-    // PNY
-    const pnyRows = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
-    const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+    // PNY — pakai date range (konsisten dengan card)
+    const pnyRowsTL = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const latestPNY = pnyRowsTL.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
     const pnyDev = latestPNY && (isEcDev(latestPNY)||(latestPNY.phIn&&(latestPNY.phIn<5.8||latestPNY.phIn>6.3)));
 
     // Pop & Gramasi
@@ -7774,9 +7769,9 @@ function ccShowGhIssue(ghName) {
         : daysSinceSnt + ' hari tanpa pengamatan — perlu konfirmasi')
     : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
 
-  // ── STATUS ──
+  // ── STATUS — identik dengan ghIssueLevel agar dot dan card konsisten ──
   const hasKritis = hptMaxLvl>=3 || grCrit || popPct < 75;
-  const hasIsu    = sntNoRecord || belumSnt || hptMaxLvl>=2 || pnyDev || grWn || popPct < 90;
+  const hasIsu    = !hasKritis && (sntNoRecord || belumSnt || hptMaxLvl>=2 || pnyDev || grWn || popPct < 90);
   const overallBadge = hasKritis
     ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
     : hasIsu
