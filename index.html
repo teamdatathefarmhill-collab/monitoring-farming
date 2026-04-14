@@ -4923,25 +4923,30 @@ async function fetchCuaca() {
       const o = {};
       hdrs.forEach((h,i) => { o[h] = cells[i]||''; });
 
-      // Parse tanggal — handle berbagai format: "12-Apr-26", "12/04/2026", "2026-04-12"
+      // Parse skoring — yang penting ini
+      const skor = parseFloat(o['skoring'] || o['skor'] || o['score'] || '0') || 0;
+
+      // Parse tanggal — handle: "12-Apr-26", "12/04/2026", "2026-04-12", "Apr 12 2026"
       let tgl = '';
       const dateRaw = (o['date'] || o['tanggal'] || '').trim();
       if (dateRaw) {
-        // Try format: "12-Apr-26" atau "12-Apr-2026"
-        const mApr = dateRaw.match(/^(\d{1,2})[-\/](\w{3})[-\/](\d{2,4})$/);
-        if (mApr) {
-          const MONTHS = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
-                         jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
-          const mo = MONTHS[mApr[2].toLowerCase()] || '01';
-          const yr = mApr[3].length===2 ? '20'+mApr[3] : mApr[3];
-          tgl = yr+'-'+mo+'-'+mApr[1].padStart(2,'0');
+        const MONTHS = {jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                        jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'};
+        // "12-Apr-26" atau "12-Apr-2026"
+        const m1 = dateRaw.match(/^(\d{1,2})[-\/](\w{3,})[-\/](\d{2,4})$/);
+        if (m1) {
+          const mo = MONTHS[m1[2].slice(0,3).toLowerCase()] || '01';
+          const yr = m1[3].length===2 ? '20'+m1[3] : m1[3];
+          tgl = yr+'-'+mo+'-'+m1[1].padStart(2,'0');
         } else {
-          // Try ISO atau d/m/yyyy
+          // "Apr-12-26" atau JS Date parseable
           const d = new Date(dateRaw);
           if (!isNaN(d)) {
+            // Shift timezone issue: pakai UTC
             tgl = d.toISOString().slice(0,10);
           } else {
-            const m2 = dateRaw.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
+            // "12/04/2026" d/m/yyyy
+            const m2 = dateRaw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})$/);
             if (m2) {
               const yr = m2[3].length===2 ? '20'+m2[3] : m2[3];
               tgl = yr+'-'+m2[2].padStart(2,'0')+'-'+m2[1].padStart(2,'0');
@@ -4949,11 +4954,8 @@ async function fetchCuaca() {
           }
         }
       }
-      const cuaca = (o['cuaca'] || '').trim();
-      const skor  = parseFloat(o['skoring'] || o['skor'] || o['score'] || '0') || 0;
-      const jam   = (o['time'] || o['jam'] || '').trim();
-      return { tgl, jam, cuaca, skor };
-    }).filter(r => r.tgl && r.cuaca);
+      return { tgl, skor };
+    }).filter(r => r.tgl && r.skor > 0);
     console.log('[CUACA] loaded', RAW_CUACA.length, 'rows, sample:', RAW_CUACA[0]);
     // Paksa redraw chart sanitasi setelah data cuaca tersedia
     if (sntTrendChartObj) {
@@ -4966,15 +4968,16 @@ async function fetchCuaca() {
   }
 }
 
-// Helper: avg cuaca per hari dari RAW_CUACA
+// Helper: avg skoring per hari → label cuaca
+// Skoring: Cerah=100, Cerah Berawan=75 (>62.5), Berawan=50 (>37.5), Mendung=25 (>12.5), Hujan=0
 function cuacaHarian(tglIso) {
-  const rows = RAW_CUACA.filter(r => r.tgl === tglIso);
+  const rows = RAW_CUACA.filter(r => r.tgl === tglIso && r.skor > 0);
   if (!rows.length) return null;
-  const avgSkor = rows.reduce((s,r) => s + r.skor, 0) / rows.length;
-  if (avgSkor > 87.5) return 'cerah';
-  if (avgSkor > 62.5) return 'cerah berawan';
-  if (avgSkor > 37.5) return 'berawan';
-  if (avgSkor > 12.5) return 'mendung';
+  const avg = rows.reduce((s,r) => s + r.skor, 0) / rows.length;
+  if (avg > 87.5) return 'cerah';
+  if (avg > 62.5) return 'cerah berawan';
+  if (avg > 37.5) return 'berawan';
+  if (avg > 12.5) return 'mendung';
   return 'hujan';
 }
 
