@@ -503,6 +503,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
     <div class="nav-item" id="nav-penyemprotan" onclick="switchPage('penyemprotan')"><span class="nav-icon">🌿</span> Penyemprotan</div>
+    <div class="nav-item" id="nav-vigor" onclick="switchPage('vigor')"><span class="nav-icon">🌿</span> Kes. Tanaman</div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
     <div class="nav-section">Pemantauan</div>
@@ -1850,6 +1851,65 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
     </div><!-- /view-semai -->
 
+    <!-- ═══════════ VIEW: KESEHATAN TANAMAN ═══════════ -->
+    <div id="view-vigor" style="display:none">
+      <div class="ph">
+        <div>
+          <div class="ph-title">🌿 Kesehatan Tanaman</div>
+          <div class="ph-sub" id="vigorSub">Memuat data…</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="si" id="vigorGHFilter" onchange="rebuildVigor()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
+          <select class="si" id="vigorHstFilter" onchange="rebuildVigor()" style="width:130px;padding-left:10px;background-image:none"><option value="">Semua HST</option></select>
+          <button class="fbtn" onclick="fetchVigor().then(rebuildVigor)">🔄 Refresh</button>
+        </div>
+      </div>
+      <div class="up-strip" id="vigorUpStrip">
+        <span>📡 Data Kesehatan Tanaman · Tanggal Input: <b id="vigorUpAt">—</b></span>
+        <span id="vigorCnt" style="color:var(--text2);font-weight:600">— entri</span>
+      </div>
+
+      <!-- KPI row -->
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px" id="vigorKpiRow"></div>
+
+      <!-- Tab switch -->
+      <div style="display:flex;gap:6px;margin-bottom:14px">
+        <button class="fbtn active" id="vigorTabProc" onclick="setVigorTab('processed',this)" style="font-size:11px">📊 Ringkasan Skor</button>
+        <button class="fbtn"        id="vigorTabDb"   onclick="setVigorTab('db',this)"        style="font-size:11px">📋 Data Detail</button>
+      </div>
+
+      <!-- PROCESSED: card per GH -->
+      <div id="vigorViewProcessed">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px" id="vigorCards">
+          <div class="es" style="grid-column:1/-1">Memuat…</div>
+        </div>
+      </div>
+
+      <!-- DB: tabel detail -->
+      <div id="vigorViewDb" style="display:none">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-title">📋 Data Pengamatan Detail</div>
+            <div class="card-sub" id="vigorDbSub">Data per sampel varian</div>
+          </div>
+          <div class="tw">
+            <table>
+              <thead><tr>
+                <th style="width:28px">#</th>
+                <th>GH</th><th class="c">HST</th><th>Varian</th><th>Operator</th>
+                <th class="c">Tgl Input</th>
+                <th class="r">Vigor</th><th class="r">Akar</th>
+                <th class="r">Polinasi</th><th class="r">Kualitas</th>
+                <th class="r">Total</th>
+              </tr></thead>
+              <tbody id="vigorDbBody"><tr><td colspan="11" class="es">Memuat…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /view-vigor -->
+
     <!-- ═══════════ VIEW: SANITASI ═══════════ -->
     <div id="view-sanitasi" style="display:none">
 
@@ -3130,7 +3190,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline','view-penyemprotan'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline','view-penyemprotan','view-vigor'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -3162,7 +3222,8 @@ function switchPage(page) {
     if (!RAW_PNY.length) fetchPny(false);
   }
   if (page === 'penyemprotan') initSemp();
-  if (page === 'commandcenter') initCC();
+  if (page === 'commandcenter') { initCC(); ensureVigorFetched(); }
+  if (page === 'vigor') { ensureVigorFetched(); setTimeout(rebuildVigor, 300); }
   if (page === 'timeline') initTimeline();
   if (page === 'montimeline') initMonTimeline();
 
@@ -4820,6 +4881,16 @@ function checkSntCode() {
 //  SANITASI MODULE  v2
 // ══════════════════════════════════════════════
 const SNT_SHEET_ID = '1A5Bu0pEnTSMOZnSmB7c0ud3kVoCIC6p-HJ1AVbmegmQ';
+// ── Kesehatan Tanaman sheets ──
+const VIGOR_SHEET_ID   = '1t0hmb0AlqbfJ4KOK47LKkoRpJ-Jgl3fF6Ru8FZzSI0Y';
+const VIGOR_GID        = '1280535006'; // VIGOR_PROCESSED
+const VIGOR_DB_GID     = '1832506765'; // DATABASE
+const VIGOR_CSV_URL    = `https://docs.google.com/spreadsheets/d/${VIGOR_SHEET_ID}/export?format=csv&gid=${VIGOR_GID}`;
+const VIGOR_DB_CSV_URL = `https://docs.google.com/spreadsheets/d/${VIGOR_SHEET_ID}/export?format=csv&gid=${VIGOR_DB_GID}`;
+// HST checkpoint yang valid untuk data kesehatan
+const VIGOR_HST_CHECKPOINTS = [7, 14, 18, 33, 38, 45, 54];
+let RAW_VIGOR    = []; // VIGOR_PROCESSED rows
+let RAW_VIGOR_DB = []; // DATABASE rows
 // RAW_PNY_CUACA_UNUSED: pakai RAW_PNY yang sudah tersedia (field cuaca per row)
 const SNT_GID      = '0';
 const SNT_CSV_URL  = `https://docs.google.com/spreadsheets/d/${SNT_SHEET_ID}/export?format=csv&gid=${SNT_GID}`;
@@ -4936,6 +5007,91 @@ function cuacaHarian(tglIso) {
   if (avgHarian > 37.5) return 'berawan';
   if (avgHarian > 12.5) return 'mendung';
   return 'hujan';
+}
+
+// ── FETCH VIGOR / KESEHATAN TANAMAN ──
+async function fetchVigor() {
+  try {
+    const [r1, r2] = await Promise.all([
+      fetch(VIGOR_CSV_URL    + '&_t=' + Date.now()),
+      fetch(VIGOR_DB_CSV_URL + '&_t=' + Date.now()),
+    ]);
+    if (r1.ok) RAW_VIGOR    = parseVigorCsv(await r1.text(), 'processed');
+    if (r2.ok) RAW_VIGOR_DB = parseVigorCsv(await r2.text(), 'db');
+    console.log('[VIGOR] processed:', RAW_VIGOR.length, 'db:', RAW_VIGOR_DB.length);
+    // Update CC card jika sedang terbuka
+    if (typeof rebuildCC === 'function') rebuildCC();
+  } catch(e) {
+    console.error('[VIGOR] fetch error:', e);
+  }
+}
+
+function parseVigorCsv(text, type) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const hdrs = (typeof splitCSVRow === 'function' ? splitCSVRow(lines[0]) : lines[0].split(','))
+    .map(h => h.replace(/"/g,'').trim());
+  return lines.slice(1).map(l => {
+    const cells = (typeof splitCSVRow === 'function' ? splitCSVRow(l) : l.split(','))
+      .map(c => c.replace(/"/g,'').trim());
+    const o = {};
+    hdrs.forEach((h,i) => { o[h] = cells[i]||''; });
+    return o;
+  }).filter(r => Object.values(r).some(v => v));
+}
+
+// Ambil data vigor terbaru untuk GH tertentu
+// Pakai HST_Checkpoint terdekat ≤ HST aktual GH
+function getVigorForGH(ghName, periodeStr, hstAktual) {
+  const gh = ghName.trim().toUpperCase();
+  const normP = s => String(s||'').trim().toLowerCase();
+  const pNorm = normP(periodeStr);
+
+  // Filter rows matching GH + periode
+  const rows = RAW_VIGOR.filter(r => {
+    if ((r.GH||'').trim().toUpperCase() !== gh) return false;
+    if (pNorm && normP(r.Periode) !== pNorm) return false;
+    return true;
+  });
+  if (!rows.length) return null;
+
+  // Ambil HST_Checkpoint yang valid (≤ hstAktual), ambil yang terbesar
+  const validCheckpoints = VIGOR_HST_CHECKPOINTS.filter(h => h <= (hstAktual||999));
+  const maxValid = validCheckpoints.length ? Math.max(...validCheckpoints) : 999;
+
+  // Filter rows dengan HST_Checkpoint ≤ hstAktual, ambil yang terbaru (max Tanggal_Input)
+  const eligible = rows.filter(r => parseInt(r.HST_Checkpoint||'999') <= maxValid);
+  if (!eligible.length) return null;
+
+  // Group by HST_Checkpoint, ambil yang terbesar
+  const maxHst = Math.max(...eligible.map(r => parseInt(r.HST_Checkpoint||'0')));
+  const atHst  = eligible.filter(r => parseInt(r.HST_Checkpoint||'0') === maxHst);
+
+  // Avg skor per kolom
+  const avg = (key) => {
+    const vals = atHst.map(r => parseFloat(r[key]||'0')).filter(v => !isNaN(v) && v > 0);
+    return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+  };
+
+  return {
+    hstCheckpoint: maxHst,
+    hstAktual: hstAktual,
+    tglInput: atHst[0]?.Tanggal_Input || '',
+    sampleCount: atHst.length,
+    skor: {
+      vigor:    avg('Skor_Vigor'),
+      akar:     avg('Skor_Akar'),
+      polinasi: avg('Skor_Polinasi'),
+      kualitas: avg('Skor_Kualitas_Buah'),
+      total:    avg('Skor_Total'),
+    },
+    rows: atHst,
+  };
+}
+
+// Trigger fetch vigor saat CC atau menu Kesehatan Tanaman dibuka
+function ensureVigorFetched() {
+  if (!RAW_VIGOR.length) fetchVigor();
 }
 
 // ── FETCH ──
@@ -7635,6 +7791,178 @@ function fmtTgl(iso) {
   return iso.slice(5).split('-').reverse().join('/');
 }
 
+// ══════════════════════════════════════════════
+//  KESEHATAN TANAMAN MODULE
+// ══════════════════════════════════════════════
+let VIGOR_TAB = 'processed';
+
+function setVigorTab(tab, el) {
+  VIGOR_TAB = tab;
+  document.getElementById('vigorViewProcessed').style.display = tab === 'processed' ? '' : 'none';
+  document.getElementById('vigorViewDb').style.display        = tab === 'db'        ? '' : 'none';
+  document.querySelectorAll('#vigorTabProc,#vigorTabDb').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function rebuildVigor() {
+  if (!RAW_VIGOR.length && !RAW_VIGOR_DB.length) {
+    const sub = document.getElementById('vigorSub');
+    if (sub) sub.textContent = 'Data belum tersedia · klik Refresh';
+    return;
+  }
+
+  const ghF  = document.getElementById('vigorGHFilter')?.value  || '';
+  const hstF = document.getElementById('vigorHstFilter')?.value || '';
+
+  // Filter VIGOR_PROCESSED
+  let proc = [...RAW_VIGOR];
+  if (ghF)  proc = proc.filter(r => (r.GH||'').toLowerCase().includes(ghF.toLowerCase()));
+  if (hstF) proc = proc.filter(r => (r.HST_Checkpoint||'') === hstF);
+
+  // Populate filters
+  const ghSel  = document.getElementById('vigorGHFilter');
+  const hstSel = document.getElementById('vigorHstFilter');
+  if (ghSel) {
+    const ghs = [...new Set(RAW_VIGOR.map(r=>r.GH).filter(Boolean))].sort();
+    const prev = ghSel.value;
+    ghSel.innerHTML = '<option value="">Semua GH</option>' + ghs.map(g=>`<option value="${g}" ${g===prev?'selected':''}>${g}</option>`).join('');
+  }
+  if (hstSel) {
+    const hsts = [...new Set(RAW_VIGOR.map(r=>r.HST_Checkpoint).filter(Boolean))].sort((a,b)=>+a-+b);
+    const prev = hstSel.value;
+    hstSel.innerHTML = '<option value="">Semua HST</option>' + hsts.map(h=>`<option value="${h}" ${h===prev?'selected':''}>${h}</option>`).join('');
+  }
+
+  // KPI
+  const avgOf = key => {
+    const vals = proc.map(r=>parseFloat(r[key]||'0')).filter(v=>!isNaN(v)&&v>0);
+    return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : null;
+  };
+  const kpiEl = document.getElementById('vigorKpiRow');
+  if (kpiEl) {
+    const kpiStat = (lbl, val, icon) => {
+      const v = val !== null ? val : '—';
+      const col = val===null?'var(--text4)':val>=90?'var(--green-txt)':val>=75?'#854F0B':'var(--red-txt)';
+      return `<div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:13px;margin-bottom:3px">${icon}</div>
+        <div style="font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${v}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${lbl}</div>
+      </div>`;
+    };
+    kpiEl.innerHTML =
+      kpiStat('Avg Vigor',    avgOf('Skor_Vigor'),         '🌱') +
+      kpiStat('Avg Akar',     avgOf('Skor_Akar'),          '🌿') +
+      kpiStat('Avg Polinasi', avgOf('Skor_Polinasi'),      '🌸') +
+      kpiStat('Avg Kualitas', avgOf('Skor_Kualitas_Buah'), '🍅') +
+      kpiStat('Avg Total',    avgOf('Skor_Total'),         '⭐');
+  }
+
+  // Sub
+  const sub = document.getElementById('vigorSub');
+  if (sub) {
+    const latestTgl = proc.reduce((m,r)=>r.Tanggal_Input>m?r.Tanggal_Input:m, '');
+    sub.textContent = `Kesehatan Tanaman · ${proc.length} entri · ${ghF||'Semua GH'} · update ${latestTgl||'—'}`;
+  }
+  const upEl = document.getElementById('vigorUpAt');
+  const latestTgl2 = RAW_VIGOR.reduce((m,r)=>r.Tanggal_Input>m?r.Tanggal_Input:m, '');
+  if (upEl) upEl.textContent = latestTgl2.slice(0,10)||'—';
+  const cntEl = document.getElementById('vigorCnt');
+  if (cntEl) cntEl.textContent = RAW_VIGOR.length + ' entri processed';
+
+  renderVigorCards(proc);
+  renderVigorDb();
+}
+
+function renderVigorCards(proc) {
+  const cardsEl = document.getElementById('vigorCards');
+  if (!cardsEl) return;
+  if (!proc.length) { cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data</div>'; return; }
+
+  // Group by GH — ambil HST_Checkpoint terbesar per GH
+  const ghMap = {};
+  proc.forEach(r => {
+    const key = r.GH;
+    if (!ghMap[key]) ghMap[key] = { gh:r.GH, rows:[], maxHst:0 };
+    const hst = parseInt(r.HST_Checkpoint||'0');
+    if (hst > ghMap[key].maxHst) ghMap[key].maxHst = hst;
+    ghMap[key].rows.push(r);
+  });
+
+  cardsEl.innerHTML = Object.values(ghMap).sort((a,b)=>a.gh.localeCompare(b.gh)).map(g => {
+    const atMaxHst = g.rows.filter(r => parseInt(r.HST_Checkpoint||'0') === g.maxHst);
+    const avg = key => {
+      const vals = atMaxHst.map(r=>parseFloat(r[key]||'0')).filter(v=>!isNaN(v)&&v>0);
+      return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : null;
+    };
+    const dot   = CC[clOf(g.gh)] || '#999';
+    const total = avg('Skor_Total');
+    const bdrCol = total===null?'var(--border2)':total>=90?'var(--green-mid)':total>=75?'#c87800':'var(--red)';
+    const bgCol  = total===null?'':total>=90?'rgba(26,122,58,.03)':total>=75?'rgba(160,96,0,.03)':'rgba(192,32,32,.03)';
+    const tgl   = atMaxHst[0]?.Tanggal_Input?.slice(0,10)||'—';
+
+    function bar(val, label, icon) {
+      const v = val !== null ? val : 0;
+      const col = v>=90?'var(--green)':v>=75?'#c87800':'var(--red)';
+      return `<div style="margin-bottom:5px">
+        <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px">
+          <span style="color:var(--text3)">${icon} ${label}</span>
+          <span style="font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${val!==null?val:'—'}</span>
+        </div>
+        <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+          <div style="width:${v}%;height:100%;background:${col};border-radius:3px"></div>
+        </div>
+      </div>`;
+    }
+
+    return `<div style="border:1.5px solid ${bdrCol};border-radius:11px;padding:13px;background:${bgCol}">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+        <span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>
+        <span style="font-size:12.5px;font-weight:800;flex:1">${g.gh}</span>
+        <span style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${bdrCol}">${total!==null?total:'—'}</span>
+      </div>
+      <div style="font-size:9px;color:var(--text4);margin-bottom:9px">HST ${g.maxHst} · ${tgl} · ${atMaxHst.length} sampel</div>
+      ${bar(avg('Skor_Vigor'),         'Vigor',         '🌱')}
+      ${bar(avg('Skor_Akar'),          'Akar',          '🌿')}
+      ${bar(avg('Skor_Polinasi'),      'Polinasi',      '🌸')}
+      ${avg('Skor_Kualitas_Buah')!==null ? bar(avg('Skor_Kualitas_Buah'), 'Kualitas Buah', '🍅') : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderVigorDb() {
+  const body = document.getElementById('vigorDbBody');
+  if (!body || !RAW_VIGOR_DB.length) {
+    if (body) body.innerHTML = '<tr><td colspan="11" class="es">Belum ada data detail</td></tr>';
+    return;
+  }
+  const ghF = document.getElementById('vigorGHFilter')?.value || '';
+  let rows = [...RAW_VIGOR_DB];
+  if (ghF) rows = rows.filter(r => (r.GH||'').toLowerCase().includes(ghF.toLowerCase()));
+  rows = rows.slice(0, 200);
+
+  const dot = gh => CC[clOf(gh||'')] || '#999';
+  const skor = (val, warn=75, crit=60) => {
+    const v = parseFloat(val||'0');
+    if (!v) return `<td class="r" style="color:var(--text4)">—</td>`;
+    const col = v>=warn?'var(--green-txt)':v>=crit?'#854F0B':'var(--red-txt)';
+    return `<td class="r" style="color:${col};font-weight:700">${v}</td>`;
+  };
+
+  body.innerHTML = rows.map((r,i) => `<tr>
+    <td class="no-col">${i+1}</td>
+    <td><div class="gh-name"><span class="gh-dot" style="background:${dot(r.GH)}"></span>${r.GH||'—'}</div></td>
+    <td class="c"><span class="hst-b" style="font-size:10px">HST ${r.HST_Aktual||'—'}</span></td>
+    <td style="font-size:11px">${r.Varian||'—'}</td>
+    <td style="font-size:11px;color:var(--text3)">${r.Operator||'—'}</td>
+    <td class="c mono" style="font-size:10px">${(r.Tanggal||r.Tanggal_Input||'').slice(5).split('-').reverse().join('/')}</td>
+    ${skor(r.Skor_Vigor)}${skor(r.Skor_Akar)}${skor(r.Skor_Polinasi)}${skor(r.Skor_Kualitas_Buah)}
+    ${skor(r.Skor_Total,80,65)}
+  </tr>`).join('');
+
+  const sub = document.getElementById('vigorDbSub');
+  if (sub) sub.textContent = `${rows.length} entri ditampilkan`;
+}
+
 // ── SNT: hitung hari sejak record terakhir per GH ──
 function sntDaysSinceLastRecord(ghName, periode) {
   const gh    = ghName.trim().toUpperCase();
@@ -8193,47 +8521,91 @@ function ccShowGhIssue(ghName) {
   }
 
   function detailVigor() {
-    function dummyRow(label, val, note) {
-      return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:0.5px solid var(--border)">
-        <span style="font-size:11px;color:var(--text)">${label}</span>
-        <div style="text-align:right">
-          <span style="font-size:11px;font-weight:600;color:var(--text3)">${val}</span>
-          <span style="font-size:9px;color:var(--text4);display:block">${note}</span>
-        </div>
+    const vigorData = getVigorForGH(r.gh, r.periode, r.hst);
+    const sk = vigorData ? vigorData.skor : null;
+
+    function scorePill(val) {
+      if (val === null || val === undefined) return `<span style="font-size:10px;color:var(--text4)">—</span>`;
+      const v = Math.round(val);
+      const col = v >= 90 ? 'var(--green-txt)' : v >= 75 ? '#854F0B' : 'var(--red-txt)';
+      const bg  = v >= 90 ? 'var(--green-lt)'  : v >= 75 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+      return `<div style="text-align:center">
+        <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${v}</div>
+        <div style="font-size:9px;padding:1px 6px;border-radius:3px;background:${bg};color:${col};margin-top:2px">${v>=90?'Baik':v>=75?'Cukup':'Perlu Perhatian'}</div>
       </div>`;
     }
-    return dummyNote()
-      + `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
-          <span style="font-size:13px">🌿</span>
-          <span style="font-size:12px;font-weight:700;color:var(--text)">Kesehatan Tanaman</span>
-          <span style="font-size:10px;color:var(--text4);margin-left:4px">· sedang dikembangkan</span>
+
+    function scoreBar(val, label) {
+      if (val === null || val === undefined) return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text);width:110px;flex-shrink:0">${label}</div>
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px"></div>
+        <div style="font-size:11px;color:var(--text4);width:30px;text-align:right">—</div>
+      </div>`;
+      const v = Math.round(val);
+      const col = v >= 90 ? 'var(--green)' : v >= 75 ? '#c87800' : 'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text);width:110px;flex-shrink:0">${label}</div>
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+          <div style="width:${v}%;height:100%;background:${col};border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col};width:30px;text-align:right">${v}</div>
+      </div>`;
+    }
+
+    if (!vigorData) {
+      // Belum ada data — cek apakah HST belum checkpoint pertama
+      const nextCP = VIGOR_HST_CHECKPOINTS.find(h => h > (r.hst||0));
+      return `<div style="text-align:center;padding:20px 0">
+        <div style="font-size:28px;margin-bottom:8px">🌱</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Belum ada data Kesehatan Tanaman</div>
+        <div style="font-size:11px;color:var(--text3)">HST saat ini: <b>${r.hst||0}</b> · Checkpoint pertama: HST <b>${nextCP||7}</b></div>
+        <div style="font-size:10px;color:var(--text4);margin-top:6px">Data akan tersedia setelah checkpoint HST ${nextCP||7}</div>
+      </div>`;
+    }
+
+    const isSameHst = vigorData.hstCheckpoint === r.hst;
+    const lagNote = !isSameHst
+      ? `<div style="font-size:10px;color:var(--yellow-txt);background:var(--yellow-lt);padding:6px 10px;border-radius:6px;margin-bottom:10px;border:0.5px solid #f5d08a">
+          📌 Data dari HST ${vigorData.hstCheckpoint} (checkpoint terakhir) · HST aktual ${r.hst}
+        </div>` : '';
+
+    return lagNote
+      // ── Total score ──
+      + `<div style="display:grid;grid-template-columns:repeat(${sk.kualitas!==null?4:3},1fr);gap:10px;margin-bottom:14px">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">VIGOR</div>
+            ${scorePill(sk.vigor)}
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">AKAR</div>
+            ${scorePill(sk.akar)}
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">POLINASI</div>
+            ${scorePill(sk.polinasi)}
+          </div>
+          ${sk.kualitas!==null ? `<div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">KUALITAS BUAH</div>
+            ${scorePill(sk.kualitas)}
+          </div>` : ''}
         </div>`
+
+      // ── Section: Kesehatan Tanaman ──
       + secLbl('🌱 Kesehatan Tanaman')
-      + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">ASPEK VIGOR TANAMAN</div>
-            ${dummyRow('Tinggi Tanaman','— cm','Belum ada data')}
-            ${dummyRow('Laju Tumbuh','+— cm/hari','Belum ada data')}
-            ${dummyRow('Jumlah Ruas','— ruas','Belum ada data')}
-            ${dummyRow('Kondisi Daun','—','Belum ada data')}
-          </div>
-          <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
-            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">ASPEK PERAKARAN</div>
-            ${dummyRow('Warna Akar','—','Belum ada data')}
-            ${dummyRow('Panjang Akar','— cm','Belum ada data')}
-            ${dummyRow('Kondisi Media','—','Belum ada data')}
-          </div>
+      + `<div style="margin-bottom:12px">
+          ${scoreBar(sk.vigor,   'Vigor Tanaman')}
+          ${scoreBar(sk.akar,    'Perakaran')}
+          ${scoreBar(sk.polinasi,'Polinasi')}
         </div>`
-      + secLbl('🍅 Kesehatan Buah')
-      + `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
-          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">SIMETRI BUAH</div>
-          ${dummyRow('Keseragaman Ukuran','—','Belum ada data')}
-          ${dummyRow('Bentuk Buah','—','Belum ada data')}
-          ${dummyRow('Warna Kulit','—','Belum ada data')}
-          ${dummyRow('Estimasi Panen','— hari','Dari data gramasi')}
-        </div>`
-      + `<div style="font-size:10px;color:var(--text3);padding:8px;background:var(--yellow-lt);border-radius:6px;border:0.5px solid #f5d08a">
-          ⚙️ Data monitoring kesehatan tanaman akan tersedia setelah form pengisian disiapkan.
+
+      // ── Section: Kesehatan Buah ──
+      + (sk.kualitas !== null ? secLbl('🍅 Kesehatan Buah')
+          + `<div style="margin-bottom:10px">${scoreBar(sk.kualitas,'Kualitas Buah')}</div>` : '')
+
+      // ── Total & meta ──
+      + `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:7px;margin-top:4px">
+          <span style="font-size:11px;color:var(--text3)">Skor Total · ${vigorData.sampleCount} sampel · ${(vigorData.tglInput||'').slice(5).split('-').reverse().join('/')}</span>
+          <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(sk.total||0)>=90?'var(--green-txt)':(sk.total||0)>=75?'#854F0B':'var(--red-txt)'}">${Math.round(sk.total||0)}</span>
         </div>`;
   }
 
@@ -8318,7 +8690,16 @@ function ccShowGhIssue(ghName) {
     { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
     { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: hptDetailStr },
     { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
-    { id:'vigor',    icon:'🌿',  label:'Kesehatan Tanaman',  soon:true,  status:'—',      detail:'Sedang dikembangkan' },
+    (function(){
+      const vd = getVigorForGH(r.gh, r.periode, r.hst);
+      const sk = vd ? vd.skor : null;
+      const total = sk ? Math.round(sk.total||0) : null;
+      const st = total===null ? '—' : total>=90?'ok':total>=75?'warn':'crit';
+      const detail = vd
+        ? `Checkpoint HST ${vd.hstCheckpoint} · Vigor ${Math.round(sk.vigor||0)} · Akar ${Math.round(sk.akar||0)}`
+        : (r.hst < 7 ? `Checkpoint pertama HST 7` : 'Belum ada data');
+      return { id:'vigor', icon:'🌿', label:'Kesehatan Tanaman', soon: vd===null && r.hst < 7, status: st, detail };
+    })(),
     { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
     { id:'semp',     icon:'🌿',  label:'Penyemprotan',       soon:false, status:'ok',     detail:'Tidak ada jadwal aktif' },
   ];
