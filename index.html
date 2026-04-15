@@ -8193,14 +8193,21 @@ function ccShowGhIssue(ghName) {
   }
 
   function detailVigor() {
+    function dummyRow(label, val, note) {
+      return `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:11px;color:var(--text)">${label}</span>
+        <div style="text-align:right">
+          <span style="font-size:11px;font-weight:600;color:var(--text3)">${val}</span>
+          <span style="font-size:9px;color:var(--text4);display:block">${note}</span>
+        </div>
+      </div>`;
+    }
     return dummyNote()
       + `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
           <span style="font-size:13px">🌿</span>
           <span style="font-size:12px;font-weight:700;color:var(--text)">Kesehatan Tanaman</span>
           <span style="font-size:10px;color:var(--text4);margin-left:4px">· sedang dikembangkan</span>
         </div>`
-
-      // ── Kesehatan Tanaman ──
       + secLbl('🌱 Kesehatan Tanaman')
       + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
           <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
@@ -8217,8 +8224,6 @@ function ccShowGhIssue(ghName) {
             ${dummyRow('Kondisi Media','—','Belum ada data')}
           </div>
         </div>`
-
-      // ── Kesehatan Buah ──
       + secLbl('🍅 Kesehatan Buah')
       + `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
           <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">SIMETRI BUAH</div>
@@ -8227,21 +8232,11 @@ function ccShowGhIssue(ghName) {
           ${dummyRow('Warna Kulit','—','Belum ada data')}
           ${dummyRow('Estimasi Panen','— hari','Dari data gramasi')}
         </div>`
-
       + `<div style="font-size:10px;color:var(--text3);padding:8px;background:var(--yellow-lt);border-radius:6px;border:0.5px solid #f5d08a">
           ⚙️ Data monitoring kesehatan tanaman akan tersedia setelah form pengisian disiapkan.
         </div>`;
-
-    function dummyRow(label, val, note) {
-      return \`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:0.5px solid var(--border)">
-        <span style="font-size:11px;color:var(--text)">\${label}</span>
-        <div style="text-align:right">
-          <span style="font-size:11px;font-weight:600;color:var(--text3)">\${val}</span>
-          <span style="font-size:9px;color:var(--text4);display:block">\${note}</span>
-        </div>
-      </div>\`;
-    }
   }
+
 
   function detailEst() {
     const grLabel = r.avgGramasi>0?'gramasi aktual':'asumsi 1kg';
