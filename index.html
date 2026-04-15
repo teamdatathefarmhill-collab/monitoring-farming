@@ -8059,19 +8059,19 @@ function rebuildVigor() {
     return;
   }
 
-  const ghF  = document.getElementById('vigorGHFilter')?.value  || '';
-  const hstF = document.getElementById('vigorHstFilter')?.value || '';
+  // Compute DB scores jika belum — HARUS sebelum filter
+  if (RAW_VIGOR_DB.length && !RAW_VIGOR_DB_SCORED.length) computeVigorDbScores();
 
-  // Filter VIGOR_PROCESSED
-  // Use DB scored data if available (computed), else fallback VIGOR_PROCESSED
+  const ghF     = document.getElementById('vigorGHFilter')?.value     || '';
+  const hstF    = document.getElementById('vigorHstFilter')?.value     || '';
+  const varianF = document.getElementById('vigorVarianFilter')?.value  || '';
+
+  // Pakai DB_SCORED jika tersedia, fallback ke VIGOR_PROCESSED
   const srcData = RAW_VIGOR_DB_SCORED.length ? RAW_VIGOR_DB_SCORED : RAW_VIGOR;
   let proc = [...srcData];
   if (ghF)     proc = proc.filter(r => (r.GH||'').toUpperCase().includes(ghF.toUpperCase()));
   if (varianF) proc = proc.filter(r => (r.Varian||'').toLowerCase() === varianF.toLowerCase());
   if (hstF)    proc = proc.filter(r => String(r['HST_Checkpoint']||r['HST Checkpoint']||'') === hstF);
-
-  // Compute DB scores jika belum
-  if (RAW_VIGOR_DB.length && !RAW_VIGOR_DB_SCORED.length) computeVigorDbScores();
 
   // Populate filters
   const ghSel     = document.getElementById('vigorGHFilter');
@@ -8094,10 +8094,16 @@ function rebuildVigor() {
     varianSel.innerHTML = '<option value="">Semua Varian</option>' + varians.map(v=>`<option value="${v}" ${v===prev?'selected':''}>${v}</option>`).join('');
   }
 
-  // KPI
-  const avgOf = key => {
-    const vals = proc.map(r=>parseFloat(r[key]||'0')).filter(v=>!isNaN(v)&&v>0);
-    return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : null;
+  // KPI — pakai _scores jika dari DB_SCORED
+  const avgOf = (key, colFallback) => {
+    const useScored = RAW_VIGOR_DB_SCORED.length > 0;
+    if (useScored) {
+      const vals = proc.map(r => r._scores?.[key]).filter(v => v !== null && v !== undefined);
+      return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
+    }
+    const col = colFallback || key;
+    const vals = proc.map(r=>parseFloat(r[col]||'0')).filter(v=>!isNaN(v)&&v>0);
+    return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
   };
   const kpiEl = document.getElementById('vigorKpiRow');
   if (kpiEl) {
@@ -8111,22 +8117,21 @@ function rebuildVigor() {
       </div>`;
     };
     kpiEl.innerHTML =
-      kpiStat('Avg Vigor',    avgOf('Skor_Vigor'),         '🌱') +
-      kpiStat('Avg Akar',     avgOf('Skor_Akar'),          '🌿') +
-      kpiStat('Avg Polinasi', avgOf('Skor_Polinasi'),      '🌸') +
-      kpiStat('Avg Kualitas', avgOf('Skor_Kualitas_Buah'), '🍅') +
-      kpiStat('Avg Total',    avgOf('Skor_Total'),         '⭐');
+      kpiStat('Avg Vigor',    avgOf('vigor',    'Skor_Vigor'),         '🌱') +
+      kpiStat('Avg Akar',     avgOf('akar',     'Skor_Akar'),          '🌿') +
+      kpiStat('Avg Polinasi', avgOf('polinasi', 'Skor_Polinasi'),      '🌸') +
+      kpiStat('Avg Kualitas', avgOf('kualitas_buah','Skor_Kualitas_Buah'), '🍅') +
+      kpiStat('Avg Total',    avgOf('total',    'Skor_Total'),         '⭐');
   }
 
   // Sub
   const sub = document.getElementById('vigorSub');
-  if (sub) {
-    const latestTgl = proc.reduce((m,r)=>r.Tanggal_Input>m?r.Tanggal_Input:m, '');
-    sub.textContent = `Kesehatan Tanaman · ${proc.length} entri · ${ghF||'Semua GH'} · update ${latestTgl||'—'}`;
-  }
+  const getTgl = r => r.Tanggal_Input || r.Tanggal || '';
+  const latestTgl = proc.reduce((m,r) => getTgl(r)>m ? getTgl(r) : m, '');
+  if (sub) sub.textContent = `Kesehatan Tanaman · ${proc.length} entri · ${ghF||'Semua GH'}${latestTgl?' · update '+latestTgl.slice(0,10):''}`;
   const upEl = document.getElementById('vigorUpAt');
-  const latestTgl2 = RAW_VIGOR.reduce((m,r)=>r.Tanggal_Input>m?r.Tanggal_Input:m, '');
-  if (upEl) upEl.textContent = latestTgl2.slice(0,10)||'—';
+  const allTgl = [...RAW_VIGOR_DB_SCORED,...RAW_VIGOR].reduce((m,r)=>getTgl(r)>m?getTgl(r):m,'');
+  if (upEl) upEl.textContent = allTgl.slice(0,10)||'—';
   const cntEl = document.getElementById('vigorCnt');
   if (cntEl) cntEl.textContent = RAW_VIGOR.length + ' entri processed';
 
