@@ -5020,8 +5020,11 @@ async function fetchVigor() {
     if (r1.ok) RAW_VIGOR    = parseVigorCsv(await r1.text(), 'processed');
     if (r2.ok) RAW_VIGOR_DB = parseVigorCsv(await r2.text(), 'db');
     console.log('[VIGOR] processed:', RAW_VIGOR.length, 'db:', RAW_VIGOR_DB.length);
-    // Update CC card jika sedang terbuka
+    // Hitung scoring DB
+    if (RAW_VIGOR_DB.length) computeVigorDbScores();
+    // Update tampilan jika sedang terbuka
     if (typeof rebuildCC === 'function') rebuildCC();
+    if (typeof rebuildVigor === 'function' && document.getElementById('view-vigor')?.style.display !== 'none') rebuildVigor();
   } catch(e) {
     console.error('[VIGOR] fetch error:', e);
   }
@@ -5041,50 +5044,79 @@ function parseVigorCsv(text, type) {
   }).filter(r => Object.values(r).some(v => v));
 }
 
-// Ambil data vigor terbaru untuk GH tertentu
-// Pakai HST_Checkpoint terdekat ≤ HST aktual GH
+// Ambil data vigor untuk GH tertentu
+// Cari checkpoint yang BENAR-BENAR ADA datanya di DB, ≤ HST aktual, ambil yang terbesar
 function getVigorForGH(ghName, periodeStr, hstAktual) {
-  const gh = ghName.trim().toUpperCase();
+  const gh    = ghName.trim().toUpperCase();
   const normP = s => String(s||'').trim().toLowerCase();
   const pNorm = normP(periodeStr);
+  const hst   = hstAktual || 0;
 
-  // Filter rows matching GH + periode
-  const rows = RAW_VIGOR.filter(r => {
-    if ((r.GH||'').trim().toUpperCase() !== gh) return false;
-    if (pNorm && normP(r.Periode) !== pNorm) return false;
+  // Prioritas: cari di RAW_VIGOR_DB_SCORED (data real dengan computed scores)
+  // Filter: GH match + periode match + HST_Checkpoint ≤ hstAktual
+  const scored = RAW_VIGOR_DB_SCORED.length ? RAW_VIGOR_DB_SCORED : [];
+  const dbRows = scored.filter(r => {
+    const rGH = (r.GH||'').trim().toUpperCase();
+    const rP  = normP(r.Periode||r.periode||'');
+    const rHst = parseInt(r['HST_Checkpoint']||r['HST Checkpoint']||'0');
+    if (rGH !== gh) return false;
+    if (pNorm && rP && rP !== pNorm) return false;
+    if (rHst > hst) return false;
     return true;
   });
-  if (!rows.length) return null;
 
-  // Ambil HST_Checkpoint yang valid (≤ hstAktual), ambil yang terbesar
-  const validCheckpoints = VIGOR_HST_CHECKPOINTS.filter(h => h <= (hstAktual||999));
-  const maxValid = validCheckpoints.length ? Math.max(...validCheckpoints) : 999;
+  // Fallback: VIGOR_PROCESSED jika DB kosong
+  const procRows = RAW_VIGOR.filter(r => {
+    const rGH = (r.GH||'').trim().toUpperCase();
+    const rP  = normP(r.Periode||r.periode||'');
+    const rHst = parseInt(r.HST_Checkpoint||'0');
+    if (rGH !== gh) return false;
+    if (pNorm && rP && rP !== pNorm) return false;
+    if (rHst > hst) return false;
+    return true;
+  });
 
-  // Filter rows dengan HST_Checkpoint ≤ hstAktual, ambil yang terbaru (max Tanggal_Input)
-  const eligible = rows.filter(r => parseInt(r.HST_Checkpoint||'999') <= maxValid);
-  if (!eligible.length) return null;
+  const useDb = dbRows.length > 0;
+  const allRows = useDb ? dbRows : procRows;
+  if (!allRows.length) return null;
 
-  // Group by HST_Checkpoint, ambil yang terbesar
-  const maxHst = Math.max(...eligible.map(r => parseInt(r.HST_Checkpoint||'0')));
-  const atHst  = eligible.filter(r => parseInt(r.HST_Checkpoint||'0') === maxHst);
+  // Ambil HST_Checkpoint terbesar yang ADA datanya (bukan dari list hardcoded)
+  const maxHst = Math.max(...allRows.map(r =>
+    parseInt(r['HST_Checkpoint']||r['HST Checkpoint']||r.HST_Checkpoint||'0')
+  ));
+  const atHst = allRows.filter(r =>
+    parseInt(r['HST_Checkpoint']||r['HST Checkpoint']||'0') === maxHst
+  );
 
-  // Avg skor per kolom
-  const avg = (key) => {
-    const vals = atHst.map(r => parseFloat(r[key]||'0')).filter(v => !isNaN(v) && v > 0);
+  // Avg skor — dari computed _scores jika ada, fallback kolom VIGOR_PROCESSED
+  const avgSkor = (key) => {
+    if (useDb && atHst[0]?._scores) {
+      const vals = atHst.map(r => r._scores[key]).filter(v => v !== null && v !== undefined);
+      return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
+    }
+    const colMap = { vigor:'Skor_Vigor', akar:'Skor_Akar', polinasi:'Skor_Polinasi', kualitas:'Skor_Kualitas_Buah', total:'Skor_Total' };
+    const col = colMap[key] || key;
+    const vals = atHst.map(r => parseFloat(r[col]||'0')).filter(v => !isNaN(v) && v > 0);
     return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : null;
   };
 
+  const tglInput = atHst.reduce((m,r) => {
+    const t = r.Tanggal_Input || r.Tanggal || '';
+    return t > m ? t : m;
+  }, '');
+
   return {
     hstCheckpoint: maxHst,
-    hstAktual: hstAktual,
-    tglInput: atHst[0]?.Tanggal_Input || '',
+    hstAktual: hst,
+    isLagged: maxHst !== hst, // apakah pakai data checkpoint sebelumnya
+    tglInput,
     sampleCount: atHst.length,
     skor: {
-      vigor:    avg('Skor_Vigor'),
-      akar:     avg('Skor_Akar'),
-      polinasi: avg('Skor_Polinasi'),
-      kualitas: avg('Skor_Kualitas_Buah'),
-      total:    avg('Skor_Total'),
+      vigor:    avgSkor('vigor'),
+      akar:     avgSkor('akar'),
+      polinasi: avgSkor('polinasi'),
+      kualitas: avgSkor('kualitas'),
+      total:    avgSkor('total'),
     },
     rows: atHst,
   };
@@ -8809,20 +8841,27 @@ function ccShowGhIssue(ghName) {
     }
 
     if (!vigorData) {
-      // Belum ada data — cek apakah HST belum checkpoint pertama
-      const nextCP = VIGOR_HST_CHECKPOINTS.find(h => h > (r.hst||0));
+      // Belum ada data — cek checkpoint terdekat setelah HST ini
+      const pastCPs  = VIGOR_HST_CHECKPOINTS.filter(h => h <= (r.hst||0));
+      const nextCP   = VIGOR_HST_CHECKPOINTS.find(h => h > (r.hst||0));
+      const lastCP   = pastCPs.length ? Math.max(...pastCPs) : null;
       return `<div style="text-align:center;padding:20px 0">
         <div style="font-size:28px;margin-bottom:8px">🌱</div>
         <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Belum ada data Kesehatan Tanaman</div>
-        <div style="font-size:11px;color:var(--text3)">HST saat ini: <b>${r.hst||0}</b> · Checkpoint pertama: HST <b>${nextCP||7}</b></div>
-        <div style="font-size:10px;color:var(--text4);margin-top:6px">Data akan tersedia setelah checkpoint HST ${nextCP||7}</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">HST saat ini: <b>${r.hst||0}</b></div>
+        ${lastCP ? `<div style="font-size:10px;color:var(--yellow-txt);background:var(--yellow-lt);padding:5px 12px;border-radius:5px;display:inline-block;margin-bottom:4px">⚠ Checkpoint HST ${lastCP} sudah terlewati tapi belum ada data input</div>` : ''}
+        ${nextCP ? `<div style="font-size:10px;color:var(--text4);margin-top:4px">Checkpoint berikutnya: HST ${nextCP}</div>` : ''}
       </div>`;
     }
 
-    const isSameHst = vigorData.hstCheckpoint === r.hst;
-    const lagNote = !isSameHst
-      ? `<div style="font-size:10px;color:var(--yellow-txt);background:var(--yellow-lt);padding:6px 10px;border-radius:6px;margin-bottom:10px;border:0.5px solid #f5d08a">
-          📌 Data dari HST ${vigorData.hstCheckpoint} (checkpoint terakhir) · HST aktual ${r.hst}
+    const lagNote = vigorData.isLagged
+      ? `<div style="display:flex;align-items:center;gap:8px;font-size:10px;background:var(--yellow-lt);padding:7px 10px;border-radius:6px;margin-bottom:10px;border:0.5px solid #f5d08a">
+          <span>📌</span>
+          <div>
+            <b>Menampilkan data checkpoint HST ${vigorData.hstCheckpoint}</b>
+            · HST aktual saat ini: ${r.hst}
+            · Checkpoint berikutnya: HST ${(()=>{const nxt=VIGOR_HST_CHECKPOINTS.find(h=>h>vigorData.hstCheckpoint);return nxt||'—';})()}
+          </div>
         </div>` : '';
 
     return lagNote
