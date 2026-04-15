@@ -1943,6 +1943,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <th class="r">Vigor</th><th class="r">Akar</th>
                 <th class="r">Polinasi</th><th class="r">Kualitas</th>
                 <th class="r">Total</th>
+                <th>Keterangan</th>
               </tr></thead>
               <tbody id="vigorDbBody"><tr><td colspan="11" class="es">Memuat…</td></tr></tbody>
             </table>
@@ -8064,6 +8065,25 @@ function vigorGetScore(tabel, nilai) {
   return k !== undefined ? tabel[k] : null;
 }
 
+// Translate R hitung_aspek — returns { skor, detail: [{var, nilai, skor, maks}] }
+function vigorHitungAspekDetail(aspek_cfg, row_mapped) {
+  const bobot = aspek_cfg.bobot;
+  const vars  = Object.keys(bobot);
+  const detail = [];
+  for (const v of vars) {
+    const tabel = aspek_cfg[v];
+    if (!tabel) return null;
+    const val = row_mapped[v] || '';
+    const s   = vigorGetScore(tabel, val);
+    if (s === null) return null;
+    detail.push({ var: v, nilai: val, skor: s, maks: 4 });
+  }
+  let raw = 0, max = 0;
+  for (const d of detail) { raw += d.skor * bobot[d.var]; max += 4 * bobot[d.var]; }
+  const skor = Math.round((raw / max) * 1000) / 10;
+  return { skor, detail };
+}
+
 // Translate R hitung_aspek
 function vigorHitungAspek(aspek_cfg, row_mapped) {
   const bobot = aspek_cfg.bobot;
@@ -8087,7 +8107,7 @@ function vigorHitungBaris(row) {
   // Parse HST Checkpoint
   const hstKey = parseInt(row['HST_Checkpoint'] || row['HST Checkpoint'] || '0');
   const cfg = VIGOR_SCORING[hstKey];
-  if (!cfg) return { vigor: null, akar: null, polinasi: null, kualitas_buah: null, total: null };
+  if (!cfg) return { vigor: null, akar: null, polinasi: null, kualitas_buah: null, total: null, _detail: {} };
 
   const g = k => (row[k] || '').trim();
   const row_mapped = {
@@ -8104,10 +8124,15 @@ function vigorHitungBaris(row) {
     netting_buah:      g('Netting Buah') || g('Netting_Buah'),
   };
 
-  const sVigor    = cfg.vigor         ? vigorHitungAspek(cfg.vigor,         row_mapped) : null;
-  const sAkar     = cfg.akar          ? vigorHitungAspek(cfg.akar,          row_mapped) : null;
-  const sPolinasi = cfg.polinasi      ? vigorHitungAspek(cfg.polinasi,      row_mapped) : null;
-  const sKualitas = cfg.kualitas_buah ? vigorHitungAspek(cfg.kualitas_buah, row_mapped) : null;
+  const dVigor    = cfg.vigor         ? vigorHitungAspekDetail(cfg.vigor,         row_mapped) : null;
+  const dAkar     = cfg.akar          ? vigorHitungAspekDetail(cfg.akar,          row_mapped) : null;
+  const dPolinasi = cfg.polinasi      ? vigorHitungAspekDetail(cfg.polinasi,      row_mapped) : null;
+  const dKualitas = cfg.kualitas_buah ? vigorHitungAspekDetail(cfg.kualitas_buah, row_mapped) : null;
+
+  const sVigor    = dVigor    ? dVigor.skor    : null;
+  const sAkar     = dAkar     ? dAkar.skor     : null;
+  const sPolinasi = dPolinasi ? dPolinasi.skor : null;
+  const sKualitas = dKualitas ? dKualitas.skor : null;
 
   const bobot = cfg.bobot_aspek;
   let totalRaw = 0, totalW = 0;
@@ -8118,7 +8143,15 @@ function vigorHitungBaris(row) {
 
   const total = totalW > 0 ? Math.round((totalRaw / totalW) * 10) / 10 : null;
 
-  return { vigor: sVigor, akar: sAkar, polinasi: sPolinasi, kualitas_buah: sKualitas, total };
+  return {
+    vigor: sVigor, akar: sAkar, polinasi: sPolinasi, kualitas_buah: sKualitas, total,
+    _detail: {
+      vigor:         dVigor    ? dVigor.detail    : null,
+      akar:          dAkar     ? dAkar.detail     : null,
+      polinasi:      dPolinasi ? dPolinasi.detail : null,
+      kualitas_buah: dKualitas ? dKualitas.detail : null,
+    }
+  };
 }
 
 // Compute scores for all DB rows (cache result)
@@ -8306,7 +8339,7 @@ function renderVigorDb() {
   const body = document.getElementById('vigorDbBody');
   if (!body) return;
   if (!RAW_VIGOR_DB.length) {
-    body.innerHTML = '<tr><td colspan="11" class="es">Belum ada data detail</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" class="es">Belum ada data detail</td></tr>';
     return;
   }
 
@@ -8332,11 +8365,71 @@ function renderVigorDb() {
     return `<td class="r"><span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${bg};color:${col};font-weight:700">${v}</span></td>`;
   };
 
-  body.innerHTML = rows.map((r, i) => {
-    const sc = r._scores || {};
+  // Label-label yang lebih manusiawi
+  const VAR_LABELS = {
+    lebar_daun: 'Lebar Daun', lebar_daun_atas: 'Lebar Daun Atas',
+    diameter_batang: 'Diameter Batang', warna_daun: 'Warna Daun',
+    warna_akar: 'Warna Akar', volume_akar: 'Volume Akar',
+    simetri_buah: 'Simetri Buah', buah_bajang: 'Buah Bajang',
+    panjang_tunas_air: 'Panjang Tunas Air', kesegaran: 'Kesegaran',
+    netting_buah: 'Netting Buah',
+  };
+  const ASPEK_LABELS = {
+    vigor: 'Vigor', akar: 'Akar', polinasi: 'Polinasi', kualitas_buah: 'Kualitas Buah'
+  };
+
+  // Build keterangan text untuk aspek yang bermasalah (skor < 75)
+  function buildKeterangan(sc) {
+    const detail = sc._detail || {};
+    const issues = [];
+    for (const [aspek, items] of Object.entries(detail)) {
+      if (!items) continue;
+      const aspekSkor = sc[aspek === 'kualitas_buah' ? 'kualitas_buah' : aspek];
+      // Cek sub-items yang skornya tidak maksimal
+      const problemItems = items.filter(d => d.skor < 4);
+      if (!problemItems.length) continue;
+      problemItems.forEach(d => {
+        const varLabel = VAR_LABELS[d.var] || d.var;
+        const pct = Math.round((d.skor / d.maks) * 100);
+        const singkat = d.nilai.length > 45 ? d.nilai.slice(0, 43) + '…' : d.nilai;
+        issues.push({ aspek: ASPEK_LABELS[aspek] || aspek, varLabel, nilai: singkat, skor: d.skor, maks: d.maks, pct });
+      });
+    }
+    return issues;
+  }
+
+  let html = '';
+  rows.forEach((r, i) => {
+    const sc  = r._scores || {};
     const hst = r['HST_Checkpoint'] || r['HST Checkpoint'] || r.HST_Aktual || '—';
     const tgl = (r.Tanggal || r.Tanggal_Input || '').slice(0, 10).split('-').reverse().join('/');
-    return `<tr>
+    const rowId = `vdr-${i}`;
+
+    // Cek apakah ada skor yang bermasalah (kuning/merah)
+    const skorList = [sc.vigor, sc.akar, sc.polinasi, sc.kualitas_buah, sc.total].filter(v => v !== null && v !== undefined);
+    const hasIssue = skorList.some(v => v < 75);
+    const hasCrit  = skorList.some(v => v < 60);
+
+    const issues = hasIssue ? buildKeterangan(sc) : [];
+
+    // Keterangan cell
+    let keteranganCell;
+    if (!issues.length) {
+      keteranganCell = `<td style="font-size:10px;color:var(--text4)">—</td>`;
+    } else {
+      const icon = hasCrit ? '🔴' : '🟡';
+      const issueCount = issues.length;
+      keteranganCell = `<td>
+        <button onclick="vigorToggleDetail('${rowId}')"
+          style="background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;
+                 color:${hasCrit ? 'var(--red-txt)' : '#854F0B'};
+                 display:flex;align-items:center;gap:4px;padding:2px 0;font-family:inherit">
+          ${icon} ${issueCount} aspek <span id="${rowId}-arrow" style="font-size:9px">▼</span>
+        </button>
+      </td>`;
+    }
+
+    html += `<tr id="${rowId}-row">
       <td class="no-col">${i+1}</td>
       <td><div class="gh-name"><span class="gh-dot" style="background:${dot(r.GH)}"></span>${r.GH||'—'}</div></td>
       <td class="c"><span class="hst-b" style="font-size:10px">HST ${hst}</span></td>
@@ -8348,11 +8441,48 @@ function renderVigorDb() {
       ${skorCell(sc.polinasi)}
       ${skorCell(sc.kualitas_buah)}
       ${skorCell(sc.total, 80, 65)}
+      ${keteranganCell}
     </tr>`;
-  }).join('');
+
+    // Detail row (hidden by default)
+    if (issues.length) {
+      const issueHtml = issues.map(iss => {
+        const barColor = iss.pct >= 75 ? 'var(--green-mid)' : iss.pct >= 50 ? '#d4820a' : 'var(--red)';
+        const bgColor  = iss.pct >= 75 ? 'var(--green-lt)'  : iss.pct >= 50 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:${bgColor};border-radius:6px;min-width:220px;flex:0 0 auto">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${iss.aspek} · ${iss.varLabel}</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:1px;line-height:1.3">${iss.nilai}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11px;font-weight:800;color:${barColor}">${iss.skor}/${iss.maks}</div>
+            <div style="font-size:9px;color:var(--text3)">${iss.pct}%</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      html += `<tr id="${rowId}-detail" style="display:none;background:var(--surface2)">
+        <td colspan="12" style="padding:8px 16px 10px 52px;border-bottom:2px solid var(--border2)">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Detail aspek bermasalah</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${issueHtml}</div>
+        </td>
+      </tr>`;
+    }
+  });
+
+  body.innerHTML = html;
 
   const sub = document.getElementById('vigorDbSub');
   if (sub) sub.textContent = `${rows.length} dari ${RAW_VIGOR_DB_SCORED.length} entri`;
+}
+
+function vigorToggleDetail(rowId) {
+  const detail = document.getElementById(rowId + '-detail');
+  const arrow  = document.getElementById(rowId + '-arrow');
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
 }
 
 // ── SNT: hitung hari sejak record terakhir per GH ──
