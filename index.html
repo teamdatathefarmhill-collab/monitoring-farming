@@ -1635,12 +1635,13 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- KPI -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px" id="sempKpiRow"></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px" id="sempKpiRow"></div>
 
       <!-- TAB SWITCH -->
-      <div style="display:flex;gap:6px;margin-bottom:14px">
-        <button class="fbtn active" id="sempTabAmb" onclick="setSempTab('pengambilan',this)" style="font-size:11px">📋 Pengambilan Obat</button>
-        <button class="fbtn" id="sempTabGuna" onclick="setSempTab('penggunaan',this)" style="font-size:11px">🌿 Penggunaan / Aplikasi</button>
+      <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="fbtn active" id="sempTabAmb"  onclick="setSempTab('pengambilan',this)" style="font-size:11px">📋 Pengambilan Obat</button>
+        <button class="fbtn"        id="sempTabGuna" onclick="setSempTab('penggunaan',this)"  style="font-size:11px">🌿 Penggunaan / Aplikasi</button>
+        <button class="fbtn"        id="sempTabOles" onclick="setSempTab('oles',this)"        style="font-size:11px">🟤 Oles GSB</button>
       </div>
 
       <!-- PENGAMBILAN TABLE -->
@@ -1680,6 +1681,26 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <th>Keterangan</th><th>Operator</th>
             </tr></thead>
             <tbody id="sempGunaBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- OLES GSB TABLE -->
+      <div id="sempViewOles" style="display:none" class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <div class="card-title">🟤 Data Oles GSB</div>
+          <div class="card-sub">Penggunaan pestisida oles per GH</div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th>Tanggal</th><th>GH</th><th>Pestisida</th>
+              <th class="r">Konsentrasi</th>
+              <th class="r">Penggunaan (gram)</th>
+              <th>Operator</th>
+            </tr></thead>
+            <tbody id="sempOlesBody"><tr><td colspan="7" class="es">Memuat…</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -1751,6 +1772,26 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sc-lbl">Sprout Rendah</div>
           <div class="sc-val" style="color:var(--red)" id="semSc5">—</div>
           <div class="sc-note">%Sprout &lt; 80%</div>
+        </div>
+      </div>
+
+      <!-- OLES GSB TABLE -->
+      <div id="sempViewOles" style="display:none" class="card" style="margin-bottom:14px">
+        <div class="card-hd">
+          <div class="card-title">🟤 Data Oles GSB</div>
+          <div class="card-sub">Penggunaan pestisida oles per GH</div>
+        </div>
+        <div class="tw">
+          <table>
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th>Tanggal</th><th>GH</th><th>Pestisida</th>
+              <th class="r">Konsentrasi</th>
+              <th class="r">Penggunaan (gram)</th>
+              <th>Operator</th>
+            </tr></thead>
+            <tbody id="sempOlesBody"><tr><td colspan="7" class="es">Memuat…</td></tr></tbody>
+          </table>
         </div>
       </div>
 
@@ -7558,11 +7599,13 @@ function ghCodeOf(ghName) {
 // ══════════════════════════════════════════════
 //  PENYEMPROTAN MODULE
 // ══════════════════════════════════════════════
-const SEMP_SHEET_ID = '1ljx-BFRjZX7VRZIWyHVRfjTNMiCKODtBmptmfc15Fc4';
-const SEMP_GID_AMB  = '1052743700'; // Penyemprotan_Pengambilan
-const SEMP_GID_GUNA = '313644161';  // Penyemprotan_Penggunaan
-const SEMP_URL_AMB  = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_AMB}`;
-const SEMP_URL_GUNA = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_GUNA}`;
+const SEMP_SHEET_ID  = '1ljx-BFRjZX7VRZIWyHVRfjTNMiCKODtBmptmfc15Fc4';
+const SEMP_GID_AMB   = '1052743700'; // Penyemprotan_Pengambilan
+const SEMP_GID_GUNA  = '313644161';  // Penyemprotan_Penggunaan
+const SEMP_GID_OLES  = '824329382';  // Penyemprotan_OlesGSB
+const SEMP_URL_AMB   = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_AMB}`;
+const SEMP_URL_GUNA  = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_GUNA}`;
+const SEMP_URL_OLES  = `https://docs.google.com/spreadsheets/d/${SEMP_SHEET_ID}/export?format=csv&gid=${SEMP_GID_OLES}`;
 
 let RAW_SEMP_AMB  = [];
 let RAW_SEMP_GUNA = [];
@@ -7627,28 +7670,53 @@ function sempParseGuna(rows) {
   }).filter(r => r.gh);
 }
 
+let RAW_SEMP_OLES = [];
+
 async function fetchSemp(manual=false) {
   const subEl = document.getElementById('sempSub');
   if (subEl) subEl.textContent = 'Memuat data penyemprotan…';
   try {
-    const [respAmb, respGuna] = await Promise.all([
+    const [respAmb, respGuna, respOles] = await Promise.all([
       fetch(SEMP_URL_AMB  + '&_t=' + Date.now()),
       fetch(SEMP_URL_GUNA + '&_t=' + Date.now()),
+      fetch(SEMP_URL_OLES + '&_t=' + Date.now()),
     ]);
     RAW_SEMP_AMB  = respAmb.ok  ? sempParseAmb(parseSempCsv(await respAmb.text()))   : [];
     RAW_SEMP_GUNA = respGuna.ok ? sempParseGuna(parseSempCsv(await respGuna.text()))  : [];
+    RAW_SEMP_OLES = respOles.ok ? sempParseOles(parseSempCsv(await respOles.text()))  : [];
 
     const now = new Date();
     const upAt = now.toLocaleDateString('id-ID',{day:'2-digit',month:'short'}) + ' ' + now.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
     const upEl = document.getElementById('sempUpAt'); if(upEl) upEl.textContent = upAt;
     const strip = document.getElementById('sempUpStrip'); if(strip) strip.classList.add('show');
-    const cntEl = document.getElementById('sempCnt'); if(cntEl) cntEl.textContent = (RAW_SEMP_AMB.length + RAW_SEMP_GUNA.length) + ' entri';
+    const cntEl = document.getElementById('sempCnt'); if(cntEl) cntEl.textContent = (RAW_SEMP_AMB.length + RAW_SEMP_GUNA.length + RAW_SEMP_OLES.length) + ' entri';
 
     rebuildSemp();
   } catch(e) {
     if (subEl) subEl.textContent = '⚠ Gagal memuat: ' + e.message;
     console.error('[SEMP]', e);
   }
+}
+
+function sempParseOles(rows) {
+  return rows.map(r => {
+    const get = (...keys) => { for(const k of keys){ const found=Object.keys(r).find(c=>c.toLowerCase().includes(k.toLowerCase())); if(found)return r[found]||''; } return ''; };
+    const tglRaw = get('tanggal');
+    let tgl = '';
+    if (tglRaw) {
+      const d = new Date(tglRaw);
+      if (!isNaN(d)) tgl = d.toISOString().slice(0,10);
+      else { const m = tglRaw.match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/); if(m) tgl=m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'); else tgl=tglRaw.slice(0,10); }
+    }
+    return {
+      tgl,
+      gh:          get('gh'),
+      pestisida:   get('pestisida'),
+      konsentrasi: get('konsentrasi'),
+      penggunaan:  parseFloat(get('penggunaan','jumlah','gram'))||0,
+      operator:    get('operator'),
+    };
+  }).filter(r => r.gh);
 }
 
 function initSemp() {
@@ -7667,7 +7735,8 @@ function setSempTab(tab, el) {
   SEMP_TAB = tab;
   document.getElementById('sempViewPengambilan').style.display = tab==='pengambilan'?'':'none';
   document.getElementById('sempViewPenggunaan').style.display  = tab==='penggunaan' ?'':'none';
-  document.querySelectorAll('#sempTabAmb,#sempTabGuna').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sempViewOles').style.display        = tab==='oles'       ?'':'none';
+  document.querySelectorAll('#sempTabAmb,#sempTabGuna,#sempTabOles').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
 }
 
@@ -7687,36 +7756,39 @@ function rebuildSemp() {
 
   const amb  = RAW_SEMP_AMB.filter(filterRow);
   const guna = RAW_SEMP_GUNA.filter(filterRow);
+  const oles = RAW_SEMP_OLES.filter(filterRow);
 
   // Populate filters
   const ghSel = document.getElementById('sempGHFilter');
   if (ghSel) {
-    const allGHs = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA].map(r=>r.gh).filter(Boolean))].sort();
+    const allGHs = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA, ...RAW_SEMP_OLES].map(r=>r.gh).filter(Boolean))].sort();
     const prev = ghSel.value;
     ghSel.innerHTML = '<option value="">Semua GH</option>' + allGHs.map(g=>`<option value="${g}" ${g===prev?'selected':''}>${g}</option>`).join('');
   }
   const pestSel = document.getElementById('sempPestFilter');
   if (pestSel) {
-    const allPest = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA].map(r=>r.pestisida).filter(Boolean))].sort();
+    const allPest = [...new Set([...RAW_SEMP_AMB, ...RAW_SEMP_GUNA, ...RAW_SEMP_OLES].map(r=>r.pestisida).filter(Boolean))].sort();
     const prev = pestSel.value;
     pestSel.innerHTML = '<option value="">Semua Pestisida</option>' + allPest.map(p=>`<option value="${p}" ${p===prev?'selected':''}>${p}</option>`).join('');
   }
 
   // KPI
-  const totalSesi = new Set([...amb.map(r=>r.gh+'|'+r.tgl), ...guna.map(r=>r.gh+'|'+r.tgl)]).size;
-  const ghSudah   = new Set([...amb.map(r=>r.gh), ...guna.map(r=>r.gh)].filter(Boolean)).size;
+  const totalSesi = new Set([...amb.map(r=>r.gh+'|'+r.tgl), ...guna.map(r=>r.gh+'|'+r.tgl), ...oles.map(r=>r.gh+'|'+r.tgl)]).size;
+  const ghSudah   = new Set([...amb.map(r=>r.gh), ...guna.map(r=>r.gh), ...oles.map(r=>r.gh)].filter(Boolean)).size;
   const allActiveGH = RAW.filter(r=>r.hst<=65).length;
   const ghBelum   = Math.max(0, allActiveGH - ghSudah);
-  const pestUsed  = new Set([...amb.map(r=>r.pestisida), ...guna.map(r=>r.pestisida)].filter(Boolean)).size;
+  const pestUsed  = new Set([...amb.map(r=>r.pestisida), ...guna.map(r=>r.pestisida), ...oles.map(r=>r.pestisida)].filter(Boolean)).size;
   const kpiEl = document.getElementById('sempKpiRow');
+  const olesGSBCnt = new Set(oles.map(r=>r.gh).filter(Boolean)).size;
   if (kpiEl) kpiEl.innerHTML =
     miniStat2('Total sesi', totalSesi, 'var(--text)') +
     miniStat2('GH sudah disemprot', ghSudah, '#185FA5') +
     miniStat2('GH belum (aktif)', ghBelum, ghBelum>0?'#c87800':'var(--green-txt)') +
-    miniStat2('Pestisida digunakan', pestUsed, 'var(--text)');
+    miniStat2('Pestisida digunakan', pestUsed, 'var(--text)') +
+    miniStat2('Oles GSB (GH)', olesGSBCnt, '#7b2d8b');
 
   const subEl = document.getElementById('sempSub');
-  if (subEl) subEl.textContent = `Data Penyemprotan · ${amb.length} pengambilan · ${guna.length} aplikasi`;
+  if (subEl) subEl.textContent = `Data Penyemprotan · ${amb.length} pengambilan · ${guna.length} aplikasi · ${oles.length} oles GSB`;
 
   // Tabel pengambilan
   const ambBody = document.getElementById('sempAmbBody');
@@ -7764,20 +7836,39 @@ function rebuildSemp() {
     }).join('') : '<tr><td colspan="13" class="es">Tidak ada data penggunaan dalam range ini</td></tr>';
   }
 
-  // Ranking pestisida
-  const rankEl = document.getElementById('sempRankBody');
-  if (rankEl) {
-    const pestMap = {};
-    [...amb, ...guna].forEach(r => {
+  // Ranking pestisida — ditangani oleh rankEl2 di atas bersama oles
+
+  // ── Render Oles GSB tabel ──
+  const olesBody = document.getElementById('sempOlesBody');
+  if (olesBody) {
+    olesBody.innerHTML = oles.length ? oles.map((r,i) => {
+      const dot = CC[clOf(r.gh)] || '#999';
+      return `<tr>
+        <td class="no-col">${i+1}</td>
+        <td class="mono" style="font-size:11px">${fmtTgl(r.tgl)}</td>
+        <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+        <td style="font-weight:600">${r.pestisida||'—'}</td>
+        <td class="r" style="font-size:11px">${r.konsentrasi||'—'}</td>
+        <td class="r" style="font-size:11px;font-weight:700">${r.penggunaan||'—'} g</td>
+        <td style="font-size:11px;color:var(--text3)">${r.operator||'—'}</td>
+      </tr>`;
+    }).join('') : '<tr><td colspan="7" class="es">Tidak ada data oles GSB dalam range ini</td></tr>';
+  }
+
+  // ── Update ranking pestisida + include oles ──
+  const rankEl2 = document.getElementById('sempRankBody');
+  if (rankEl2) {
+    const pestMap2 = {};
+    [...amb, ...guna, ...oles].forEach(r => {
       if (!r.pestisida) return;
-      if (!pestMap[r.pestisida]) pestMap[r.pestisida] = { cnt:0, ghs:new Set() };
-      pestMap[r.pestisida].cnt++;
-      pestMap[r.pestisida].ghs.add(r.gh);
+      if (!pestMap2[r.pestisida]) pestMap2[r.pestisida] = { cnt:0, ghs:new Set(), jenis:[] };
+      pestMap2[r.pestisida].cnt++;
+      pestMap2[r.pestisida].ghs.add(r.gh);
     });
-    const ranked = Object.entries(pestMap).sort((a,b)=>b[1].cnt-a[1].cnt);
-    const maxCnt = ranked[0]?.[1].cnt || 1;
-    rankEl.innerHTML = ranked.length ? ranked.map(([name,s]) => {
-      const w = Math.round(s.cnt/maxCnt*100);
+    const ranked2 = Object.entries(pestMap2).sort((a,b)=>b[1].cnt-a[1].cnt);
+    const maxCnt2 = ranked2[0]?.[1].cnt || 1;
+    rankEl2.innerHTML = ranked2.length ? ranked2.map(([name,s]) => {
+      const w = Math.round(s.cnt/maxCnt2*100);
       return `<div style="margin-bottom:9px">
         <div style="display:flex;justify-content:space-between;margin-bottom:3px">
           <span style="font-size:11px;font-weight:700;color:var(--text)">${name}</span>
