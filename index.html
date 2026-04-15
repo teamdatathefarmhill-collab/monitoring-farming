@@ -1943,6 +1943,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <th class="r">Vigor</th><th class="r">Akar</th>
                 <th class="r">Polinasi</th><th class="r">Kualitas</th>
                 <th class="r">Total</th>
+                <th>Keterangan</th>
               </tr></thead>
               <tbody id="vigorDbBody"><tr><td colspan="11" class="es">Memuat…</td></tr></tbody>
             </table>
@@ -8064,6 +8065,25 @@ function vigorGetScore(tabel, nilai) {
   return k !== undefined ? tabel[k] : null;
 }
 
+// Translate R hitung_aspek — returns { skor, detail: [{var, nilai, skor, maks}] }
+function vigorHitungAspekDetail(aspek_cfg, row_mapped) {
+  const bobot = aspek_cfg.bobot;
+  const vars  = Object.keys(bobot);
+  const detail = [];
+  for (const v of vars) {
+    const tabel = aspek_cfg[v];
+    if (!tabel) return null;
+    const val = row_mapped[v] || '';
+    const s   = vigorGetScore(tabel, val);
+    if (s === null) return null;
+    detail.push({ var: v, nilai: val, skor: s, maks: 4 });
+  }
+  let raw = 0, max = 0;
+  for (const d of detail) { raw += d.skor * bobot[d.var]; max += 4 * bobot[d.var]; }
+  const skor = Math.round((raw / max) * 1000) / 10;
+  return { skor, detail };
+}
+
 // Translate R hitung_aspek
 function vigorHitungAspek(aspek_cfg, row_mapped) {
   const bobot = aspek_cfg.bobot;
@@ -8087,7 +8107,7 @@ function vigorHitungBaris(row) {
   // Parse HST Checkpoint
   const hstKey = parseInt(row['HST_Checkpoint'] || row['HST Checkpoint'] || '0');
   const cfg = VIGOR_SCORING[hstKey];
-  if (!cfg) return { vigor: null, akar: null, polinasi: null, kualitas_buah: null, total: null };
+  if (!cfg) return { vigor: null, akar: null, polinasi: null, kualitas_buah: null, total: null, _detail: {} };
 
   const g = k => (row[k] || '').trim();
   const row_mapped = {
@@ -8104,10 +8124,15 @@ function vigorHitungBaris(row) {
     netting_buah:      g('Netting Buah') || g('Netting_Buah'),
   };
 
-  const sVigor    = cfg.vigor         ? vigorHitungAspek(cfg.vigor,         row_mapped) : null;
-  const sAkar     = cfg.akar          ? vigorHitungAspek(cfg.akar,          row_mapped) : null;
-  const sPolinasi = cfg.polinasi      ? vigorHitungAspek(cfg.polinasi,      row_mapped) : null;
-  const sKualitas = cfg.kualitas_buah ? vigorHitungAspek(cfg.kualitas_buah, row_mapped) : null;
+  const dVigor    = cfg.vigor         ? vigorHitungAspekDetail(cfg.vigor,         row_mapped) : null;
+  const dAkar     = cfg.akar          ? vigorHitungAspekDetail(cfg.akar,          row_mapped) : null;
+  const dPolinasi = cfg.polinasi      ? vigorHitungAspekDetail(cfg.polinasi,      row_mapped) : null;
+  const dKualitas = cfg.kualitas_buah ? vigorHitungAspekDetail(cfg.kualitas_buah, row_mapped) : null;
+
+  const sVigor    = dVigor    ? dVigor.skor    : null;
+  const sAkar     = dAkar     ? dAkar.skor     : null;
+  const sPolinasi = dPolinasi ? dPolinasi.skor : null;
+  const sKualitas = dKualitas ? dKualitas.skor : null;
 
   const bobot = cfg.bobot_aspek;
   let totalRaw = 0, totalW = 0;
@@ -8118,7 +8143,15 @@ function vigorHitungBaris(row) {
 
   const total = totalW > 0 ? Math.round((totalRaw / totalW) * 10) / 10 : null;
 
-  return { vigor: sVigor, akar: sAkar, polinasi: sPolinasi, kualitas_buah: sKualitas, total };
+  return {
+    vigor: sVigor, akar: sAkar, polinasi: sPolinasi, kualitas_buah: sKualitas, total,
+    _detail: {
+      vigor:         dVigor    ? dVigor.detail    : null,
+      akar:          dAkar     ? dAkar.detail     : null,
+      polinasi:      dPolinasi ? dPolinasi.detail : null,
+      kualitas_buah: dKualitas ? dKualitas.detail : null,
+    }
+  };
 }
 
 // Compute scores for all DB rows (cache result)
@@ -8306,10 +8339,11 @@ function renderVigorDb() {
   const body = document.getElementById('vigorDbBody');
   if (!body) return;
   if (!RAW_VIGOR_DB.length) {
-    body.innerHTML = '<tr><td colspan="11" class="es">Belum ada data detail</td></tr>';
+    body.innerHTML = '<tr><td colspan="12" class="es">Belum ada data detail</td></tr>';
     return;
   }
 
+  // Compute scores jika belum
   if (!RAW_VIGOR_DB_SCORED.length) computeVigorDbScores();
 
   const ghF     = document.getElementById('vigorGHFilter')?.value     || '';
@@ -8323,98 +8357,1779 @@ function renderVigorDb() {
   rows = rows.slice(0, 300);
 
   const dot = gh => CC[clOf(gh||'')] || '#999';
-
-  // Bangun keterangan kenapa skor rendah, lookup per variabel ke VIGOR_SCORING
-  function buildKeterangan(row, aspek, skor) {
-    if (skor === null || skor >= 75) return '';
-    const hstKey = parseInt(row['HST_Checkpoint']||row['HST Checkpoint']||'0');
-    const cfg = VIGOR_SCORING[hstKey];
-    if (!cfg || !cfg[aspek]) return '';
-
-    const g = k => (row[k]||'').trim();
-    const issues = [];
-
-    if (aspek === 'vigor') {
-      const bobot = cfg.vigor.bobot;
-      if (bobot.lebar_daun || bobot.lebar_daun_atas) {
-        const val = g('Lebar Daun');
-        const tbl = cfg.vigor.lebar_daun || cfg.vigor.lebar_daun_atas;
-        const s = tbl ? vigorGetScore(tbl, val) : null;
-        if (s !== null && s < 4) issues.push('Lebar daun: "'+val+'" (skor '+s+'/4)');
-      }
-      if (bobot.diameter_batang) {
-        const val = g('Diameter Batang');
-        const s = vigorGetScore(cfg.vigor.diameter_batang, val);
-        if (s !== null && s < 4) issues.push('Batang: "'+val+'" (skor '+s+'/4)');
-      }
-      if (bobot.warna_daun) {
-        const val = g('Warna Daun');
-        const s = vigorGetScore(cfg.vigor.warna_daun, val);
-        if (s !== null && s < 4) issues.push('Warna daun: "'+val+'" (skor '+s+'/4)');
-      }
-      if (bobot.kesegaran) {
-        const val = g('Kesegaran');
-        const s = vigorGetScore(cfg.vigor.kesegaran, val);
-        if (s !== null && s < 4) issues.push('Kesegaran: "'+val+'" (skor '+s+'/4)');
-      }
-    } else if (aspek === 'akar') {
-      const val1 = g('Warna Akar');
-      const val2 = g('Volume Akar');
-      const s1 = vigorGetScore(cfg.akar.warna_akar, val1);
-      const s2 = vigorGetScore(cfg.akar.volume_akar, val2);
-      if (s1 !== null && s1 < 4) issues.push('Warna akar: "'+val1+'" (skor '+s1+'/4)');
-      if (s2 !== null && s2 < 4) issues.push('Volume akar: "'+val2+'" (skor '+s2+'/4)');
-    } else if (aspek === 'polinasi') {
-      const val1 = g('Panjang Tunas Air');
-      const val2 = g('Buah Bajang');
-      if (val1) { const s = vigorGetScore(cfg.polinasi.panjang_tunas_air, val1); if (s !== null && s < 4) issues.push('Tunas air: "'+val1+'" (skor '+s+'/4)'); }
-      if (val2) { const s = vigorGetScore(cfg.polinasi.buah_bajang, val2); if (s !== null && s < 4) issues.push('Buah bajang: "'+val2+'" (skor '+s+'/4)'); }
-    } else if (aspek === 'kualitas_buah') {
-      const cfg2 = cfg.kualitas_buah;
-      if (!cfg2) return '';
-      const key = Object.keys(cfg2.bobot||{})[0];
-      if (key) {
-        const val = g(key.replace(/_/g,' ').replace(/\w/g,c=>c.toUpperCase())) || g(key);
-        const s = vigorGetScore(cfg2[key], val);
-        if (s !== null && s < 4) issues.push(key.replace(/_/g,' ')+': "'+val+'" (skor '+s+'/4)');
-      }
-    }
-    return issues.join(' · ');
-  }
-
-  function skorCell(val, aspek, row, warn=75, crit=60) {
+  const skorCell = (val, warn=75, crit=60) => {
     if (val === null || val === undefined) return `<td class="r" style="color:var(--text4)">—</td>`;
     const v = Math.round(val * 10) / 10;
     const col = v >= warn ? 'var(--green-txt)' : v >= crit ? '#854F0B' : 'var(--red-txt)';
     const bg  = v >= warn ? 'var(--green-lt)'  : v >= crit ? 'var(--yellow-lt)' : 'var(--red-lt)';
-    const ket = (v < warn && aspek && row) ? buildKeterangan(row, aspek, v) : '';
-    return `<td class="r" style="vertical-align:top">
-      <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${bg};color:${col};font-weight:700">${v}</span>
-      ${ket ? `<div style="font-size:9px;color:${col};margin-top:2px;max-width:160px;white-space:normal;line-height:1.3">${ket}</div>` : ''}
-    </td>`;
+    return `<td class="r"><span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${bg};color:${col};font-weight:700">${v}</span></td>`;
+  };
+
+  // Label-label yang lebih manusiawi
+  const VAR_LABELS = {
+    lebar_daun: 'Lebar Daun', lebar_daun_atas: 'Lebar Daun Atas',
+    diameter_batang: 'Diameter Batang', warna_daun: 'Warna Daun',
+    warna_akar: 'Warna Akar', volume_akar: 'Volume Akar',
+    simetri_buah: 'Simetri Buah', buah_bajang: 'Buah Bajang',
+    panjang_tunas_air: 'Panjang Tunas Air', kesegaran: 'Kesegaran',
+    netting_buah: 'Netting Buah',
+  };
+  const ASPEK_LABELS = {
+    vigor: 'Vigor', akar: 'Akar', polinasi: 'Polinasi', kualitas_buah: 'Kualitas Buah'
+  };
+
+  // Build keterangan text untuk aspek yang bermasalah (skor < 75)
+  function buildKeterangan(sc) {
+    const detail = sc._detail || {};
+    const issues = [];
+    for (const [aspek, items] of Object.entries(detail)) {
+      if (!items) continue;
+      const aspekSkor = sc[aspek === 'kualitas_buah' ? 'kualitas_buah' : aspek];
+      // Cek sub-items yang skornya tidak maksimal
+      const problemItems = items.filter(d => d.skor < 4);
+      if (!problemItems.length) continue;
+      problemItems.forEach(d => {
+        const varLabel = VAR_LABELS[d.var] || d.var;
+        const pct = Math.round((d.skor / d.maks) * 100);
+        const singkat = d.nilai.length > 45 ? d.nilai.slice(0, 43) + '…' : d.nilai;
+        issues.push({ aspek: ASPEK_LABELS[aspek] || aspek, varLabel, nilai: singkat, skor: d.skor, maks: d.maks, pct });
+      });
+    }
+    return issues;
   }
 
-  body.innerHTML = rows.map((r, i) => {
+  let html = '';
+  rows.forEach((r, i) => {
     const sc  = r._scores || {};
     const hst = r['HST_Checkpoint'] || r['HST Checkpoint'] || r.HST_Aktual || '—';
     const tgl = (r.Tanggal || r.Tanggal_Input || '').slice(0, 10).split('-').reverse().join('/');
-    return `<tr style="vertical-align:top">
+    const rowId = `vdr-${i}`;
+
+    // Cek apakah ada skor yang bermasalah (kuning/merah)
+    const skorList = [sc.vigor, sc.akar, sc.polinasi, sc.kualitas_buah, sc.total].filter(v => v !== null && v !== undefined);
+    const hasIssue = skorList.some(v => v < 75);
+    const hasCrit  = skorList.some(v => v < 60);
+
+    const issues = hasIssue ? buildKeterangan(sc) : [];
+
+    // Keterangan cell
+    let keteranganCell;
+    if (!issues.length) {
+      keteranganCell = `<td style="font-size:10px;color:var(--text4)">—</td>`;
+    } else {
+      const icon = hasCrit ? '🔴' : '🟡';
+      const issueCount = issues.length;
+      keteranganCell = `<td>
+        <button onclick="vigorToggleDetail('${rowId}')"
+          style="background:none;border:none;cursor:pointer;font-size:10px;font-weight:700;
+                 color:${hasCrit ? 'var(--red-txt)' : '#854F0B'};
+                 display:flex;align-items:center;gap:4px;padding:2px 0;font-family:inherit">
+          ${icon} ${issueCount} aspek <span id="${rowId}-arrow" style="font-size:9px">▼</span>
+        </button>
+      </td>`;
+    }
+
+    html += `<tr id="${rowId}-row">
       <td class="no-col">${i+1}</td>
       <td><div class="gh-name"><span class="gh-dot" style="background:${dot(r.GH)}"></span>${r.GH||'—'}</div></td>
       <td class="c"><span class="hst-b" style="font-size:10px">HST ${hst}</span></td>
       <td style="font-size:11px;font-weight:600">${r.Varian||'—'}</td>
       <td style="font-size:11px;color:var(--text3)">${r.Operator||'—'}</td>
       <td class="c mono" style="font-size:10px">${tgl}</td>
-      ${skorCell(sc.vigor,        'vigor',        r)}
-      ${skorCell(sc.akar,         'akar',         r)}
-      ${skorCell(sc.polinasi,     'polinasi',     r)}
-      ${skorCell(sc.kualitas_buah,'kualitas_buah',r)}
-      ${skorCell(sc.total,        null,           null, 80, 65)}
+      ${skorCell(sc.vigor)}
+      ${skorCell(sc.akar)}
+      ${skorCell(sc.polinasi)}
+      ${skorCell(sc.kualitas_buah)}
+      ${skorCell(sc.total, 80, 65)}
+      ${keteranganCell}
     </tr>`;
-  }).join('');
+
+    // Detail row (hidden by default)
+    if (issues.length) {
+      const issueHtml = issues.map(iss => {
+        const barColor = iss.pct >= 75 ? 'var(--green-mid)' : iss.pct >= 50 ? '#d4820a' : 'var(--red)';
+        const bgColor  = iss.pct >= 75 ? 'var(--green-lt)'  : iss.pct >= 50 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:${bgColor};border-radius:6px;min-width:220px;flex:0 0 auto">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">${iss.aspek} · ${iss.varLabel}</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:1px;line-height:1.3">${iss.nilai}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:11px;font-weight:800;color:${barColor}">${iss.skor}/${iss.maks}</div>
+            <div style="font-size:9px;color:var(--text3)">${iss.pct}%</div>
+          </div>
+        </div>`;
+      }).join('');
+
+      html += `<tr id="${rowId}-detail" style="display:none;background:var(--surface2)">
+        <td colspan="12" style="padding:8px 16px 10px 52px;border-bottom:2px solid var(--border2)">
+          <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px">Detail aspek bermasalah</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">${issueHtml}</div>
+        </td>
+      </tr>`;
+    }
+  });
+
+  body.innerHTML = html;
 
   const sub = document.getElementById('vigorDbSub');
   if (sub) sub.textContent = `${rows.length} dari ${RAW_VIGOR_DB_SCORED.length} entri`;
 }
 
+function vigorToggleDetail(rowId) {
+  const detail = document.getElementById(rowId + '-detail');
+  const arrow  = document.getElementById(rowId + '-arrow');
+  if (!detail) return;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : '';
+  if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+}
 
+// ── SNT: hitung hari sejak record terakhir per GH ──
+function sntDaysSinceLastRecord(ghName, periode) {
+  const gh    = ghName.trim().toUpperCase();
+  const normP = s => String(s||'').trim().toLowerCase();
+  const periodeNorm = normP(periode);
+  // Cari tanggal terbaru dari record RAW_SNT untuk GH ini DALAM PERIODE AKTIF SAJA
+  let latest = null;
+  RAW_SNT.forEach(x => {
+    if (x.gh.trim().toUpperCase() !== gh) return;
+    // Filter: hanya periode yang sama dengan periode aktif GH
+    if (periodeNorm && normP(x.periode) !== periodeNorm) return;
+    if (x.tgl && (!latest || x.tgl > latest)) latest = x.tgl;
+  });
+  if (!latest) return null; // tidak ada record di periode ini
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const last  = new Date(latest);
+  last.setHours(0,0,0,0);
+  return Math.floor((today - last) / (1000*60*60*24));
+}
+
+// ── BUILD PHASE TIMELINE ──
+function ccBuildPhaseTimeline() {
+  const container = document.getElementById('ccPhaseTimeline');
+  if (!container) return;
+
+  // Timeline selalu pakai RAW (live) sebagai sumber utama,
+  // gabung dengan history jika ada GH yang belum ada di RAW
+  const fromV  = (document.getElementById('ccDateFrom')||{}).value || '';
+  const toV    = (document.getElementById('ccDateTo')||{}).value   || '';
+  const rawByGH = {};
+  RAW.forEach(r => { rawByGH[r.gh.trim().toUpperCase()] = r; });
+  // Dari history: ambil GH yang tidak ada di RAW live
+  const histExtra = [];
+  if (RAW_POP_HISTORY.length) {
+    const ghMap = {};
+    RAW_POP_HISTORY.forEach(r => { if (!ghMap[r.gh] || r.hst > ghMap[r.gh].hst) ghMap[r.gh] = r; });
+    Object.values(ghMap).forEach(r => {
+      if (!rawByGH[r.gh.trim().toUpperCase()] && r.hst <= 65) histExtra.push(r);
+    });
+  }
+  let allGH = [...RAW, ...histExtra].filter(r => (r.hst||0) <= 65);
+  // Apply GH filter
+  if (CC_GH_FILTER !== 'semua') allGH = allGH.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
+
+  // Pre-compute issue level per GH
+  function ghIssueLevel(r) {
+    const gh = r.gh.trim().toUpperCase();
+    const normP = s => String(s||'').trim().toLowerCase();
+
+    // SNT — cek periode aktif dan record terakhir
+    const sntKeys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh+'||'+normP(x.periode)));
+    const belumSnt = r.hst > 7 && !sntKeys.has(r.gh+'||'+normP(r.periode));
+    const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode);
+    const sntNoRecord  = daysSinceSnt === null
+      ? r.hst > 7
+      : daysSinceSnt > 7;
+
+    // HPT — pakai date range (konsisten dengan card)
+    // Filter HPT timeline: GH + periode aktif + date range
+    const _normP = s => String(s||'').trim().toLowerCase();
+    const hptRowsTL = RAW_HPT.filter(x => {
+      if (x.gh.trim().toUpperCase() !== gh) return false;
+      if (r.periode && x.periode && _normP(x.periode) !== _normP(r.periode)) return false;
+      if (fromV && (x.tgl||'') < fromV) return false;
+      if (toV   && (x.tgl||'') > toV)   return false;
+      return true;
+    });
+    const hptMaxLvlTL = hptRowsTL.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    const hptLevel    = hptMaxLvlTL>=3?'high':hptMaxLvlTL>=2?'medium':'low';
+
+    // PNY — pakai date range (konsisten dengan card)
+    const pnyRowsTL = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const latestPNY = pnyRowsTL.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+    const pnyDev = latestPNY && (isEcDev(latestPNY)||(latestPNY.phIn&&(latestPNY.phIn<5.8||latestPNY.phIn>6.3)));
+
+    // Pop & Gramasi
+    const popPct = pctPopVsStd(r);
+    const grCrit = grKrit(r);
+    const grWn   = grWarn(r);
+
+    if (hptLevel==='high' || grCrit || popPct < 75) return 'kritis';
+    if (sntNoRecord || belumSnt || hptLevel==='medium' || pnyDev || grWn || popPct < 90) return 'isu';
+    return 'ok';
+  }
+
+  const PHASES = [
+    { id:'preparation',       label:'Preparation',         hstMin:-1,  hstMax:0,  color:'#0a3d6b', bg:'#dceeff' },
+    { id:'shoot-growth',      label:'Shoot Growth',        hstMin:0,   hstMax:7,  color:'#155c2c', bg:'#e6f4ec' },
+    { id:'establishment',     label:'Establishment',       hstMin:8,   hstMax:16, color:'#134880', bg:'#e8f0fb' },
+    { id:'fruit-set',         label:'Fruit Set',           hstMin:17,  hstMax:25, color:'#2d5a1b', bg:'#eef5e8' },
+    { id:'early-fruit-dev',   label:'Early Fruit Dev',     hstMin:26,  hstMax:35, color:'#6b4800', bg:'#fef8e2' },
+    { id:'fruit-enlargement', label:'Fruit Enlargement',   hstMin:36,  hstMax:50, color:'#7a4800', bg:'#fef3e2' },
+    { id:'ripening',          label:'Ripening',            hstMin:51,  hstMax:65, color:'#8b1515', bg:'#fdecea' },
+  ];
+
+  container.innerHTML = PHASES.map(ph => {
+    const ghs = allGH
+      .filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax)
+      .sort((a,b) => a.hst - b.hst);
+
+    const dots = ghs.map(r => {
+      const level = ghIssueLevel(r);
+      const dotColor = level === 'kritis' ? 'var(--red)' : level === 'isu' ? '#c87800' : 'var(--green)';
+      const txtColor = level === 'ok' ? ph.color : '#fff';
+      const bg       = level === 'ok' ? ph.bg : dotColor;
+      const code     = ghCodeOf(r.gh);
+      const ghKey    = r.gh.replace(/'/g,"\'");
+      return `<div onclick="ccShowGhIssue('${ghKey}')" data-tl-gh="${r.gh}"
+        style="width:28px;height:28px;border-radius:50%;background:${bg};color:${txtColor};
+               display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;
+               cursor:pointer;border:2px solid transparent;transition:transform .12s,border-color .12s;flex-shrink:0;font-family:'JetBrains Mono',monospace"
+        onmouseover="this.style.transform='scale(1.18)';this.style.borderColor='${ph.color}'"
+        onmouseout="this.style.transform='';this.style.borderColor='transparent'"
+        title="${r.gh} · HST ${r.hst}">${code}</div>`;
+    }).join('');
+
+    const issueCount = ghs.filter(r => ghIssueLevel(r) !== 'ok').length;
+    const critCount  = ghs.filter(r => ghIssueLevel(r) === 'kritis').length;
+    const countBadge = ghs.length === 0 ? '' :
+      critCount  > 0 ? `<span style="font-size:9px;font-weight:700;color:var(--red);margin-top:3px">${critCount} kritis</span>` :
+      issueCount > 0 ? `<span style="font-size:9px;font-weight:700;color:#c87800;margin-top:3px">${issueCount} isu</span>` :
+                       `<span style="font-size:9px;color:var(--green);margin-top:3px">✓ ok</span>`;
+
+    return `<div style="flex:1;min-width:90px;display:flex;flex-direction:column">
+      <div style="font-size:10px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;margin-bottom:6px;color:${ph.color};background:${ph.bg};line-height:1.3">
+        ${ph.label}<br><span style="font-weight:400;font-size:9px;opacity:.8">HST ${ph.hstMin}–${ph.hstMax}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:34px;align-items:center">
+        ${dots || `<span style="font-size:10px;color:var(--text4)">—</span>`}
+      </div>
+      <div style="text-align:center;min-height:16px">${countBadge}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── SHOW GH ISSUE CARD ──
+let _ccActiveCat = null;
+
+function ccShowGhIssue(ghName) {
+  const panel = document.getElementById('ccGhIssuePanel');
+  if (!panel) return;
+
+  if (panel._currentGH === ghName && panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    panel._currentGH = null;
+    _ccActiveCat = null;
+    document.querySelectorAll('[data-tl-gh]').forEach(d => d.style.outline = '');
+    return;
+  }
+  panel._currentGH = ghName;
+  _ccActiveCat = null;
+  document.querySelectorAll('[data-tl-gh]').forEach(d => {
+    d.style.outline = d.getAttribute('data-tl-gh') === ghName ? '3px solid var(--green)' : '';
+    d.style.outlineOffset = '2px';
+  });
+
+  const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
+  const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
+  // Cari di RAW live dulu, fallback ke history
+  let r = RAW.find(x => x.gh === ghName);
+  if (!r && RAW_POP_HISTORY.length) {
+    const fromHist = RAW_POP_HISTORY.filter(x => x.gh === ghName);
+    r = fromHist.reduce((m,x) => (!m||x.hst>m.hst)?x:m, null);
+  }
+  if (!r) return;
+
+  const gh    = r.gh.trim().toUpperCase();
+  const normP = s => String(s||'').trim().toLowerCase();
+  const fmtD  = s => s ? s.split('-').reverse().join('/') : '—';
+
+  // ── SNT ──
+  // sntRowsPeriode: semua data GH ini di periode aktif → untuk total count & kategori
+  const sntRowsPeriode = RAW_SNT.filter(x =>
+    x.gh.trim().toUpperCase() === gh && normP(x.periode) === normP(r.periode)
+  );
+  // sntRowsRange: data GH ini dalam date range → untuk trend harian bar chart
+  const sntRowsRange = RAW_SNT.filter(x =>
+    x.gh.trim().toUpperCase() === gh
+    && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV)
+  );
+  const sntKeys  = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh.trim().toUpperCase()+'||'+normP(x.periode)));
+  const belumSnt = r.hst > 7 && !sntKeys.has(gh+'||'+normP(r.periode)); // HST 0-7 ok jika belum ada
+  // Total & kategori pakai periode
+  const sntCount = sntRowsPeriode.reduce((s,x)=>s+(x.jml||0),0);
+  const sntKatMap = {};
+  sntRowsPeriode.forEach(x => { const k=(x.trueSnt||x.kategori||'').trim(); if(k){sntKatMap[k]=(sntKatMap[k]||0)+(x.jml||0);} });
+  const sntKats = Object.entries(sntKatMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  // Trend harian pakai date range (sanitasi + sulaman terpisah)
+  const sntByDay   = {};
+  const sulamByDay = {};
+  sntRowsRange.forEach(x => {
+    if(x.tgl) {
+      sntByDay[x.tgl]   = (sntByDay[x.tgl]||0)   + (x.jml||0);
+      sulamByDay[x.tgl] = (sulamByDay[x.tgl]||0) + (x.jmlSulam||0);
+    }
+  });
+  const sntDays = Object.keys(sntByDay).sort().slice(-10);
+  // Total sulaman per periode
+  const sulamCount = sntRowsPeriode.reduce((s,x)=>s+(x.jmlSulam||0),0);
+
+  // ── HPT ──
+  // Filter HPT: GH + periode aktif + date range
+  const normP2 = s => String(s||'').trim().toLowerCase();
+  const hptRows   = RAW_HPT.filter(x => {
+    if (x.gh.trim().toUpperCase() !== gh) return false;
+    // Filter periode — cocokkan dengan periode aktif GH ini
+    if (r.periode && x.periode && normP2(x.periode) !== normP2(r.periode)) return false;
+    if (fromV && (x.tgl||'') < fromV) return false;
+    if (toV   && (x.tgl||'') > toV)   return false;
+    return true;
+  });
+  const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+  const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
+  // HPT per tgl (untuk riwayat)
+  const hptByTgl  = {};
+  hptRows.forEach(x => { if(x.tgl){ if(!hptByTgl[x.tgl]||x.tgl>hptByTgl[x.tgl].tgl) hptByTgl[x.tgl]=x; } });
+  const hptHistory = Object.values(hptByTgl).sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,5);
+
+  // ── PNY ──
+  const pnyRows   = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+  const latestPNY = pnyRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
+  const ecDev  = latestPNY && isEcDev(latestPNY);
+  const phDev  = latestPNY && latestPNY.phIn && (latestPNY.phIn<5.8||latestPNY.phIn>6.3);
+  const pnyDev = ecDev || phDev;
+  const pnyByDay = {};
+  pnyRows.forEach(x => { if(x.tgl) pnyByDay[x.tgl]=x; });
+  const pnyDays = Object.keys(pnyByDay).sort().slice(-7);
+
+  // ── POP & GRAMASI ──
+  const popPct = pctPopVsStd(r);
+  const grCrit = grKrit(r);
+  const grWn   = grWarn(r);
+  const varRows = RAW_VARIAN.filter(x => x.gh.trim().toUpperCase()===gh && x.avgGramasi>0);
+
+  // ── EST PANEN ──
+  const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
+  const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
+
+  // ── HPT status from new long format (harus sebelum hasKritis/hasIsu) ──
+  const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+  const hptSt = hptMaxLvl>=3 ? 'crit' : hptMaxLvl>=2 ? 'warn' : 'ok';
+  const hptDetailStr = latestHPT
+    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
+    : 'Belum ada data HPT';
+
+  // ── SNT WARNING: sama dengan logika di timeline ──
+  const daysSinceSnt = sntDaysSinceLastRecord(r.gh, r.periode); // null = belum ada record periode ini
+  const sntNoRecord  = daysSinceSnt === null
+    ? r.hst > 7   // belum ada record sama sekali, warning mulai HST > 7
+    : daysSinceSnt > 7; // ada record tapi > 7 hari lalu → warning (dari HST berapapun)
+  const sntSt = sntNoRecord ? 'warn' : belumSnt ? 'warn' : 'ok';
+  const sntDetailTxt = sntNoRecord
+    ? (daysSinceSnt === null
+        ? 'Belum ada record sanitasi (HST '+r.hst+')'
+        : daysSinceSnt + ' hari tanpa pengamatan — perlu konfirmasi')
+    : belumSnt ? 'Belum dilakukan periode ini' : 'Total: '+ccFmt(sntCount)+' buah';
+
+  // ── STATUS — identik dengan ghIssueLevel agar dot dan card konsisten ──
+  const hasKritis = hptMaxLvl>=3 || grCrit || popPct < 75;
+  const hasIsu    = !hasKritis && (sntNoRecord || belumSnt || hptMaxLvl>=2 || pnyDev || grWn || popPct < 90);
+  const overallBadge = hasKritis
+    ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--red-lt);color:var(--red-txt)">kritis</span>'
+    : hasIsu
+      ? '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--yellow-lt);color:var(--yellow-txt)">ada isu</span>'
+      : '<span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:6px;background:var(--green-lt);color:var(--green-txt)">on track</span>';
+  const pnySt = pnyDev ? 'warn' : 'ok';
+  const popSt = popPct < 75 ? 'crit' : popPct < 90 ? 'warn' : 'ok';
+  const grSt  = grCrit ? 'crit' : grWn ? 'warn' : 'ok';
+  const popGrSt = (popSt==='crit'||grSt==='crit') ? 'crit' : (popSt==='warn'||grSt==='warn') ? 'warn' : 'ok';
+  const estSt = estKg > 0 ? 'ok' : 'warn';
+
+  // ── MINI HELPERS ──
+  function stBg(s,soon)  { return soon?'var(--surface2)':s==='ok'?'var(--green-lt)':s==='warn'?'var(--yellow-lt)':s==='crit'?'var(--red-lt)':'var(--surface2)'; }
+  function stBc(s,soon)  { return soon?'var(--border2)':s==='ok'?'#b8dfc4':s==='warn'?'#f5d08a':s==='crit'?'#f0b0b0':'var(--border2)'; }
+  function stTxt(s,soon) { return soon?'build':s==='ok'?'ok':s==='warn'?'perlu perhatian':s==='crit'?'kritis':'build'; }
+  function stCol(s,soon) { return soon?'var(--text4)':s==='ok'?'var(--green-txt)':s==='warn'?'var(--yellow-txt)':s==='crit'?'var(--red-txt)':'var(--text4)'; }
+
+  function miniStat(lbl,val,col) {
+    return `<div style="background:var(--surface2);border-radius:8px;padding:9px 11px;text-align:center">
+      <div style="font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col||'var(--text)'}">${val}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${lbl}</div>
+    </div>`;
+  }
+
+  function trendBars(days, vals, maxVal, colFn) {
+    const mx = maxVal || Math.max(...vals, 1);
+    return `<div style="display:flex;align-items:flex-end;gap:3px;height:52px">
+      ${days.map((d,i) => {
+        const h = Math.max(Math.round((vals[i]||0)/mx*48), vals[i]>0?4:2);
+        const col = colFn ? colFn(vals[i],i) : 'var(--green)';
+        const lbl = d.slice(5).split('-').reverse().join('/');
+        return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+          <div style="width:100%;height:${h}px;background:${col};border-radius:2px 2px 0 0"></div>
+          <div style="font-size:8px;color:var(--text3)">${lbl}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  function hBar(lbl, val, maxVal, col, labelW) {
+    const w = Math.round(Math.min(val,maxVal)/maxVal*100);
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+      <div style="font-size:10px;color:var(--text3);width:${labelW||100}px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${lbl}</div>
+      <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
+        <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px;font-size:9px;color:#fff;font-weight:700">${w>20?ccFmt(val):''}</div>
+      </div>
+      <div style="font-size:10px;color:var(--text3);width:36px;text-align:right;font-family:'JetBrains Mono',monospace">${ccFmt(val)}</div>
+    </div>`;
+  }
+
+  function dummyNote() {
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--yellow-lt);border:0.5px solid #f5d08a;border-radius:7px;margin-bottom:10px;font-size:10px;color:var(--yellow-txt)">
+      ⚠ Sebagian data di bawah adalah <b>dummy</b> — belum terhubung ke data real GH ini</div>`;
+  }
+
+  function secLbl(txt) { return `<div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;margin:10px 0 6px">${txt}</div>`; }
+
+  // ── DETAIL RENDERERS per kategori ──
+  function detailKesiapan() {
+    return dummyNote()
+      + `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+          ${miniStat('Suhu GH','Normal','var(--green-txt)')}
+          ${miniStat('Kelembaban','78%','var(--green-txt)')}
+          ${miniStat('Pompa bermasalah','2','var(--red-txt)')}
+          ${miniStat('Irigasi','OK','var(--green-txt)')}
+        </div>`
+      + secLbl('Checklist kesiapan')
+      + ['Talang bersih','Pompa irigasi','Cek nozzle','Media tanam siap','Label periode terpasang'].map((x,i) =>
+          `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+            <span>${i===2?'⚠️':'✅'}</span>
+            <span style="color:var(--text)">${x}</span>
+            <span style="margin-left:auto;font-size:10px;color:${i===2?'var(--yellow-txt)':'var(--green-txt)'}">${i===2?'perlu cek ulang':'ok'}</span>
+          </div>`
+        ).join('');
+  }
+
+  function detailPop() {
+    const survPct = r.popAwal>0?(r.popAkhir/r.popAwal*100):0;
+    const survCol = survPct>=95?'var(--green-txt)':survPct>=90?'var(--yellow-txt)':'var(--red-txt)';
+    const popCol  = popPct>=100?'var(--green-txt)':popPct>=90?'var(--yellow-txt)':'var(--red-txt)';
+    const grCol   = grCrit?'var(--red-txt)':grWn?'var(--yellow-txt)':'var(--green-txt)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Pop awal', r.popAwal>0?ccFmt(r.popAwal):'—', 'var(--text)')}
+        ${miniStat('Pop akhir', ccFmt(r.popAkhir), popCol)}
+        ${miniStat('vs standar HST', popPct>0?popPct.toFixed(1)+'%':'—', popCol)}
+        ${miniStat('Survival rate', survPct>0?survPct.toFixed(1)+'%':'—', survCol)}
+        ${miniStat('Avg gramasi', r.avgGramasi>0?Math.round(r.avgGramasi)+'g':'—', grCol)}
+      </div>`;
+    if (varRows.length) {
+      const maxGr = Math.max(...varRows.map(x=>x.avgGramasi), 1);
+      html += secLbl('Gramasi per varian')
+        + varRows.map(x => hBar(x.varian||'—', Math.round(x.avgGramasi), Math.max(x.targetGramasi||maxGr,1),
+            x.avgGramasi>=(x.targetGramasi||0)?'var(--green)':'var(--yellow)', 90)).join('');
+    }
+    return html;
+  }
+
+  function detailSnt() {
+    const actDays = new Set(sntRowsPeriode.filter(x=>x.tgl).map(x=>x.tgl)).size;
+    const maxSnt  = Math.max(...sntDays.map(d => Math.max(sntByDay[d]||0, sulamByDay[d]||0)), 1);
+
+    // Warning banner jika tidak ada record > 7 hari
+    const warnBanner = sntNoRecord ? `
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:9px 12px;background:var(--yellow-lt);border:1px solid #f5d08a;border-radius:8px;margin-bottom:10px;font-size:11px;color:var(--yellow-txt)">
+        <span style="font-size:14px;flex-shrink:0">⚠️</span>
+        <div>
+          <div style="font-weight:700;margin-bottom:2px">
+            ${daysSinceSnt === null
+              ? 'Belum ada record sanitasi sejak tanam'
+              : daysSinceSnt + ' hari tanpa pengamatan sanitasi'}
+          </div>
+          <div style="opacity:.85">Perlu konfirmasi ke tim — apakah memang tidak ada sanitasi atau belum diinput?</div>
+        </div>
+      </div>` : '';
+
+    let html = warnBanner + `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Total sanitasi', ccFmt(sntCount), sntCount>0?'var(--green-txt)':'var(--text)')}
+        ${miniStat('Total sulaman', ccFmt(sulamCount), sulamCount>0?'#134880':'var(--text)')}
+        ${miniStat('Periode ini', belumSnt?'Belum':'✓', belumSnt?'var(--yellow-txt)':'var(--green-txt)')}
+        ${miniStat('Hari aktif', actDays, actDays>0?'var(--green-txt)':'var(--text)')}
+      </div>
+      ${daysSinceSnt !== null ? `<div style="font-size:10px;color:var(--text3);margin-bottom:8px">Record terakhir: <b>${daysSinceSnt} hari lalu</b></div>` : ''}`;
+
+    if (sntDays.length) {
+      html += secLbl('Tren harian (dalam date range)')
+        + `<div style="display:flex;align-items:flex-end;gap:3px;height:64px">
+          ${sntDays.map(d => {
+            const sntV   = sntByDay[d]||0;
+            const sulamV = sulamByDay[d]||0;
+            const maxV   = Math.max(sntV, sulamV, 1);
+            const hSnt   = sntV   > 0 ? Math.max(Math.round(sntV/maxSnt*56),   4) : 0;
+            const hSulam = sulamV > 0 ? Math.max(Math.round(sulamV/maxSnt*56), 4) : 0;
+            const lbl    = d.slice(5).split('-').reverse().join('/');
+            return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="width:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;height:56px">
+                ${sulamV > 0 ? `<div style="width:100%;height:${hSulam}px;background:#185FA5;border-radius:2px 2px 0 0;opacity:.85" title="Sulam: ${sulamV}"></div>` : ''}
+                ${sntV   > 0 ? `<div style="width:100%;height:${hSnt}px;background:var(--green);border-radius:${sulamV>0?'0':'2px 2px'} 0 0;opacity:.9" title="Sanitasi: ${sntV}"></div>` : ''}
+                ${sntV===0&&sulamV===0 ? `<div style="width:100%;height:3px;background:var(--border);border-radius:2px"></div>` : ''}
+              </div>
+              <div style="font-size:8px;color:var(--text3)">${lbl}</div>
+            </div>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:12px;margin-top:5px">
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:2px;background:var(--green);display:inline-block"></span>Sanitasi
+          </span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
+            <span style="width:10px;height:10px;border-radius:2px;background:#185FA5;display:inline-block"></span>Sulaman
+          </span>
+        </div>`;
+    }
+
+    if (sntKats.length) {
+      const maxKat = sntKats[0][1];
+      const KC = ['#A32D2D','#854F0B','#185FA5','#3B6D11','#534AB7'];
+      html += secLbl('Kategori tertinggi (periode ini)')
+        + sntKats.map(([k,v],i) => hBar(k, v, maxKat, KC[i]||'var(--green)', 110)).join('');
+    } else {
+      html += `<div style="font-size:11px;color:var(--text3);margin-top:6px">Belum ada data kategori sanitasi untuk GH ini di periode ini</div>`;
+    }
+    return html;
+  }
+
+  function detailHPT() {
+    // Ambil semua HPT rows untuk GH ini (dari RAW_HPT long format)
+    const allHptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase() === gh);
+    const hptInRange = allHptRows.filter(x => (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+
+    // Max status per GH
+    const maxLvl = allHptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    const ghStatus = statusLabel(maxLvl);
+    const lvlCol = maxLvl>=4?'var(--red-txt)':maxLvl>=3?'var(--red-txt)':maxLvl>=2?'var(--yellow-txt)':'var(--green-txt)';
+
+    // Latest tgl
+    const latestTgl = allHptRows.reduce((m,x)=>(!m||x.tgl>m)?x.tgl:m, null);
+    const daysSince = latestTgl ? Math.floor((new Date()-new Date(latestTgl))/(864e5)) : null;
+
+    let html = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Status tertinggi', ghStatus.toUpperCase(), lvlCol)}
+        ${miniStat('Total record', allHptRows.length, 'var(--text)')}
+        ${miniStat('Data terbaru', latestTgl?fmtD(latestTgl):'—', 'var(--text)')}
+        ${miniStat('Hari lalu', daysSince!==null?daysSince+'h':'—', daysSince>7?'var(--yellow-txt)':'var(--green-txt)')}
+      </div>`;
+
+    if (allHptRows.length) {
+      // Group by hptName, sum nilai
+      const byHpt = {};
+      hptInRange.forEach(x => {
+        if (!byHpt[x.hptName]) byHpt[x.hptName] = {kat:x.kat,total:0,maxSt:0,lastTgl:''};
+        byHpt[x.hptName].total += x.nilai;
+        if (statusLevel(x.status) > byHpt[x.hptName].maxSt) byHpt[x.hptName].maxSt = statusLevel(x.status);
+        if (x.tgl > byHpt[x.hptName].lastTgl) byHpt[x.hptName].lastTgl = x.tgl;
+      });
+      const ranked = Object.entries(byHpt).sort((a,b)=>b[1].maxSt-a[1].maxSt||b[1].total-a[1].total);
+      const maxTotal = ranked.reduce((m,[,v])=>Math.max(m,v.total),1);
+
+      html += secLbl('HPT dalam date range ini');
+      if (ranked.length) {
+        html += ranked.map(([name,v]) => {
+          const col = v.maxSt>=4?'#A32D2D':v.maxSt>=3?'var(--red)':v.maxSt>=2?'#c87800':'var(--green)';
+          const stLbl = statusLabel(v.maxSt);
+          const w = Math.round(v.total/maxTotal*100);
+          const isP = (v.kat||'').toLowerCase().includes('penyakit');
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <div style="font-size:11px;color:var(--text);width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+            <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
+              <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px">
+                <span style="font-size:9px;color:#fff;font-weight:700">${w>20?v.total.toFixed(1):''}</span>
+              </div>
+            </div>
+            <div style="width:60px;flex-shrink:0;text-align:right">
+              <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${col+'22'};color:${col};font-weight:600">${stLbl}</span>
+            </div>
+          </div>`;
+        }).join('');
+      } else {
+        html += `<div style="font-size:11px;color:var(--text3)">Tidak ada data HPT dalam date range ini</div>`;
+      }
+
+      // Riwayat terbaru
+      const recent = [...allHptRows].sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,6);
+      html += secLbl('Riwayat pengamatan terbaru');
+      html += recent.map(x => {
+        const col = statusLevel(x.status)>=4?'#A32D2D':statusLevel(x.status)>=3?'var(--red-txt)':statusLevel(x.status)>=2?'var(--yellow-txt)':'var(--green-txt)';
+        const bg  = statusLevel(x.status)>=4?'#fdecea':statusLevel(x.status)>=3?'var(--red-lt)':statusLevel(x.status)>=2?'var(--yellow-lt)':'var(--green-lt)';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+          <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);width:56px;flex-shrink:0">${fmtD(x.tgl)}</span>
+          <span style="flex:1;color:var(--text)">${x.hptName}</span>
+          <span style="color:var(--text3);font-family:'JetBrains Mono',monospace;width:36px;text-align:right">${x.nilai}</span>
+          <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600;width:58px;text-align:center">${x.status}</span>
+        </div>`;
+      }).join('');
+    } else {
+      html += dummyNote()
+        + secLbl('Riwayat serangan (dummy)')
+        + [['DM (Downy Mildew)',0,'Low'],['PM (Powdery Mildew)',0,'Low'],['Thrips',20,'Medium']].map(([n,v,lv]) => {
+            const col = lv==='High'?'var(--red-txt)':lv==='Medium'?'var(--yellow-txt)':'var(--green-txt)';
+            const bg  = lv==='High'?'var(--red-lt)':lv==='Medium'?'var(--yellow-lt)':'var(--green-lt)';
+            return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+              <span style="flex:1;color:var(--text)">${n}</span>
+              <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600">${lv}</span>
+            </div>`;
+          }).join('');
+    }
+    return html;
+  }
+
+  function detailPny() {
+    const avgEC = pnyRows.filter(x=>x.ecIn>0).length ? (pnyRows.filter(x=>x.ecIn>0).reduce((s,x)=>s+x.ecIn,0)/pnyRows.filter(x=>x.ecIn>0).length).toFixed(2) : null;
+    const avgPH = pnyRows.filter(x=>x.phIn>0).length ? (pnyRows.filter(x=>x.phIn>0).reduce((s,x)=>s+x.phIn,0)/pnyRows.filter(x=>x.phIn>0).length).toFixed(2) : null;
+    // Cek avg EC — tapi air baku hanya berlaku per record (butuh cek per row)
+    const pnyDevRows = pnyRows.filter(x => isEcDev(x));
+    const ecCol = avgEC ? (pnyDevRows.length===0?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
+    const phCol = avgPH ? (avgPH>=5.8&&avgPH<=6.3?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Avg EC in', avgEC||'—', ecCol)}
+        ${miniStat('Avg pH in', avgPH||'—', phCol)}
+        ${miniStat('Total input', pnyRows.length, 'var(--text)')}
+      </div>`;
+    if (pnyDays.length) {
+      html += secLbl('Tren EC & pH 7 hari terakhir')
+        + `<div style="display:flex;gap:4px;overflow-x:auto">
+            ${pnyDays.map(d => {
+              const x = pnyByDay[d];
+              const ecOk = !isEcDev(x), phOk = x.phIn>=5.8&&x.phIn<=6.3;
+              return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
+                <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${d.slice(5).split('-').reverse().join('/')}</div>
+                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${x.ecIn||'—'}</div>
+                <div style="font-size:9px;color:var(--text4);margin-bottom:3px">EC</div>
+                <div style="font-size:11px;font-weight:700;color:${phOk?'var(--green-txt)':'var(--red-txt)'}">${x.phIn||'—'}</div>
+                <div style="font-size:9px;color:var(--text4)">pH</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+    } else {
+      html += dummyNote()
+        + secLbl('Tren EC & pH (dummy)')
+        + `<div style="display:flex;gap:4px;overflow-x:auto">
+            ${[2.8,2.9,3.1,3.3,3.0,2.7,2.9].map((ec,i) => {
+              const ph2 = [6.0,6.1,5.9,6.2,6.3,6.4,6.1][i];
+              const ecOk=ec>=2.5&&ec<=3.2, phOk=ph2>=5.8&&ph2<=6.3; // dummy data
+              const lbl = ['07','08','09','10','11','12','13'][i]+'/04';
+              return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
+                <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${lbl}</div>
+                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${ec}</div>
+                <div style="font-size:9px;color:var(--text4);margin-bottom:3px">EC</div>
+                <div style="font-size:11px;font-weight:700;color:${phOk?'var(--green-txt)':'var(--red-txt)'}">${ph2}</div>
+                <div style="font-size:9px;color:var(--text4)">pH</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+    }
+    return html;
+  }
+
+  function detailVigor() {
+    const vigorData = getVigorForGH(r.gh, r.periode, r.hst);
+    const sk = vigorData ? vigorData.skor : null;
+
+    function scorePill(val) {
+      if (val === null || val === undefined) return `<span style="font-size:10px;color:var(--text4)">—</span>`;
+      const v = Math.round(val);
+      const col = v >= 90 ? 'var(--green-txt)' : v >= 75 ? '#854F0B' : 'var(--red-txt)';
+      const bg  = v >= 90 ? 'var(--green-lt)'  : v >= 75 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+      return `<div style="text-align:center">
+        <div style="font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col}">${v}</div>
+        <div style="font-size:9px;padding:1px 6px;border-radius:3px;background:${bg};color:${col};margin-top:2px">${v>=90?'Baik':v>=75?'Cukup':'Perlu Perhatian'}</div>
+      </div>`;
+    }
+
+    function scoreBar(val, label) {
+      if (val === null || val === undefined) return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text);width:110px;flex-shrink:0">${label}</div>
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px"></div>
+        <div style="font-size:11px;color:var(--text4);width:30px;text-align:right">—</div>
+      </div>`;
+      const v = Math.round(val);
+      const col = v >= 90 ? 'var(--green)' : v >= 75 ? '#c87800' : 'var(--red)';
+      return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="font-size:11px;color:var(--text);width:110px;flex-shrink:0">${label}</div>
+        <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+          <div style="width:${v}%;height:100%;background:${col};border-radius:4px;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${col};width:30px;text-align:right">${v}</div>
+      </div>`;
+    }
+
+    if (!vigorData) {
+      // Belum ada data — cek checkpoint terdekat setelah HST ini
+      const pastCPs  = VIGOR_HST_CHECKPOINTS.filter(h => h <= (r.hst||0));
+      const nextCP   = VIGOR_HST_CHECKPOINTS.find(h => h > (r.hst||0));
+      const lastCP   = pastCPs.length ? Math.max(...pastCPs) : null;
+      return `<div style="text-align:center;padding:20px 0">
+        <div style="font-size:28px;margin-bottom:8px">🌱</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px">Belum ada data Kesehatan Tanaman</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">HST saat ini: <b>${r.hst||0}</b></div>
+        ${lastCP ? `<div style="font-size:10px;color:var(--yellow-txt);background:var(--yellow-lt);padding:5px 12px;border-radius:5px;display:inline-block;margin-bottom:4px">⚠ Checkpoint HST ${lastCP} sudah terlewati tapi belum ada data input</div>` : ''}
+        ${nextCP ? `<div style="font-size:10px;color:var(--text4);margin-top:4px">Checkpoint berikutnya: HST ${nextCP}</div>` : ''}
+      </div>`;
+    }
+
+    const lagNote = vigorData.isLagged
+      ? `<div style="display:flex;align-items:center;gap:8px;font-size:10px;background:var(--yellow-lt);padding:7px 10px;border-radius:6px;margin-bottom:10px;border:0.5px solid #f5d08a">
+          <span>📌</span>
+          <div>
+            <b>Menampilkan data checkpoint HST ${vigorData.hstCheckpoint}</b>
+            · HST aktual saat ini: ${r.hst}
+            · Checkpoint berikutnya: HST ${(()=>{const nxt=VIGOR_HST_CHECKPOINTS.find(h=>h>vigorData.hstCheckpoint);return nxt||'—';})()}
+          </div>
+        </div>` : '';
+
+    return lagNote
+      // ── Total score ──
+      + `<div style="display:grid;grid-template-columns:repeat(${sk.kualitas!==null?4:3},1fr);gap:10px;margin-bottom:14px">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">VIGOR</div>
+            ${scorePill(sk.vigor)}
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">AKAR</div>
+            ${scorePill(sk.akar)}
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">POLINASI</div>
+            ${scorePill(sk.polinasi)}
+          </div>
+          ${sk.kualitas!==null ? `<div style="background:var(--surface2);border-radius:8px;padding:10px;text-align:center">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">KUALITAS BUAH</div>
+            ${scorePill(sk.kualitas)}
+          </div>` : ''}
+        </div>`
+
+      // ── Section: Kesehatan Tanaman ──
+      + secLbl('🌱 Kesehatan Tanaman')
+      + `<div style="margin-bottom:12px">
+          ${scoreBar(sk.vigor,   'Vigor Tanaman')}
+          ${scoreBar(sk.akar,    'Perakaran')}
+          ${scoreBar(sk.polinasi,'Polinasi')}
+        </div>`
+
+      // ── Section: Kesehatan Buah ──
+      + (sk.kualitas !== null ? secLbl('🍅 Kesehatan Buah')
+          + `<div style="margin-bottom:10px">${scoreBar(sk.kualitas,'Kualitas Buah')}</div>` : '')
+
+      // ── Total & meta ──
+      + `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--surface2);border-radius:7px;margin-top:4px">
+          <span style="font-size:11px;color:var(--text3)">Skor Total · ${vigorData.sampleCount} sampel · ${(vigorData.tglInput||'').slice(5).split('-').reverse().join('/')}</span>
+          <span style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${(sk.total||0)>=90?'var(--green-txt)':(sk.total||0)>=75?'#854F0B':'var(--red-txt)'}">${Math.round(sk.total||0)}</span>
+        </div>`;
+  }
+
+
+  function detailEst() {
+    const grLabel = r.avgGramasi>0?'gramasi aktual':'asumsi 1kg';
+    const grCol   = r.avgGramasi>0?'var(--green-txt)':'var(--yellow-txt)';
+    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+        ${miniStat('Est. total', estKg>0?ccFmt(estKg)+' kg':'—', estKg>0?'var(--green-txt)':'var(--yellow-txt)')}
+        ${miniStat('Avg gramasi', r.avgGramasi>0?Math.round(r.avgGramasi)+'g':'1.000g', grCol)}
+        ${miniStat('Pop akhir', ccFmt(r.popAkhir), 'var(--text)')}
+      </div>`;
+    if (varRows.length) {
+      html += secLbl('Estimasi per varian')
+        + varRows.map(x => {
+            const grV  = x.avgGramasi>0?x.avgGramasi:1000;
+            const estV = x.popAkhir>0?Math.round(x.popAkhir*grV/1000):Math.round((r.popAkhir/varRows.length)*grV/1000);
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:11px">
+              <span style="font-weight:700;color:var(--text)">${x.varian||'—'}</span>
+              <div style="display:flex;gap:14px;align-items:center">
+                <span style="color:var(--text3)">${x.avgGramasi>0?Math.round(x.avgGramasi)+'g':'1.000g'} avg</span>
+                <span style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green-txt)">${ccFmt(estV)} kg</span>
+              </div>
+            </div>`;
+          }).join('');
+    }
+    html += `<div style="font-size:10px;color:var(--text3);margin-top:6px">Rumus: pop akhir × avg gramasi · ${grLabel}</div>`;
+    return html;
+  }
+
+  function detailSemp() {
+    return dummyNote()
+      + `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+          ${miniStat('Jadwal aktif','0','var(--green-txt)')}
+          ${miniStat('Sesi bulan ini','3','var(--text)')}
+          ${miniStat('Realisasi','100%','var(--green-txt)')}
+        </div>`
+      + secLbl('Riwayat penyemprotan (dummy)')
+      + [['05/04','Fungisida','Selesai'],['28/03','Insektisida','Selesai'],['20/03','Fungisida','Selesai']].map(([tgl,jenis,status]) =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:11px">
+            <div style="display:flex;gap:10px">
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--text3)">${tgl}</span>
+              <span style="color:var(--text)">${jenis}</span>
+            </div>
+            <span style="font-size:10px;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt);font-weight:600">${status}</span>
+          </div>`
+        ).join('');
+  }
+
+  const DETAIL_FNS = {
+    kesiapan: detailKesiapan,
+    pop:      detailPop,
+    snt:      detailSnt,
+    hpt:      detailHPT,
+    pny:      detailPny,
+    vigor:    detailVigor,
+    est:      detailEst,
+    semp:     detailSemp,
+  };
+
+  // ── CAT CARD builder (clickable) ──
+  function catCard(c) {
+    const isActive = _ccActiveCat === c.id;
+    const bg  = isActive ? (c.soon?'var(--surface2)':stBg(c.status,c.soon)) : (c.soon?'var(--surface2)':stBg(c.status,c.soon));
+    const bc  = isActive ? 'var(--text)' : stBc(c.status,c.soon);
+    const bw  = isActive ? '2px' : '1px';
+    const txt = stTxt(c.status,c.soon);
+    const col = stCol(c.status,c.soon);
+    return `<div data-cat-id="${c.id}" onclick="ccToggleCatDetail('${c.id}')"
+      style="background:${bg};border:${bw} solid ${bc};border-radius:9px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:border .12s"
+      onmouseover="this.style.borderWidth='2px'" onmouseout="if('${c.id}'!==_ccActiveCat)this.style.borderWidth='1px'">
+      <div style="font-size:13px">${c.icon}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text);line-height:1.3">${c.label}${c.soon?` <span style="font-size:8px;font-weight:400;color:var(--text4);background:var(--surface);padding:1px 5px;border-radius:3px;border:1px solid var(--border)">build</span>`:''}</div>
+      <div style="font-size:10px;font-weight:600;color:${col}">${txt}</div>
+      <div style="font-size:10px;color:var(--text3);line-height:1.4;margin-top:1px">${c.detail}</div>
+    </div>`;
+  }
+
+  const CATS = [
+    { id:'kesiapan', icon:'🏗',  label:'Kesiapan GH',       soon:true,  status:'—',      detail:'Sedang dikembangkan' },
+    { id:'pop',      icon:'⚖️',  label:'Populasi & Gramasi', soon:false, status:popGrSt,  detail:'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—')+(r.avgGramasi>0?' · Gramasi: '+Math.round(r.avgGramasi)+'g':' · Gramasi: belum input') },
+    { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
+    { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: hptDetailStr },
+    { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
+    (function(){
+      const vd = getVigorForGH(r.gh, r.periode, r.hst);
+      const sk = vd ? vd.skor : null;
+      const total = sk ? Math.round(sk.total||0) : null;
+      const st = total===null ? '—' : total>=90?'ok':total>=75?'warn':'crit';
+      const detail = vd
+        ? `Checkpoint HST ${vd.hstCheckpoint} · Vigor ${Math.round(sk.vigor||0)} · Akar ${Math.round(sk.akar||0)}`
+        : (r.hst < 7 ? `Checkpoint pertama HST 7` : 'Belum ada data');
+      return { id:'vigor', icon:'🌿', label:'Kesehatan Tanaman', soon: vd===null && r.hst < 7, status: st, detail };
+    })(),
+    { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
+    { id:'semp',     icon:'🌿',  label:'Penyemprotan',       soon:false, status:'ok',     detail:'Tidak ada jadwal aktif' },
+  ];
+
+  const ph    = hstToPhase(r.hst);
+  const phLbl = ph ? ph.label : 'HST '+r.hst;
+  const phCol = ph ? ph.color : 'var(--text2)';
+  const dot   = CC[clOf(r.gh)] || '#999';
+  const code  = ghCodeOf(r.gh);
+
+  panel.innerHTML = `<div class="card" id="ccGhCard">
+    <div class="card-hd" style="border-left:3px solid ${dot}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="width:9px;height:9px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        <div>
+          <div class="card-title">${r.gh} <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3);font-weight:400">(${code})</span></div>
+          <div style="font-size:10px;color:var(--text3);margin-top:1px">
+            <span style="font-weight:700;color:${phCol}">${phLbl}</span>
+            · HST ${r.hst} · Periode ${r.periode||'—'}
+          </div>
+        </div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+          ${overallBadge}
+          <span style="font-size:10px;color:var(--text4)">klik card untuk detail</span>
+        </div>
+      </div>
+    </div>
+    <div style="padding:12px 16px">
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px" id="ccCatGrid">
+        ${CATS.map(catCard).join('')}
+      </div>
+      <div id="ccCatDetail" style="margin-top:10px"></div>
+    </div>
+  </div>`;
+
+  panel.style.display = 'block';
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+  // store refs for drill-down
+  panel._CATS = CATS;
+  panel._DETAIL_FNS = DETAIL_FNS;
+  panel._catCard = catCard;
+}
+
+// ── TOGGLE CAT DETAIL (drill-down) ──
+function ccToggleCatDetail(catId) {
+  const panel      = document.getElementById('ccGhIssuePanel');
+  const detailArea = document.getElementById('ccCatDetail');
+  if (!panel || !detailArea) return;
+
+  if (_ccActiveCat === catId) {
+    _ccActiveCat = null;
+    detailArea.innerHTML = '';
+    // reset card borders
+    document.querySelectorAll('[data-cat-id]').forEach(el => {
+      el.style.borderWidth = '1px';
+      el.style.borderColor = '';
+    });
+    return;
+  }
+
+  _ccActiveCat = catId;
+
+  // Update card borders
+  document.querySelectorAll('[data-cat-id]').forEach(el => {
+    const isAct = el.getAttribute('data-cat-id') === catId;
+    el.style.borderWidth = isAct ? '2px' : '1px';
+    el.style.borderColor = isAct ? 'var(--text)' : '';
+  });
+
+  const fn = panel._DETAIL_FNS && panel._DETAIL_FNS[catId];
+  if (!fn) { detailArea.innerHTML = ''; return; }
+
+  const cat = panel._CATS && panel._CATS.find(c=>c.id===catId);
+  const headerCol = cat
+    ? (cat.soon||cat.status==='—'?'var(--text3)':cat.status==='ok'?'var(--green-txt)':cat.status==='warn'?'var(--yellow-txt)':'var(--red-txt)')
+    : 'var(--text)';
+  const headerBg = cat
+    ? (cat.soon||cat.status==='—'?'var(--surface2)':cat.status==='ok'?'var(--green-lt)':cat.status==='warn'?'var(--yellow-lt)':'var(--red-lt)')
+    : 'var(--surface2)';
+
+  detailArea.innerHTML = `<div style="background:var(--surface2);border:0.5px solid var(--border);border-radius:10px;padding:13px 15px">
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+      <span style="font-size:13px">${cat?cat.icon:''}</span>
+      <span style="font-size:12px;font-weight:700;color:var(--text)">${cat?cat.label:catId}</span>
+      <span style="margin-left:auto;font-size:10px;padding:2px 8px;border-radius:5px;background:${headerBg};color:${headerCol};font-weight:600">${cat?cat.detail:''}</span>
+    </div>
+    ${fn()}
+  </div>`;
+
+  detailArea.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+
+// ── PHASE FILTER FROM DIST CLICK ──
+function ccSetPhaseFromDist(phaseId) {
+  CC_PHASE_FILTER = CC_PHASE_FILTER === phaseId ? 'semua' : phaseId;
+  // Update button states
+  document.querySelectorAll('[id^="ccPhaseFilt"]').forEach(b => b.classList.remove('active'));
+  const activeId = CC_PHASE_FILTER === 'semua' ? 'ccPhaseFiltSemua' : null;
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    if (el) el.classList.add('active');
+  } else {
+    // find the right button by looping
+    document.querySelectorAll('[id^="ccPhaseFilt"]').forEach(b => {
+      if (b.id === 'ccPhaseFiltSemua' && CC_PHASE_FILTER === 'semua') b.classList.add('active');
+    });
+  }
+  // Also set Semua button active when resetting
+  if (CC_PHASE_FILTER === 'semua') {
+    const el = document.getElementById('ccPhaseFiltSemua');
+    if (el) el.classList.add('active');
+  }
+  rebuildCC();
+}
+
+// ── PHASE DISTRIBUTION RENDERER ──
+function ccRenderPhaseDist() {
+  const panel = document.getElementById('ccPhaseDistPanel');
+  if (!panel) return;
+
+  // Always use all GH (ignore phase filter for the distribution view)
+  let allGH = ccBuildAllGH().filter(r => r.hst <= 65);
+  if (CC_GH_FILTER !== 'semua') allGH = allGH; // already filtered by GH
+
+  // Count + list GH per phase
+  const phaseData = CC_PHASES.map(ph => {
+    const ghs = allGH.filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax);
+
+    // Issue counts per phase
+    const sntPhGHs = new Set(ghs.map(r => r.gh.trim().toUpperCase()));
+    const sntAll = [...RAW_SNT];
+    const from = (document.getElementById('ccDateFrom')||{}).value || '';
+    const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+    const sntFiltered = sntAll.filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+
+    // Belum sanitasi
+    const normP = s => String(s||'').trim().toLowerCase();
+    const sntKeys = new Set(RAW_SNT.filter(r=>r.gh&&r.periode).map(r=>r.gh+'||'+normP(r.periode)));
+    const belumSnt = ghs.filter(r => !sntKeys.has(r.gh+'||'+normP(r.periode))).length;
+
+    // HPT issues
+    const hptFiltered = [...RAW_HPT].filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+    const latestHPT = {};
+    hptFiltered.forEach(r => { if (!latestHPT[r.gh]||r.tgl>latestHPT[r.gh].tgl) latestHPT[r.gh]=r; });
+    const hptHigh = Object.values(latestHPT).filter(r => risikoGlobal && risikoGlobal(r)==='high').length;
+
+    // Penyiraman deviasi
+    const pnyFiltered = [...RAW_PNY].filter(r =>
+      sntPhGHs.has((r.gh||'').trim().toUpperCase()) &&
+      (!from||(r.tgl||'')>=from) && (!to||(r.tgl||'')<=to)
+    );
+    const latestPNY = {};
+    pnyFiltered.forEach(r => { if(!latestPNY[r.gh]||r.tgl>latestPNY[r.gh].tgl) latestPNY[r.gh]=r; });
+    const pnyDev = Object.values(latestPNY).filter(r =>
+      isEcDev(r)||(r.phIn&&(r.phIn<5.8||r.phIn>6.3))
+    ).length;
+
+    // Total masalah
+    const totalIssues = belumSnt + hptHigh + pnyDev;
+
+    return { ...ph, ghs, belumSnt, hptHigh, pnyDev, totalIssues };
+  }).filter(p => p.ghs.length > 0); // only show phases that have GH
+
+  if (!phaseData.length) {
+    panel.innerHTML = '';
+    return;
+  }
+
+  const maxIssues = Math.max(...phaseData.map(p => p.totalIssues), 1);
+  const isFiltered = CC_PHASE_FILTER !== 'semua';
+
+  const activeLabel = document.getElementById('ccPhaseActiveLabel');
+  if (activeLabel) {
+    if (isFiltered) {
+      const ph = CC_PHASES.find(p => p.id === CC_PHASE_FILTER);
+      const count = ccFilteredRAW().length;
+      activeLabel.innerHTML = `<span style="background:${ph.bg};color:${ph.color};border:1px solid ${ph.color}40;border-radius:5px;padding:2px 8px;font-weight:700">${ph.label} · ${count} GH aktif</span>`;
+    } else {
+      activeLabel.textContent = '';
+    }
+  }
+
+  const rows = phaseData.map(p => {
+    const isActive = CC_PHASE_FILTER === p.id;
+    const barW = Math.max((p.totalIssues / maxIssues * 100), p.ghs.length > 0 ? 4 : 0).toFixed(1);
+    const issueColor = p.totalIssues === 0 ? 'var(--green-mid)' : p.totalIssues <= 2 ? '#c87800' : 'var(--red)';
+    const ghList = p.ghs
+      .sort((a,b) => a.hst - b.hst)
+      .map(r => {
+        const dot = CC[clOf(r.gh)] || '#999';
+        const ph2 = hstToPhase(r.hst);
+        return `<span style="display:inline-flex;align-items:center;gap:3px;background:var(--surface);border:0.5px solid var(--border);border-radius:5px;padding:2px 7px;font-size:10px;white-space:nowrap">
+          <span style="width:5px;height:5px;border-radius:50%;background:${dot};flex-shrink:0"></span>
+          ${r.gh} <span style="color:var(--text4);font-family:'JetBrains Mono',monospace;font-size:9px">HST${r.hst}</span>
+        </span>`;
+      }).join('');
+
+    return `<div onclick="ccSetPhaseFromDist('${p.id}')"
+      style="display:flex;align-items:stretch;gap:0;border-radius:9px;border:1.5px solid ${isActive ? p.color : 'var(--border)'};background:${isActive ? p.bg : 'var(--surface)'};overflow:hidden;cursor:pointer;transition:border .15s,background .15s;margin-bottom:6px"
+      onmouseover="this.style.borderColor='${p.color}'" onmouseout="this.style.borderColor='${isActive ? p.color : 'var(--border)'}'">
+
+      <!-- Left: phase label -->
+      <div style="width:130px;flex-shrink:0;padding:10px 12px;border-right:1px solid ${isActive ? p.color+'40' : 'var(--border)'};background:${p.bg};display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:10px;font-weight:700;color:${p.color};margin-bottom:2px">${p.label}</div>
+        <div style="font-size:11px;font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace">${p.ghs.length} GH</div>
+        <div style="font-size:9px;color:var(--text3)">HST ${p.hstMin}–${p.hstMax}</div>
+      </div>
+
+      <!-- Middle: GH list + issue bar -->
+      <div style="flex:1;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;gap:6px">
+        <div style="display:flex;flex-wrap:wrap;gap:4px">${ghList}</div>
+        <!-- mini issue bar -->
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+            <div style="width:${barW}%;height:100%;background:${issueColor};border-radius:3px;transition:width .3s"></div>
+          </div>
+          <div style="font-size:10px;font-weight:700;color:${issueColor};font-family:'JetBrains Mono',monospace;white-space:nowrap">
+            ${p.totalIssues > 0 ? p.totalIssues + ' isu' : '✓ ok'}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: issue breakdown -->
+      <div style="width:130px;flex-shrink:0;padding:10px 12px;border-left:1px solid ${isActive ? p.color+'40' : 'var(--border)'};display:flex;flex-direction:column;justify-content:center;gap:4px">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">🧹 Sanitasi</span>
+          <span style="font-weight:700;color:${p.belumSnt>0?'var(--yellow-txt)':'var(--green-mid)'}">${p.belumSnt > 0 ? p.belumSnt+' belum' : '✓'}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">🔍 HPT</span>
+          <span style="font-weight:700;color:${p.hptHigh>0?'var(--red)':'var(--green-mid)'}">${p.hptHigh > 0 ? p.hptHigh+' high' : '✓'}</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px">
+          <span style="color:var(--text3)">💧 Penyiraman</span>
+          <span style="font-weight:700;color:${p.pnyDev>0?'var(--yellow-txt)':'var(--green-mid)'}">${p.pnyDev > 0 ? p.pnyDev+' dev' : '✓'}</span>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  panel.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;display:flex;align-items:center;gap:8px">
+      <span>📊 Distribusi masalah per fase</span>
+      <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px;color:var(--text4)">— klik fase untuk filter semua card</span>
+    </div>
+    ${rows.join('')}
+  `;
+}
+
+// ── FILTER & REBUILD ──
+function setCCFilter(val, el) {
+  CC_GH_FILTER = val;
+  document.querySelectorAll('[id^="ccFilt"]').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildCC();
+}
+
+async function rebuildCC() {
+  const from = (document.getElementById('ccDateFrom')||{}).value || '';
+  const to   = (document.getElementById('ccDateTo')||{}).value   || '';
+
+  // Build phase timeline
+  ccBuildPhaseTimeline();
+
+  if (from && to) {
+    // Tampilkan loading di KPI nilai
+    ['ccKpi1','ccKpi2','ccKpi3','ccKpi4'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '…';
+    });
+    const n1 = document.getElementById('ccKpi1n'); if(n1) n1.textContent = 'memuat data…';
+    // Fetch history, LALU render KPI
+    await fetchPopHistory(from, to);
+  } else {
+    RAW_POP_HISTORY = [];
+  }
+
+  ccRenderKPI();
+
+  if (CC_ACTIVE_ID) {
+    const panel = document.getElementById('ccDetailPanel');
+    if (panel) ccRenderDetail(CC_ACTIVE_ID, panel);
+  }
+}
+
+// ── INIT ──
+async function initCC() {
+  // Default: from = tanggal 1 bulan ini, to = hari ini
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  const todayStr = today.toISOString().slice(0,10);
+  const fromStr  = firstOfMonth.toISOString().slice(0,10);
+
+  const dfEl = document.getElementById('ccDateFrom');
+  const dtEl = document.getElementById('ccDateTo');
+  if (dfEl) dfEl.value = fromStr;
+  if (dtEl) dtEl.value = todayStr;
+
+  if (!RAW_SNT.length)   fetchSnt(true);
+  if (!RAW_PNY.length)   fetchPny(true);
+  if (!RAW_HPT.length)   fetchHpt(true);
+  if (!RAW_SEMAI.length) fetchSemai(true);
+
+  await rebuildCC();
+}
+</script>
+
+<script>
+// ══════════════════════════════════════════════
+//  TIMELINE MODULE
+// ══════════════════════════════════════════════
+const HSS_MAX  = 14;
+const HST_MAX  = 65;
+const TL_TOTAL = HSS_MAX + HST_MAX; // 79 units total
+
+let TL_FILTER  = 'semua';
+let TL_ACTIVE  = null; // GH yang sedang dipilih
+
+// ── ZONE DEFINITIONS ──
+const TL_ZONES = [
+  { from:0,        to:HSS_MAX,       bg:'#E1F5EE', label:'Preparation (HST -1)', labelColor:'#085041' },
+  { from:HSS_MAX,  to:HSS_MAX+8,     bg:'#e6f4ec', label:'Shoot Growth (0–7 HST)',    labelColor:'#155c2c' },
+  { from:HSS_MAX+8,to:HSS_MAX+17,    bg:'#e8f0fb', label:'Establishment (8–16 HST)',  labelColor:'#134880' },
+  { from:HSS_MAX+17,to:HSS_MAX+26,   bg:'#eef5e8', label:'Fruit Set (17–25 HST)',     labelColor:'#2d5a1b' },
+  { from:HSS_MAX+26,to:HSS_MAX+36,   bg:'#fef8e2', label:'Early Fruit Dev (26–35 HST)', labelColor:'#6b4800' },
+  { from:HSS_MAX+36,to:HSS_MAX+51,   bg:'#fef3e2', label:'Fruit Enlargement (36–50 HST)', labelColor:'#7a4800' },
+  { from:HSS_MAX+51,to:HSS_MAX+65,   bg:'#fdecea', label:'Ripening (51–65 HST)',      labelColor:'#8b1515' },
+];
+
+function tlU2P(u) { return (u / TL_TOTAL * 100).toFixed(3) + '%'; }
+
+// ── PINPOINT POSITION ──
+function tlPinPos(gh, semai) {
+  if (semai) return tlU2P(semai.hss || 1);
+  return tlU2P(HSS_MAX + (gh.hst - 0.5));
+}
+
+// ── STATUS COLOR ──
+function tlDotColor(status) {
+  if (status === 'ok')     return 'var(--green)';
+  if (status === 'warn')   return '#c87800';
+  if (status === 'kritis') return 'var(--red)';
+  if (status === 'siap')   return 'var(--blue)';
+  return 'var(--blue)'; // semai proses
+}
+
+// ── GET STATUS for a GH (tanam) ──
+function tlGHStatus(r) {
+  if (isCrit(r))                    return 'kritis';
+  if (grWarn(r) || popWarn(r) || popBad(r)) return 'warn';
+  return 'ok';
+}
+
+// ── GET SEMAI DATA for a GH (match by gh name, aktif = belum tanam) ──
+function tlGetSemai(ghName) {
+  if (!RAW_SEMAI.length) return null;
+  const rows = RAW_SEMAI.filter(s =>
+    s.gh && s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && !s.realTglTanam
+  );
+  if (!rows.length) return null;
+  // Ambil baris dengan HSS tertinggi
+  return rows.reduce((best, r) => (r.hss || 0) > (best.hss || 0) ? r : best, rows[0]);
+}
+
+// ── GET HPT STATUS for a GH ──
+function tlGetHPT(ghName) {
+  if (!RAW_HPT.length) return null;
+  const rows = RAW_HPT.filter(r => r.gh && r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!rows.length) return null;
+  const latest = rows.reduce((best, r) => (r.tgl||'') > (best.tgl||'') ? r : best, rows[0]);
+  return risikoGlobal ? risikoGlobal(latest) : 'low';
+}
+
+// ── GET PENYIRAMAN DEVIASI for a GH ──
+function tlGetPNY(ghName) {
+  if (!RAW_PNY.length) return 'ok';
+  const rows = RAW_PNY.filter(r => r.gh && r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!rows.length) return null;
+  const latest = rows.reduce((best, r) => (r.tgl||'') > (best.tgl||'') ? r : best, rows[0]);
+  const ecDev = isEcDev(latest);
+  const phDev = latest.phIn > 0 && (latest.phIn < 5.8 || latest.phIn > 6.3);
+  return (ecDev || phDev) ? 'warn' : 'ok';
+}
+
+// ── GET SANITASI STATUS for a GH ──
+function tlGetSNT(ghName) {
+  const normP = s => String(s||'').trim().toLowerCase();
+  const r = RAW.find(x => x.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!r) return null;
+  const sntKeys = new Set(RAW_SNT.filter(s=>s.gh&&s.periode).map(s=>s.gh.trim().toUpperCase()+'||'+normP(s.periode)));
+  return sntKeys.has(r.gh.trim().toUpperCase()+'||'+normP(r.periode)) ? 'ok' : 'belum';
+}
+
+// ── FILTER DATA ──
+function tlFilteredData() {
+  let d = [...RAW];
+  if (TL_FILTER !== 'semua') d = d.filter(r => clOf(r.gh).toLowerCase() === TL_FILTER);
+  return d;
+}
+
+function tlFilteredSemai() {
+  let d = RAW_SEMAI.filter(r => !r.realTglTanam); // hanya yang belum tanam
+  if (TL_FILTER !== 'semua') d = d.filter(r => clOf(r.gh||'').toLowerCase() === TL_FILTER);
+  // Deduplicate per GH — ambil HSS tertinggi
+  const ghMap = {};
+  d.forEach(r => { if (!ghMap[r.gh] || (r.hss||0) > (ghMap[r.gh].hss||0)) ghMap[r.gh] = r; });
+  return Object.values(ghMap);
+}
+
+// ── BUILD PHASE ROW ──
+function tlBuildPhaseRow() {
+  const el = document.getElementById('tlPhaseRow');
+  if (!el) return;
+  el.innerHTML = TL_ZONES.map(z =>
+    `<div style="width:${((z.to-z.from)/TL_TOTAL*100).toFixed(2)}%;background:${z.bg};color:${z.labelColor};text-align:center;font-size:9px;font-weight:700;padding:3px 0;border-radius:3px 3px 0 0;overflow:hidden;white-space:nowrap">${z.label}</div>`
+  ).join('');
+}
+
+// ── BUILD TRACKS ──
+function tlBuildTracks() {
+  const el = document.getElementById('tlTracks');
+  if (!el) return;
+
+  const tanamData = tlFilteredData();
+  const semaiData = tlFilteredSemai();
+
+  // Gabungkan semua GH per klaster
+  const clusters = [...new Set([
+    ...tanamData.map(r => clOf(r.gh)),
+    ...semaiData.map(r => clOf(r.gh||'')),
+  ])].filter(Boolean).sort();
+
+  if (!clusters.length) {
+    el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--text4);font-size:12px">Tidak ada data GH</div>`;
+    return;
+  }
+
+  const zoneBgs = TL_ZONES.map(z =>
+    `<div style="position:absolute;top:0;bottom:0;left:${tlU2P(z.from)};width:${tlU2P(z.to-z.from)};background:${z.bg}"></div>`
+  ).join('') + `<div style="position:absolute;top:0;bottom:0;left:${tlU2P(HSS_MAX)};width:2px;background:var(--border2);z-index:2"></div>`;
+
+  el.innerHTML = clusters.map(cl => {
+    // GH sudah tanam di klaster ini
+    const tanam = tanamData.filter(r => clOf(r.gh) === cl).sort((a,b) => a.hst - b.hst);
+    // GH masih semai di klaster ini
+    const semai = semaiData.filter(r => clOf(r.gh||'') === cl).sort((a,b) => (a.hss||0) - (b.hss||0));
+
+    const allGH = [
+      ...semai.map(s => ({ key: s.gh, isSemai: true, data: s })),
+      ...tanam.map(t => ({ key: t.gh, isSemai: false, data: t })),
+    ];
+
+    const pins = allGH.map((item, idx) => {
+      const ghName = item.key;
+      const isSemai = item.isSemai;
+      const status  = isSemai
+        ? (item.data.hss >= 14 ? 'siap' : item.data.pctSprout > 0 && item.data.pctSprout < 83.5 ? 'kritis' : item.data.pctSprout > 0 && item.data.pctSprout < 88.5 ? 'warn' : 'proses')
+        : tlGHStatus(item.data);
+      const col  = tlDotColor(status);
+      const pos  = isSemai ? tlU2P(item.data.hss || 1) : tlU2P(HSS_MAX + (item.data.hst - 0.5));
+      const sz   = status === 'kritis' ? 22 : 18;
+      const val  = isSemai ? (item.data.hss || 0) : item.data.hst;
+      const lbl  = ghName.replace(/TOHUDAN /i,'T').replace(/SAWAHAN /i,'S').replace(/COLOMADU /i,'C').replace(/BERGAS /i,'B');
+      const flip = idx % 2 === 1;
+      const isAct= TL_ACTIVE === ghName;
+      const ring = isAct ? `box-shadow:0 0 0 3px ${col.replace('var(--green)','rgba(26,122,58,.3)').replace('var(--red)','rgba(192,32,32,.3)').replace('#c87800','rgba(160,96,0,.3)').replace('var(--blue)','rgba(26,95,160,.3)')}` : '';
+
+      return `<div style="position:absolute;top:50%;left:${pos};transform:translate(-50%,-50%);cursor:pointer;z-index:10" onclick="tlSelectGH('${ghName.replace(/'/g,"\\'")}')">
+        <div style="position:absolute;${flip?'bottom:-17px':'top:-17px'};left:50%;transform:translateX(-50%);font-size:9px;color:var(--text3);white-space:nowrap;pointer-events:none">${lbl}</div>
+        <div style="width:${sz}px;height:${sz}px;border-radius:50%;background:${col};border:2px solid var(--surface);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#fff;transition:transform .12s;${ring}">${val}</div>
+      </div>`;
+    }).join('');
+
+    return `<div style="display:flex;align-items:center;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--text3);width:76px;flex-shrink:0;text-align:right;padding-right:6px">${cl}</div>
+      <div style="position:relative;flex:1;height:38px">${zoneBgs}${pins}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── BUILD AXIS ──
+function tlBuildAxis() {
+  const el = document.getElementById('tlAxis');
+  if (!el) return;
+  let inner = '<div style="width:76px;flex-shrink:0"></div><div style="flex:1;position:relative;height:16px">';
+  [1,4,7,10,14].forEach(t => {
+    inner += `<div style="position:absolute;left:${tlU2P(t)};transform:translateX(-50%);font-size:9px;color:var(--text3)">HSS${t}</div>`;
+  });
+  [1,5,10,15,20,25,30,35,40,45,50,55,60,65].forEach(t => {
+    inner += `<div style="position:absolute;left:${tlU2P(HSS_MAX+t)};transform:translateX(-50%);font-size:9px;color:var(--text3)">${t}</div>`;
+  });
+  inner += '</div>';
+  el.innerHTML = inner;
+}
+
+// ── BUILD KPI ROW ──
+function tlBuildKPI() {
+  const el = document.getElementById('tlKpiRow');
+  if (!el) return;
+  const d    = tlFilteredData();
+  const sem  = tlFilteredSemai();
+  const krit = d.filter(isCrit).length;
+  const warn = d.filter(r => !isCrit(r) && (grWarn(r)||popWarn(r)||popBad(r))).length;
+  const ok   = d.filter(r => !isCrit(r) && grOk(r) && popOk(r)).length;
+  const panen= d.filter(r => r.hst >= 55).length;
+  el.innerHTML = `
+    <span style="margin-right:12px">🌱 Semai aktif: <b>${sem.length}</b></span>
+    <span style="margin-right:12px;color:var(--green-mid)">✓ On track: <b>${ok}</b></span>
+    <span style="margin-right:12px;color:#c87800">⚠ Monitor: <b>${warn}</b></span>
+    <span style="margin-right:12px;color:var(--red)">🔴 Kritis: <b>${krit}</b></span>
+    <span style="color:var(--text3)">🌾 Fase panen: <b>${panen}</b></span>
+  `;
+}
+
+// ── SELECT GH → SHOW POPUP ──
+function tlSelectGH(ghName) {
+  TL_ACTIVE = TL_ACTIVE === ghName ? null : ghName;
+  tlBuildTracks(); // re-render to update active ring
+
+  const popup = document.getElementById('tlPopup');
+  if (!TL_ACTIVE) {
+    popup.innerHTML = '<div style="padding:28px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">Klik titik GH di atas untuk melihat detail kondisi<br><span style="font-size:11px">Warna merah = masalah kritis · kuning = perlu monitor</span></div>';
+    return;
+  }
+
+  // Cek apakah sedang semai atau tanam
+  const semaiRow = RAW_SEMAI.filter(s => s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && !s.realTglTanam);
+  const isSemaiPhase = semaiRow.length > 0 && !RAW.find(r => r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  const semBest = semaiRow.length ? semaiRow.reduce((b,r)=>(r.hss||0)>(b.hss||0)?r:b, semaiRow[0]) : null;
+  const raw = RAW.find(r => r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+
+  let cards = [];
+  let phaseLabel = '';
+  let statusColor = 'var(--green)';
+
+  if (semBest && !raw) {
+    // Fase semai
+    phaseLabel = `Semai · HSS ${semBest.hss || 0}`;
+    const spPct = semBest.pctSprout || 0;
+    const spCls = spPct <= 0 ? 'gray' : spPct >= 88.5 ? 'green' : spPct >= 83.5 ? 'amber' : 'red';
+    const stCls = semBest.hss >= 14 ? 'green' : spPct > 0 && spPct < 83.5 ? 'red' : spPct > 0 && spPct < 88.5 ? 'amber' : 'gray';
+    const stVal = semBest.hss >= 14 ? 'Siap tanam' : spPct > 0 && spPct < 83.5 ? 'Sprout rendah — kritis' : spPct > 0 && spPct < 88.5 ? 'Sprout low — monitor' : 'Proses normal';
+    statusColor = stCls==='green'?'var(--blue)':stCls==='red'?'var(--red)':'#c87800';
+    cards = [
+      { cat:'Sprout rate',    val: spPct > 0 ? spPct.toFixed(1)+'%' : 'Belum ada data', cls: spCls },
+      { cat:'Progress HSS',   val: `${semBest.hss||0} / 14 hari`, cls: (semBest.hss||0)>=14?'green':(semBest.hss||0)>=10?'amber':'gray' },
+      { cat:'Status semai',   val: stVal, cls: stCls },
+      { cat:'Bibit siap',     val: semBest.totalBibitSiap > 0 ? fmt(semBest.totalBibitSiap) : '—', cls: 'gray' },
+      { cat:'Populasi',       val: 'Belum tanam', cls: 'gray' },
+      { cat:'Gramasi',        val: 'Belum tanam', cls: 'gray' },
+    ];
+  } else if (raw) {
+    // Fase tanam
+    phaseLabel = `Tanam · HST ${raw.hst}`;
+    const popPct  = pctPopVsStd(raw);
+    const popCls  = popPct >= 100 ? 'green' : popPct >= 90 ? 'amber' : 'red';
+    const grCls   = raw.hst < 35 ? 'gray' : grKrit(raw) ? 'red' : grWarn(raw) ? 'amber' : 'green';
+    const grVal   = raw.hst < 35 ? 'Belum saatnya (HST<35)' : grKrit(raw) ? 'Belum tercatat — kritis' : raw.avgGramasi > 0 ? Math.round(raw.avgGramasi)+'g' : '—';
+
+    // Semai history (sudah tanam)
+    const semTanam = RAW_SEMAI.filter(s => s.gh.trim().toUpperCase() === ghName.trim().toUpperCase() && s.realTglTanam);
+    const pctBerhasil = semTanam.length ? semTanam.reduce((s,r)=>s+(r.pctKeberhasilan||0),0)/semTanam.length : 0;
+    const semCls = pctBerhasil <= 0 ? 'gray' : pctBerhasil >= 93.5 ? 'green' : pctBerhasil >= 83.5 ? 'amber' : 'red';
+
+    const hptStatus = tlGetHPT(ghName);
+    const hptCls = hptStatus==='high'?'red':hptStatus==='medium'?'amber':'green';
+    const hptVal = hptStatus==='high'?'Serangan tinggi':hptStatus==='medium'?'Medium risk':'Low risk';
+
+    const pnyStatus = tlGetPNY(ghName);
+    const pnyCls = pnyStatus==='warn'?'amber':pnyStatus==='ok'?'green':'gray';
+
+    const sntStatus = tlGetSNT(ghName);
+    const sntCls = sntStatus==='belum'?'red':sntStatus==='ok'?'green':'gray';
+    const sntVal = sntStatus==='belum'?'Belum periode ini':'Sanitasi ok';
+
+    const status = tlGHStatus(raw);
+    statusColor = status==='ok'?'var(--green)':status==='warn'?'#c87800':'var(--red)';
+
+    cards = [
+      { cat:'Populasi',           val: popPct.toFixed(1)+'% vs std · HST '+raw.hst, cls: popCls },
+      { cat:'Gramasi',            val: grVal, cls: grCls },
+      { cat:'Keberhasilan semai', val: pctBerhasil > 0 ? pctBerhasil.toFixed(1)+'%' : 'Tidak ada data', cls: semCls },
+      { cat:'Penyiraman',         val: pnyStatus==='warn'?'Deviasi EC/pH':pnyStatus==='ok'?'Normal':'Tidak ada data', cls: pnyCls },
+      { cat:'HPT',                val: hptVal, cls: hptCls },
+      { cat:'Sanitasi',           val: sntVal, cls: sntCls },
+    ];
+  } else {
+    popup.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text4);font-size:12px">Data tidak ditemukan</div>';
+    return;
+  }
+
+  const crits = cards.filter(c=>c.cls==='red').length;
+  const warns = cards.filter(c=>c.cls==='amber').length;
+  const bc    = crits?'red':warns?'amber':'green';
+  const bt    = crits ? crits+' masalah kritis' : warns ? warns+' perlu monitor' : 'semua ok';
+  const badgeBg = bc==='red'?'var(--red-lt)':bc==='amber'?'var(--yellow-lt)':'var(--green-lt)';
+  const badgeTx = bc==='red'?'var(--red-txt)':bc==='amber'?'var(--yellow-txt)':'var(--green-txt)';
+  const badgeBd = bc==='red'?'#f0b0b0':bc==='amber'?'#f5d08a':'#b8dfc4';
+
+  const dot = CC[clOf(ghName)] || '#999';
+  popup.innerHTML = `
+    <div style="padding:11px 16px;background:var(--surface2);border-bottom:1.5px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
+        ${ghName} — ${phaseLabel}
+      </div>
+      <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:${badgeBg};color:${badgeTx};border:1px solid ${badgeBd}">${bt}</span>
+    </div>
+    <div style="padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+      ${cards.map(c => {
+        const bg = c.cls==='red'?'var(--red-lt)':c.cls==='amber'?'var(--yellow-lt)':c.cls==='green'?'var(--green-lt)':'var(--surface2)';
+        const bd = c.cls==='red'?'#f0b0b0':c.cls==='amber'?'#f5d08a':c.cls==='green'?'#b8dfc4':'var(--border)';
+        const tx = c.cls==='red'?'var(--red-txt)':c.cls==='amber'?'var(--yellow-txt)':c.cls==='green'?'var(--green-txt)':'var(--text2)';
+        const tl = c.cls==='red'?'var(--red)':c.cls==='amber'?'var(--yellow)':c.cls==='green'?'var(--green)':'var(--text3)';
+        return `<div style="background:${bg};border:1px solid ${bd};border-radius:9px;padding:8px 10px">
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:${tl};margin-bottom:3px">${c.cat}</div>
+          <div style="font-size:11px;font-weight:700;color:${tx}">${c.val}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+  popup.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ── FILTER ──
+function setTLFilter(val, el) {
+  TL_FILTER = val;
+  TL_ACTIVE = null;
+  document.querySelectorAll('[id^="tlFilt"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  tlBuildKPI();
+  tlBuildTracks();
+  document.getElementById('tlPopup').innerHTML = '<div style="padding:28px;text-align:center;color:var(--text4);font-size:13px;line-height:1.8">Klik titik GH di atas untuk melihat detail kondisi<br><span style="font-size:11px">Warna merah = masalah kritis · kuning = perlu monitor</span></div>';
+}
+
+// ── INIT ──
+function initTimeline() {
+  if (!RAW_SEMAI.length) fetchSemai(true).then(() => { tlBuildKPI(); tlBuildTracks(); });
+  if (!RAW_HPT.length)   fetchHpt(true);
+  if (!RAW_PNY.length)   fetchPny(true);
+  TL_ACTIVE = null;
+  tlBuildPhaseRow();
+  tlBuildKPI();
+  tlBuildTracks();
+  tlBuildAxis();
+}
+
+// ═══════════════════════════════════════════════════
+// MONITORING TIMELINE HST 30+ — module
+// ═══════════════════════════════════════════════════
+
+let MTL_FILTER = 30; // 30 | 41 | 55
+
+function setMTLFilter(val, btn) {
+  MTL_FILTER = val;
+  document.querySelectorAll('[id^="mtlFilt"]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  mtlRender();
+}
+
+function mtlFiltered() {
+  return RAW.filter(r => {
+    if (MTL_FILTER === 30) return r.hst >= 30 && r.hst <= 40;
+    if (MTL_FILTER === 41) return r.hst >= 41 && r.hst <= 55;
+    if (MTL_FILTER === 55) return r.hst > 55;
+    return r.hst >= 30;
+  });
+}
+
+function mtlColor(pct) {
+  if (pct >= 85) return '#2ca354';
+  if (pct >= 65) return '#d4820a';
+  return '#c02020';
+}
+function mtlDotColor(pct) {
+  if (pct >= 85) return '#2ca354';
+  if (pct >= 65) return '#d4820a';
+  return '#c02020';
+}
+function mtlBadge(cls) {
+  const map = { g:'p-ok', y:'p-w', r:'p-b' };
+  return map[cls] || 'p-ok';
+}
+
+function mtlRender() {
+  const d = mtlFiltered();
+  const total = d.length;
+
+  // HST mark
+  const hstMin = total ? Math.min(...d.map(r => r.hst)) : 0;
+  const hstMax = total ? Math.max(...d.map(r => r.hst)) : 0;
+  const hstLbl = total ? (hstMin === hstMax ? `HST ${hstMin}` : `HST ${hstMin}–${hstMax}`) : 'HST —';
+  const el = document.getElementById('mtlHstMark');
+  if (el) el.textContent = hstLbl;
+
+  // Today estimate: ambil max HST dari data aktif
+  const todayEl = document.getElementById('mtlTodayHst');
+  if (todayEl) todayEl.textContent = RAW.length ? 'HST ' + Math.max(...RAW.map(r => r.hst)) : 'HST —';
+
+  // KPI
+  const onTrack = d.filter(r => !isCrit(r) && grOk(r) && popOk(r)).length;
+  const monitor = d.filter(r => !isCrit(r) && (grWarn(r) || popWarn(r) || popBad(r))).length;
+  const krit    = d.filter(isCrit).length;
+  const avgVigor = total ? Math.round(d.reduce((s, r) => s + pctPopVsStd(r), 0) / total) : 0;
+
+  document.getElementById('mtlKpi1').textContent = onTrack;
+  document.getElementById('mtlKpi1n').textContent = `dari ${total} GH aktif`;
+  document.getElementById('mtlKpi2').textContent = monitor;
+  document.getElementById('mtlKpi3').textContent = krit;
+  document.getElementById('mtlKpi3n').textContent = krit ? 'perlu tindakan segera' : 'semua aman';
+  document.getElementById('mtlKpi4').textContent = avgVigor + '%';
+
+  const subLbl = MTL_FILTER === 30 ? '30–40 HST' : MTL_FILTER === 41 ? '41–55 HST' : '55+ HST';
+  document.getElementById('mtlSub').textContent =
+    `Pemantauan aspek tanaman & tren mikroklimat — ${subLbl} · ${total} GH dalam filter`;
+
+  // ── ASPEK BARS ──
+  // Akar: pakai populasi & gramasi sebagai proxy
+  const popAvg = total ? d.reduce((s, r) => s + pctPopVsStd(r), 0) / total : 0;
+  const grAvg  = total ? d.filter(r => r.avgGramasi > 0).reduce((s, r) => {
+    const pct = r.avgGramasi / 400 * 100; // 400g sebagai target max proxy
+    return s + Math.min(pct, 100);
+  }, 0) / Math.max(d.filter(r => r.avgGramasi > 0).length, 1) : 0;
+  const kritRatio = total ? (1 - krit / total) * 100 : 100;
+  const grOkPct = total ? d.filter(r => grOk(r)).length / total * 100 : 0;
+
+  mtlSetBar('mtlBarAkar1', 'mtlValAkar1', 'mtlDotAkar1',
+    Math.min(Math.round(popAvg), 100), Math.round(popAvg) + '% vs std');
+  mtlSetBar('mtlBarAkar2', 'mtlValAkar2', 'mtlDotAkar2',
+    Math.round(kritRatio), krit > 0 ? krit + ' GH layu/kritis' : 'Semua normal');
+
+  mtlSetBar('mtlBarBuah1', 'mtlValBuah1', 'mtlDotBuah1',
+    Math.round(grOkPct), Math.round(grOkPct) + '% GH terukur ok');
+  const grDiukur = d.filter(r => r.avgGramasi > 0);
+  const grMean   = grDiukur.length ? Math.round(grDiukur.reduce((s, r) => s + r.avgGramasi, 0) / grDiukur.length) : 0;
+  const grPct    = grMean > 0 ? Math.min(Math.round(grMean / 500 * 100), 100) : 0;
+  mtlSetBar('mtlBarBuah2', 'mtlValBuah2', 'mtlDotBuah2',
+    grPct, grMean > 0 ? grMean + 'g avg gramasi' : 'Belum ada data');
+
+  const vigorPct = Math.min(Math.round(avgVigor), 100);
+  mtlSetBar('mtlBarVigor1', 'mtlValVigor1', 'mtlDotVigor1', vigorPct, vigorPct + '% vigor score');
+  const popOkPct = total ? Math.round(d.filter(r => popOk(r)).length / total * 100) : 0;
+  mtlSetBar('mtlBarVigor2', 'mtlValVigor2', 'mtlDotVigor2', popOkPct, popOkPct + '% pop ok');
+
+  const bugarPct = Math.round((onTrack / Math.max(total, 1)) * 100);
+  mtlSetBar('mtlBarBugar1', 'mtlValBugar1', 'mtlDotBugar1', bugarPct, onTrack + ' GH bugar');
+  const stresGH = monitor + krit;
+  const stresPct = total ? Math.round((1 - stresGH / total) * 100) : 100;
+  mtlSetBar('mtlBarBugar2', 'mtlValBugar2', 'mtlDotBugar2', stresPct,
+    stresGH > 0 ? stresGH + ' GH stres/monitor' : 'Tidak ada stres');
+
+  // ── MIKROKLIMAT CARDS ──
+  const microCards = [
+    { lbl: 'Humidity rata-rata', val: '—', note: 'Data dari sensor IoT', pct: 78, cls: 'y' },
+    { lbl: 'Suhu GH rata-rata', val: '29°C', note: 'Rentang normal 27–32°C', pct: 65, cls: 'g' },
+    { lbl: 'DLI / Cahaya', val: '18 mol', note: 'Target ≥20 mol', pct: 62, cls: 'b' },
+    { lbl: 'VPD', val: '0.6 kPa', note: 'Rendah — transpirasi terhambat', pct: 30, cls: 'r' },
+  ];
+  const microEl = document.getElementById('mtlMicroCards');
+  if (microEl) {
+    const colMap = { g: 'var(--green-mid)', y: '#d4820a', b: '#388bfd', r: 'var(--red)' };
+    const txtMap = { g: 'var(--green-txt)', y: 'var(--yellow-txt)', b: 'var(--blue-txt)', r: 'var(--red-txt)' };
+    const bgMap  = { g: 'var(--green-lt)', y: 'var(--yellow-lt)', b: 'var(--blue-lt)', r: 'var(--red-lt)' };
+    microEl.innerHTML = microCards.map(m => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">${m.lbl}</div>
+        <div style="font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${colMap[m.cls]}">${m.val}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px">${m.note}</div>
+        <div style="margin-top:7px;height:5px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border)">
+          <div style="height:100%;border-radius:2px;width:${m.pct}%;background:${colMap[m.cls]}"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── IRIGASI CARDS ──
+  const irigasiData = [
+    { lbl: 'EC rata-rata', val: '2.4 dS/m', note: 'Target 2.2–2.6 — normal', pct: 80, cls: 'g' },
+    { lbl: 'pH larutan', val: '6.4', note: 'Target 5.8–6.2 — sedikit tinggi', pct: 72, cls: 'y' },
+    { lbl: 'Frekuensi irigasi', val: '6x / hari', note: 'Sesuai protokol HST 30–40', pct: 85, cls: 'g' },
+  ];
+  const irigEl = document.getElementById('mtlIrigasiCards');
+  if (irigEl) {
+    const colMap2 = { g: 'var(--green-mid)', y: '#d4820a', r: 'var(--red)' };
+    irigEl.innerHTML = irigasiData.map(m => `
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 13px">
+        <div style="font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:5px">${m.lbl}</div>
+        <div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${colMap2[m.cls]}">${m.val}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">${m.note}</div>
+        <div style="margin-top:6px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+          <div style="height:100%;border-radius:2px;width:${m.pct}%;background:${colMap2[m.cls]}"></div>
+        </div>
+      </div>`).join('');
+  }
+
+  // ── ALERT LIST ──
+  const alertEl = document.getElementById('mtlAlertList');
+  if (alertEl) {
+    let alerts = [];
+
+    // Kritis dari data real
+    const critRows = d.filter(isCrit);
+    critRows.forEach(r => {
+      alerts.push({
+        cls: 'r',
+        title: `${r.gh} — Populasi/gramasi kritis · HST ${r.hst}`,
+        desc: `Pop ${Math.round(pctPopVsStd(r))}% vs std · avg gramasi ${r.avgGramasi > 0 ? Math.round(r.avgGramasi) + 'g' : 'belum terukur'}. Cek kondisi akar dan penyiraman segera.`,
+        ts: `HST ${r.hst}`
+      });
+    });
+
+    // Warn
+    const warnRows = d.filter(r => !isCrit(r) && (grWarn(r) || popWarn(r)));
+    warnRows.slice(0, 3).forEach(r => {
+      alerts.push({
+        cls: 'y',
+        title: `${r.gh} — Perlu monitor · HST ${r.hst}`,
+        desc: `Pop ${Math.round(pctPopVsStd(r))}% vs std. ${grWarn(r) ? 'Gramasi mendekati batas bawah.' : ''} Monitor akar & vigor.`,
+        ts: `HST ${r.hst}`
+      });
+    });
+
+    // Mikroklimat alerts statis
+    alerts.push({
+      cls: 'y',
+      title: 'Humidity >78% — risiko akar tergenang',
+      desc: 'Humidity melebihi target 70–75% selama pengamatan. VPD rendah (0.6 kPa) → transpirasi terhambat. Periksa drainase dan kurangi frekuensi irigasi bila perlu.',
+      ts: 'Mikroklimat'
+    });
+
+    if (onTrack > 0) alerts.push({
+      cls: 'g',
+      title: `${onTrack} GH on track — bugar & vigor normal`,
+      desc: 'Semua aspek akar, buah, vigor, bugar dalam rentang target. Lanjut monitoring rutin sesuai jadwal.',
+      ts: `${onTrack} GH`
+    });
+
+    if (!alerts.length) alerts.push({ cls: 'g', title: 'Tidak ada data GH dalam filter ini', desc: 'Coba pilih rentang HST lain.', ts: '' });
+
+    const bgMap3 = { r: 'var(--red-lt)', y: 'var(--yellow-lt)', g: 'var(--green-lt)' };
+    const bdMap3 = { r: '#f0b0b0', y: '#f5d08a', g: '#b8dfc4' };
+    const txMap3 = { r: 'var(--red-txt)', y: 'var(--yellow-txt)', g: 'var(--green-txt)' };
+    const dotMap3 = { r: 'var(--red)', y: '#d4820a', g: 'var(--green-mid)' };
+
+    alertEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:7px;padding:14px 16px">' +
+      alerts.map(a => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:9px;background:${bgMap3[a.cls]};border:1px solid ${bdMap3[a.cls]}">
+          <div style="width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px;background:${dotMap3[a.cls]}"></div>
+          <div style="flex:1">
+            <div style="font-size:11px;font-weight:700;color:${txMap3[a.cls]}">${a.title}</div>
+            <div style="font-size:10px;color:var(--text3);margin-top:2px;line-height:1.5">${a.desc}</div>
+          </div>
+          <div style="font-size:9px;color:var(--text4);white-space:nowrap;font-family:monospace;padding-left:6px">${a.ts}</div>
+        </div>`).join('') + '</div>';
+  }
+
+  // ── JADWAL OBSERVASI ──
+  const jadwalEl = document.getElementById('mtlJadwalBody');
+  if (jadwalEl) {
+    const jadwal = [
+      { aspek:'<b>Akar</b>', frekuensi:'2× / minggu', waktu:'Pagi 06:00', metode:'Inspeksi visual + foto', mikro:'Korelasi VPD & humidity tinggi', cls: krit > 0 ? 'r' : 'g', status: krit > 0 ? 'Kritis hari ini' : 'On track' },
+      { aspek:'<b>Buah</b>', frekuensi:'3× / minggu', waktu:'Pagi 07:00', metode:'Timbang sample 10 buah/GH', mikro:'Bobot dipengaruhi DLI & suhu', cls: grOkPct >= 80 ? 'g' : 'y', status: grOkPct >= 80 ? 'On track' : 'Monitor' },
+      { aspek:'<b>Vigor</b>', frekuensi:'Harian', waktu:'08:00', metode:'Ukur tinggi + foto canopy', mikro:'Laju tumbuh vs DLI pekan ini', cls: vigorPct >= 85 ? 'g' : 'y', status: vigorPct >= 85 ? 'Normal' : 'Monitor — laju melambat' },
+      { aspek:'<b>Bugar</b>', frekuensi:'Harian', waktu:'11:00 & 15:00', metode:'Skor turgor + warna daun', mikro:'Stres panas tengah hari', cls: bugarPct >= 80 ? 'g' : 'y', status: bugarPct >= 80 ? 'Normal' : 'Monitor' },
+      { aspek:'<b>Humidity</b>', frekuensi:'Otomatis sensor', waktu:'Real-time', metode:'Logger IoT per 15 menit', mikro:'Alert jika >80% selama >2 jam', cls: 'y', status: '78% — monitor' },
+      { aspek:'<b>Penyiraman</b>', frekuensi:'Setiap irigasi', waktu:'Log otomatis', metode:'Catat EC, pH, volume', mikro:'pH target sesuai fase HST', cls: 'y', status: 'pH 6.4 — deviasi' },
+    ];
+    const pMap = { g:'p-ok', y:'p-w', r:'p-b' };
+    jadwalEl.innerHTML = jadwal.map(j => `
+      <tr>
+        <td>${j.aspek}</td>
+        <td>${j.frekuensi}</td>
+        <td>${j.waktu}</td>
+        <td>${j.metode}</td>
+        <td style="font-size:11px;color:var(--text3)">${j.mikro}</td>
+        <td class="c"><span class="pill ${pMap[j.cls]}" style="font-size:9.5px">${j.status}</span></td>
+      </tr>`).join('');
+  }
+}
+
+function mtlSetBar(barId, valId, dotId, pct, label) {
+  const bar = document.getElementById(barId);
+  const val = document.getElementById(valId);
+  const dot = document.getElementById(dotId);
+  if (!bar || !val || !dot) return;
+  const col = pct >= 85 ? '#2ca354' : pct >= 65 ? '#d4820a' : '#c02020';
+  bar.style.width = pct + '%';
+  bar.style.background = col;
+  bar.textContent = pct >= 25 ? pct + '%' : '';
+  val.textContent = label;
+  val.style.color = col;
+  dot.style.background = col;
+}
+
+function initMonTimeline() {
+  mtlRender();
+}
+</script>
