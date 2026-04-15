@@ -8095,14 +8095,12 @@ function rebuildVigor() {
   }
 
   // KPI — pakai _scores jika dari DB_SCORED
+  // KPI dari VIGOR_PROCESSED (skor sudah jadi)
   const avgOf = (key, colFallback) => {
-    const useScored = RAW_VIGOR_DB_SCORED.length > 0;
-    if (useScored) {
-      const vals = proc.map(r => r._scores?.[key]).filter(v => v !== null && v !== undefined);
-      return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
-    }
     const col = colFallback || key;
-    const vals = proc.map(r=>parseFloat(r[col]||'0')).filter(v=>!isNaN(v)&&v>0);
+    const src = RAW_VIGOR.length ? RAW_VIGOR : proc;
+    const filtered = ghF ? src.filter(r=>(r.GH||'').toUpperCase().includes(ghF.toUpperCase())) : src;
+    const vals = filtered.map(r=>parseFloat(r[col]||'0')).filter(v=>!isNaN(v)&&v>0);
     return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
   };
   const kpiEl = document.getElementById('vigorKpiRow');
@@ -8142,30 +8140,40 @@ function rebuildVigor() {
 function renderVigorCards(proc) {
   const cardsEl = document.getElementById('vigorCards');
   if (!cardsEl) return;
-  if (!proc.length) { cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data</div>'; return; }
+
+  // ── Ringkasan Skor SELALU dari RAW_VIGOR (VIGOR_PROCESSED) ──
+  const ghF     = document.getElementById('vigorGHFilter')?.value     || '';
+  const hstF    = document.getElementById('vigorHstFilter')?.value     || '';
+  const varianF = document.getElementById('vigorVarianFilter')?.value  || '';
+
+  let procRows = [...RAW_VIGOR];
+  if (ghF)     procRows = procRows.filter(r => (r.GH||'').toUpperCase().includes(ghF.toUpperCase()));
+  if (hstF)    procRows = procRows.filter(r => String(r.HST_Checkpoint||'') === hstF);
+  // Varian tidak ada di VIGOR_PROCESSED tapi tetap filter jika ada kolom Varian
+  if (varianF) procRows = procRows.filter(r => (r.Varian||'').toLowerCase() === varianF.toLowerCase());
+
+  if (!procRows.length) {
+    cardsEl.innerHTML = '<div class="es" style="grid-column:1/-1">Tidak ada data di VIGOR_PROCESSED</div>';
+    return;
+  }
 
   // Group by GH — ambil HST_Checkpoint terbesar per GH
   const ghMap = {};
-  proc.forEach(r => {
+  procRows.forEach(r => {
     const key = r.GH;
     if (!ghMap[key]) ghMap[key] = { gh:r.GH, rows:[], maxHst:0 };
-    const hst = parseInt(r['HST_Checkpoint'] || r['HST Checkpoint'] || '0');
+    const hst = parseInt(r.HST_Checkpoint||'0');
     if (hst > ghMap[key].maxHst) ghMap[key].maxHst = hst;
     ghMap[key].rows.push(r);
   });
 
   cardsEl.innerHTML = Object.values(ghMap).sort((a,b)=>a.gh.localeCompare(b.gh)).map(g => {
-    const atMaxHst = g.rows.filter(r => parseInt(r['HST_Checkpoint']||r['HST Checkpoint']||'0') === g.maxHst);
+    const atMaxHst = g.rows.filter(r => parseInt(r.HST_Checkpoint||'0') === g.maxHst);
+    // Avg dari kolom VIGOR_PROCESSED langsung
     const avg = key => {
-      // Try computed _scores first
-      if (atMaxHst[0]?._scores) {
-        const vals = atMaxHst.map(r => r._scores[key]).filter(v => v !== null && v !== undefined);
-        return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
-      }
-      // Fallback: VIGOR_PROCESSED column names
       const colMap = { vigor:'Skor_Vigor', akar:'Skor_Akar', polinasi:'Skor_Polinasi', kualitas_buah:'Skor_Kualitas_Buah', total:'Skor_Total' };
       const col = colMap[key] || key;
-      const vals = atMaxHst.map(r=>parseFloat(r[col]||'0')).filter(v=>!isNaN(v)&&v>0);
+      const vals = atMaxHst.map(r => parseFloat(r[col]||'0')).filter(v => !isNaN(v) && v > 0);
       return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
     };
     const dot   = CC[clOf(g.gh)] || '#999';
