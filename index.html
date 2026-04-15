@@ -1860,7 +1860,8 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <select class="si" id="vigorGHFilter" onchange="rebuildVigor()" style="width:160px;padding-left:10px;background-image:none"><option value="">Semua GH</option></select>
-          <select class="si" id="vigorHstFilter" onchange="rebuildVigor()" style="width:130px;padding-left:10px;background-image:none"><option value="">Semua HST</option></select>
+          <select class="si" id="vigorHstFilter" onchange="rebuildVigor()" style="width:110px;padding-left:10px;background-image:none"><option value="">Semua HST</option></select>
+          <select class="si" id="vigorVarianFilter" onchange="rebuildVigor()" style="width:140px;padding-left:10px;background-image:none"><option value="">Semua Varian</option></select>
           <button class="fbtn" onclick="fetchVigor().then(rebuildVigor)">🔄 Refresh</button>
         </div>
       </div>
@@ -7792,6 +7793,221 @@ function fmtTgl(iso) {
 }
 
 // ══════════════════════════════════════════════
+//  KESEHATAN TANAMAN — SCORING ENGINE (dari R)
+// ══════════════════════════════════════════════
+
+const VIGOR_SCORING = {
+  7: {
+    bobot_aspek: { vigor: 0.40, akar: 0.60 },
+    vigor: {
+      bobot: { lebar_daun: 0.33, diameter_batang: 0.33, warna_daun: 0.34 },
+      lebar_daun: { '<7':0, '7-9,9':2, '7–9,9':2, '10-12':4, '10–12':4 },
+      diameter_batang: { 'Tanaman kutilang':1, 'Batang kecil, antar ruas pendek':2, 'Batang besar, antar ruas panjang':3, 'Batang besar, ruas pendek':4 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    }
+  },
+  14: {
+    bobot_aspek: { vigor: 0.40, akar: 0.60 },
+    vigor: {
+      bobot: { lebar_daun: 0.33, diameter_batang: 0.33, warna_daun: 0.34 },
+      lebar_daun: { '< 13 cm':0, '13.0 - 14.9 cm':2, '15.0 - 17.0 cm':4 },
+      diameter_batang: { 'Tanaman kutilang':1, 'Batang kecil, antar ruas pendek':2, 'Batang besar, antar ruas panjang':3, 'Batang besar, ruas pendek':4 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    }
+  },
+  18: {
+    bobot_aspek: { vigor: 0.35, polinasi: 0.25, akar: 0.40 },
+    vigor: {
+      bobot: { lebar_daun: 0.33, diameter_batang: 0.33, warna_daun: 0.34 },
+      lebar_daun: { '< 16 cm':0, '16.0 - 17.9 cm':2, '18 - 20 cm':4 },
+      diameter_batang: { 'Tanaman kutilang':1, 'Batang kecil, antar ruas pendek':2, 'Batang besar, antar ruas panjang':3, 'Batang besar, ruas pendek':4 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 }
+    },
+    polinasi: {
+      bobot: { panjang_tunas_air: 0.50, buah_bajang: 0.50 },
+      panjang_tunas_air: { '1 Ruas':1, '2 Ruas':2, '3 - 4 Ruas':3, '> 4 Ruas':4 },
+      buah_bajang: {
+        'Bunga menguning sebelum mekar / Bunga gagal polinasi (cabang 9 - 10)':0,
+        'Bakal buah berhasil polinasi di cabang 12 - 13 (cabang tengah)':2,
+        'Bakal buah berhasil polinasi di cabang 9 - 11 (cabang bawah)':4,
+        'Bakal buah berhasil polinasi di > 4 Ruas':4,
+        'Bakal buah berhasil polinasi di 3 - 4 Ruas':3,
+        'Bakal buah berhasil polinasi di 2 Ruas':2,
+        'Bakal buah berhasil polinasi di 1 Ruas':1,
+      }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    }
+  },
+  33: {
+    bobot_aspek: { vigor: 0.35, akar: 0.40, kualitas_buah: 0.25 },
+    vigor: {
+      bobot: { lebar_daun_atas: 0.33, diameter_batang: 0.33, warna_daun: 0.34 },
+      lebar_daun_atas: { 'Lebar daun atas dan daun bawah kecil':0, 'Lebar daun atas lebih kecil dengan daun tengah':2, 'Lebar daun atas sama dengan daun tengah':4 },
+      diameter_batang: { 'Diaeter batang kecil':2, 'Diameter batang kecil':2, 'Diameter batang besar':4 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    },
+    kualitas_buah: {
+      bobot: { simetri_buah: 1.00 },
+      simetri_buah: { 'Buah asimetris/peyang > 40 tanaman':1, 'Buah asimetris/peyang 31 - 40 tanaman':2, 'Buah asimetris/peyang 21 - 30 tanaman':3, 'Buah asimetris/peyang < 20 tanaman':4 }
+    }
+  },
+  38: {
+    bobot_aspek: { vigor: 0.35, akar: 0.40, kualitas_buah: 0.25 },
+    vigor: {
+      bobot: { warna_daun: 0.30, kesegaran: 0.70 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 },
+      kesegaran: { 'Layu':0, 'Lemas':2, 'Segar':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    },
+    kualitas_buah: {
+      bobot: { simetri_buah: 1.00 },
+      simetri_buah: { 'Buah asimetris/peyang > 40 tanaman':1, 'Buah asimetris/peyang 31 - 40 tanaman':2, 'Buah asimetris/peyang 21 - 30 tanaman':3, 'Buah asimetris/peyang < 20 tanaman':4 }
+    }
+  },
+  45: {
+    bobot_aspek: { vigor: 0.35, akar: 0.40, kualitas_buah: 0.25 },
+    vigor: {
+      bobot: { warna_daun: 0.30, kesegaran: 0.70 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 },
+      kesegaran: { 'Layu':0, 'Lemas':2, 'Segar':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    },
+    kualitas_buah: {
+      bobot: { netting_buah: 1.00 },
+      netting_buah: {
+        'Varian MD, EL, SS < 20% tanaman sudah mulai netting SG, GR, dll sudah < 90% netting':2,
+        'Varian MD, EL, SS 20% tanaman sudah mulai netting SG, GR, dll sudah 90% - 100% netting':4
+      }
+    }
+  },
+  54: {
+    bobot_aspek: { vigor: 0.35, akar: 0.25, kualitas_buah: 0.25 },
+    vigor: {
+      bobot: { warna_daun: 0.30, kesegaran: 0.70 },
+      warna_daun: { '> 8 tanaman menguning':1, '5-8 tanaman menguning':2, '5–8 tanaman menguning':2, '1-4 tanaman menguning':3, '1–4 tanaman menguning':3, 'Tidak ada menguning':4 },
+      kesegaran: { 'Layu':0, 'Lemas':2, 'Segar':4 }
+    },
+    akar: {
+      bobot: { warna_akar: 0.50, volume_akar: 0.50 },
+      warna_akar: { 'Akar Coklat':0, 'Akar Putih Bersih':4 },
+      volume_akar: { 'Tidak Ada Akar':0, 'Volume Akar Sedikit':2, 'Volume Akar Banyak':4 }
+    },
+    kualitas_buah: {
+      bobot: { netting_buah: 1.00 },
+      netting_buah: {
+        'Varian bernet crack terbuka (crack basah) > 40 tanaman':0,
+        'Varian bernet crack terbuka (crack basah) 20 - 40 tanaman':2,
+        'Varian bernet crack terbuka (crack basah) < 20 tanaman':4
+      }
+    }
+  }
+};
+
+// Translate R get_score
+function vigorGetScore(tabel, nilai) {
+  if (!nilai || nilai.trim() === '') return null;
+  const v = nilai.trim();
+  // exact match
+  if (tabel[v] !== undefined) return tabel[v];
+  // case-insensitive
+  const k = Object.keys(tabel).find(k => k.toLowerCase() === v.toLowerCase());
+  return k !== undefined ? tabel[k] : null;
+}
+
+// Translate R hitung_aspek
+function vigorHitungAspek(aspek_cfg, row_mapped) {
+  const bobot = aspek_cfg.bobot;
+  const vars  = Object.keys(bobot);
+  const scores = {};
+  for (const v of vars) {
+    const tabel = aspek_cfg[v];
+    if (!tabel) return null;
+    const val = row_mapped[v] || '';
+    const s   = vigorGetScore(tabel, val);
+    if (s === null) return null;
+    scores[v] = s;
+  }
+  let raw = 0, max = 0;
+  for (const v of vars) { raw += scores[v] * bobot[v]; max += 4 * bobot[v]; }
+  return Math.round((raw / max) * 1000) / 10; // 1 decimal
+}
+
+// Translate R hitung_skor_baris — compute all scores for one DB row
+function vigorHitungBaris(row) {
+  // Parse HST Checkpoint
+  const hstKey = parseInt(row['HST_Checkpoint'] || row['HST Checkpoint'] || '0');
+  const cfg = VIGOR_SCORING[hstKey];
+  if (!cfg) return { vigor: null, akar: null, polinasi: null, kualitas_buah: null, total: null };
+
+  const g = k => (row[k] || '').trim();
+  const row_mapped = {
+    lebar_daun:        g('Lebar Daun') || g('Lebar_Daun'),
+    lebar_daun_atas:   g('Lebar Daun') || g('Lebar_Daun'), // alias HST 33
+    diameter_batang:   g('Diameter Batang') || g('Diameter_Batang'),
+    warna_daun:        g('Warna Daun') || g('Warna_Daun'),
+    warna_akar:        g('Warna Akar') || g('Warna_Akar'),
+    volume_akar:       g('Volume Akar') || g('Volume_Akar'),
+    simetri_buah:      g('Simetri Buah') || g('Simetri_Buah'),
+    buah_bajang:       g('Buah Bajang') || g('Buah_Bajang'),
+    panjang_tunas_air: g('Panjang Tunas Air') || g('Panjang_Tunas_Air'),
+    kesegaran:         g('Kesegaran'),
+    netting_buah:      g('Netting Buah') || g('Netting_Buah'),
+  };
+
+  const sVigor    = cfg.vigor         ? vigorHitungAspek(cfg.vigor,         row_mapped) : null;
+  const sAkar     = cfg.akar          ? vigorHitungAspek(cfg.akar,          row_mapped) : null;
+  const sPolinasi = cfg.polinasi      ? vigorHitungAspek(cfg.polinasi,      row_mapped) : null;
+  const sKualitas = cfg.kualitas_buah ? vigorHitungAspek(cfg.kualitas_buah, row_mapped) : null;
+
+  const bobot = cfg.bobot_aspek;
+  let totalRaw = 0, totalW = 0;
+  if (sVigor    !== null && bobot.vigor)         { totalRaw += sVigor    * bobot.vigor;         totalW += bobot.vigor; }
+  if (sAkar     !== null && bobot.akar)          { totalRaw += sAkar     * bobot.akar;          totalW += bobot.akar; }
+  if (sPolinasi !== null && bobot.polinasi)      { totalRaw += sPolinasi * bobot.polinasi;      totalW += bobot.polinasi; }
+  if (sKualitas !== null && bobot.kualitas_buah) { totalRaw += sKualitas * bobot.kualitas_buah; totalW += bobot.kualitas_buah; }
+
+  const total = totalW > 0 ? Math.round((totalRaw / totalW) * 10) / 10 : null;
+
+  return { vigor: sVigor, akar: sAkar, polinasi: sPolinasi, kualitas_buah: sKualitas, total };
+}
+
+// Compute scores for all DB rows (cache result)
+let RAW_VIGOR_DB_SCORED = [];
+function computeVigorDbScores() {
+  RAW_VIGOR_DB_SCORED = RAW_VIGOR_DB.map(row => {
+    const scores = vigorHitungBaris(row);
+    return { ...row, _scores: scores };
+  });
+}
+
+// ══════════════════════════════════════════════
 //  KESEHATAN TANAMAN MODULE
 // ══════════════════════════════════════════════
 let VIGOR_TAB = 'processed';
@@ -7815,22 +8031,35 @@ function rebuildVigor() {
   const hstF = document.getElementById('vigorHstFilter')?.value || '';
 
   // Filter VIGOR_PROCESSED
-  let proc = [...RAW_VIGOR];
-  if (ghF)  proc = proc.filter(r => (r.GH||'').toLowerCase().includes(ghF.toLowerCase()));
-  if (hstF) proc = proc.filter(r => (r.HST_Checkpoint||'') === hstF);
+  // Use DB scored data if available (computed), else fallback VIGOR_PROCESSED
+  const srcData = RAW_VIGOR_DB_SCORED.length ? RAW_VIGOR_DB_SCORED : RAW_VIGOR;
+  let proc = [...srcData];
+  if (ghF)     proc = proc.filter(r => (r.GH||'').toUpperCase().includes(ghF.toUpperCase()));
+  if (varianF) proc = proc.filter(r => (r.Varian||'').toLowerCase() === varianF.toLowerCase());
+  if (hstF)    proc = proc.filter(r => String(r['HST_Checkpoint']||r['HST Checkpoint']||'') === hstF);
+
+  // Compute DB scores jika belum
+  if (RAW_VIGOR_DB.length && !RAW_VIGOR_DB_SCORED.length) computeVigorDbScores();
 
   // Populate filters
-  const ghSel  = document.getElementById('vigorGHFilter');
-  const hstSel = document.getElementById('vigorHstFilter');
+  const ghSel     = document.getElementById('vigorGHFilter');
+  const hstSel    = document.getElementById('vigorHstFilter');
+  const varianSel = document.getElementById('vigorVarianFilter');
+  const allSrc = RAW_VIGOR_DB_SCORED.length ? RAW_VIGOR_DB_SCORED : RAW_VIGOR;
   if (ghSel) {
-    const ghs = [...new Set(RAW_VIGOR.map(r=>r.GH).filter(Boolean))].sort();
+    const ghs = [...new Set(allSrc.map(r=>r.GH).filter(Boolean))].sort();
     const prev = ghSel.value;
     ghSel.innerHTML = '<option value="">Semua GH</option>' + ghs.map(g=>`<option value="${g}" ${g===prev?'selected':''}>${g}</option>`).join('');
   }
   if (hstSel) {
-    const hsts = [...new Set(RAW_VIGOR.map(r=>r.HST_Checkpoint).filter(Boolean))].sort((a,b)=>+a-+b);
+    const hsts = [...new Set(allSrc.map(r=>r['HST_Checkpoint']||r['HST Checkpoint']).filter(Boolean))].sort((a,b)=>+a-+b);
     const prev = hstSel.value;
     hstSel.innerHTML = '<option value="">Semua HST</option>' + hsts.map(h=>`<option value="${h}" ${h===prev?'selected':''}>${h}</option>`).join('');
+  }
+  if (varianSel) {
+    const varians = [...new Set(allSrc.map(r=>r.Varian).filter(Boolean))].sort();
+    const prev = varianSel.value;
+    varianSel.innerHTML = '<option value="">Semua Varian</option>' + varians.map(v=>`<option value="${v}" ${v===prev?'selected':''}>${v}</option>`).join('');
   }
 
   // KPI
@@ -7883,16 +8112,24 @@ function renderVigorCards(proc) {
   proc.forEach(r => {
     const key = r.GH;
     if (!ghMap[key]) ghMap[key] = { gh:r.GH, rows:[], maxHst:0 };
-    const hst = parseInt(r.HST_Checkpoint||'0');
+    const hst = parseInt(r['HST_Checkpoint'] || r['HST Checkpoint'] || '0');
     if (hst > ghMap[key].maxHst) ghMap[key].maxHst = hst;
     ghMap[key].rows.push(r);
   });
 
   cardsEl.innerHTML = Object.values(ghMap).sort((a,b)=>a.gh.localeCompare(b.gh)).map(g => {
-    const atMaxHst = g.rows.filter(r => parseInt(r.HST_Checkpoint||'0') === g.maxHst);
+    const atMaxHst = g.rows.filter(r => parseInt(r['HST_Checkpoint']||r['HST Checkpoint']||'0') === g.maxHst);
     const avg = key => {
-      const vals = atMaxHst.map(r=>parseFloat(r[key]||'0')).filter(v=>!isNaN(v)&&v>0);
-      return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : null;
+      // Try computed _scores first
+      if (atMaxHst[0]?._scores) {
+        const vals = atMaxHst.map(r => r._scores[key]).filter(v => v !== null && v !== undefined);
+        return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
+      }
+      // Fallback: VIGOR_PROCESSED column names
+      const colMap = { vigor:'Skor_Vigor', akar:'Skor_Akar', polinasi:'Skor_Polinasi', kualitas_buah:'Skor_Kualitas_Buah', total:'Skor_Total' };
+      const col = colMap[key] || key;
+      const vals = atMaxHst.map(r=>parseFloat(r[col]||'0')).filter(v=>!isNaN(v)&&v>0);
+      return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length*10)/10 : null;
     };
     const dot   = CC[clOf(g.gh)] || '#999';
     const total = avg('Skor_Total');
@@ -7931,36 +8168,55 @@ function renderVigorCards(proc) {
 
 function renderVigorDb() {
   const body = document.getElementById('vigorDbBody');
-  if (!body || !RAW_VIGOR_DB.length) {
-    if (body) body.innerHTML = '<tr><td colspan="11" class="es">Belum ada data detail</td></tr>';
+  if (!body) return;
+  if (!RAW_VIGOR_DB.length) {
+    body.innerHTML = '<tr><td colspan="11" class="es">Belum ada data detail</td></tr>';
     return;
   }
-  const ghF = document.getElementById('vigorGHFilter')?.value || '';
-  let rows = [...RAW_VIGOR_DB];
-  if (ghF) rows = rows.filter(r => (r.GH||'').toLowerCase().includes(ghF.toLowerCase()));
-  rows = rows.slice(0, 200);
+
+  // Compute scores jika belum
+  if (!RAW_VIGOR_DB_SCORED.length) computeVigorDbScores();
+
+  const ghF     = document.getElementById('vigorGHFilter')?.value     || '';
+  const varianF = document.getElementById('vigorVarianFilter')?.value  || '';
+  const hstF    = document.getElementById('vigorHstFilter')?.value     || '';
+
+  let rows = [...RAW_VIGOR_DB_SCORED];
+  if (ghF)     rows = rows.filter(r => (r.GH||'').trim().toUpperCase().includes(ghF.toUpperCase()));
+  if (varianF) rows = rows.filter(r => (r.Varian||'').trim().toLowerCase() === varianF.toLowerCase());
+  if (hstF)    rows = rows.filter(r => String(r['HST_Checkpoint']||r['HST Checkpoint']||'') === hstF);
+  rows = rows.slice(0, 300);
 
   const dot = gh => CC[clOf(gh||'')] || '#999';
-  const skor = (val, warn=75, crit=60) => {
-    const v = parseFloat(val||'0');
-    if (!v) return `<td class="r" style="color:var(--text4)">—</td>`;
-    const col = v>=warn?'var(--green-txt)':v>=crit?'#854F0B':'var(--red-txt)';
-    return `<td class="r" style="color:${col};font-weight:700">${v}</td>`;
+  const skorCell = (val, warn=75, crit=60) => {
+    if (val === null || val === undefined) return `<td class="r" style="color:var(--text4)">—</td>`;
+    const v = Math.round(val * 10) / 10;
+    const col = v >= warn ? 'var(--green-txt)' : v >= crit ? '#854F0B' : 'var(--red-txt)';
+    const bg  = v >= warn ? 'var(--green-lt)'  : v >= crit ? 'var(--yellow-lt)' : 'var(--red-lt)';
+    return `<td class="r"><span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${bg};color:${col};font-weight:700">${v}</span></td>`;
   };
 
-  body.innerHTML = rows.map((r,i) => `<tr>
-    <td class="no-col">${i+1}</td>
-    <td><div class="gh-name"><span class="gh-dot" style="background:${dot(r.GH)}"></span>${r.GH||'—'}</div></td>
-    <td class="c"><span class="hst-b" style="font-size:10px">HST ${r.HST_Aktual||'—'}</span></td>
-    <td style="font-size:11px">${r.Varian||'—'}</td>
-    <td style="font-size:11px;color:var(--text3)">${r.Operator||'—'}</td>
-    <td class="c mono" style="font-size:10px">${(r.Tanggal||r.Tanggal_Input||'').slice(5).split('-').reverse().join('/')}</td>
-    ${skor(r.Skor_Vigor)}${skor(r.Skor_Akar)}${skor(r.Skor_Polinasi)}${skor(r.Skor_Kualitas_Buah)}
-    ${skor(r.Skor_Total,80,65)}
-  </tr>`).join('');
+  body.innerHTML = rows.map((r, i) => {
+    const sc = r._scores || {};
+    const hst = r['HST_Checkpoint'] || r['HST Checkpoint'] || r.HST_Aktual || '—';
+    const tgl = (r.Tanggal || r.Tanggal_Input || '').slice(0, 10).split('-').reverse().join('/');
+    return `<tr>
+      <td class="no-col">${i+1}</td>
+      <td><div class="gh-name"><span class="gh-dot" style="background:${dot(r.GH)}"></span>${r.GH||'—'}</div></td>
+      <td class="c"><span class="hst-b" style="font-size:10px">HST ${hst}</span></td>
+      <td style="font-size:11px;font-weight:600">${r.Varian||'—'}</td>
+      <td style="font-size:11px;color:var(--text3)">${r.Operator||'—'}</td>
+      <td class="c mono" style="font-size:10px">${tgl}</td>
+      ${skorCell(sc.vigor)}
+      ${skorCell(sc.akar)}
+      ${skorCell(sc.polinasi)}
+      ${skorCell(sc.kualitas_buah)}
+      ${skorCell(sc.total, 80, 65)}
+    </tr>`;
+  }).join('');
 
   const sub = document.getElementById('vigorDbSub');
-  if (sub) sub.textContent = `${rows.length} entri ditampilkan`;
+  if (sub) sub.textContent = `${rows.length} dari ${RAW_VIGOR_DB_SCORED.length} entri`;
 }
 
 // ── SNT: hitung hari sejak record terakhir per GH ──
