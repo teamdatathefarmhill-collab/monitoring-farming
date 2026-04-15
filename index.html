@@ -6102,7 +6102,7 @@ const CC_IND = [
   { id:'cc-tanam',       icon:'🌱', name:'Keberhasilan Tanam', desc:'Semai & sprout rate',    grp:'ind', soon:true },
 ];
 const CC_DEP = [
-  { id:'cc-vigor',    icon:'⚡', name:'Vigor',             desc:'Kondisi pertumbuhan',    grp:'dep', soon:true },
+  { id:'cc-vigor',    icon:'🌿', name:'Kesehatan Tanaman',  desc:'Vigor · Perakaran · Buah', grp:'dep', soon:true },
   { id:'cc-gramasi',  icon:'⚖️', name:'Gramasi & Populasi',desc:'Avg gramasi per GH',     grp:'dep' },
   { id:'cc-estpanen', icon:'📦', name:'Est. Panen',        desc:'Pop × avg gramasi',      grp:'dep' },
   { id:'cc-status',   icon:'📊', name:'Status GH',         desc:'Ringkasan kondisi',      grp:'dep' },
@@ -7694,7 +7694,15 @@ function ccBuildPhaseTimeline() {
       : daysSinceSnt > 7;
 
     // HPT — pakai date range (konsisten dengan card)
-    const hptRowsTL   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    // Filter HPT timeline: GH + periode aktif + date range
+    const _normP = s => String(s||'').trim().toLowerCase();
+    const hptRowsTL = RAW_HPT.filter(x => {
+      if (x.gh.trim().toUpperCase() !== gh) return false;
+      if (r.periode && x.periode && _normP(x.periode) !== _normP(r.periode)) return false;
+      if (fromV && (x.tgl||'') < fromV) return false;
+      if (toV   && (x.tgl||'') > toV)   return false;
+      return true;
+    });
     const hptMaxLvlTL = hptRowsTL.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
     const hptLevel    = hptMaxLvlTL>=3?'high':hptMaxLvlTL>=2?'medium':'low';
 
@@ -7829,7 +7837,16 @@ function ccShowGhIssue(ghName) {
   const sulamCount = sntRowsPeriode.reduce((s,x)=>s+(x.jmlSulam||0),0);
 
   // ── HPT ──
-  const hptRows   = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===gh && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+  // Filter HPT: GH + periode aktif + date range
+  const normP2 = s => String(s||'').trim().toLowerCase();
+  const hptRows   = RAW_HPT.filter(x => {
+    if (x.gh.trim().toUpperCase() !== gh) return false;
+    // Filter periode — cocokkan dengan periode aktif GH ini
+    if (r.periode && x.periode && normP2(x.periode) !== normP2(r.periode)) return false;
+    if (fromV && (x.tgl||'') < fromV) return false;
+    if (toV   && (x.tgl||'') > toV)   return false;
+    return true;
+  });
   const latestHPT = hptRows.reduce((m,x) => (!m||x.tgl>m.tgl)?x:m, null);
   const hptLevel  = latestHPT && risikoGlobal ? risikoGlobal(latestHPT) : 'low';
   // HPT per tgl (untuk riwayat)
@@ -8177,17 +8194,53 @@ function ccShowGhIssue(ghName) {
 
   function detailVigor() {
     return dummyNote()
-      + `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-          ${miniStat('Growth rate/hari','+2.1cm','var(--green-txt)')}
-          ${miniStat('Ruas aktif','8','var(--text)')}
-          ${miniStat('Kondisi daun','Normal','var(--green-txt)')}
+      + `<div style="display:flex;align-items:center;gap:6px;margin-bottom:12px">
+          <span style="font-size:13px">🌿</span>
+          <span style="font-size:12px;font-weight:700;color:var(--text)">Kesehatan Tanaman</span>
+          <span style="font-size:10px;color:var(--text4);margin-left:4px">· sedang dikembangkan</span>
         </div>`
-      + secLbl('Tren pertumbuhan (dummy)')
-      + trendBars(
-          ['07/04','08/04','09/04','10/04','11/04','12/04','13/04'].map(d=>'2026-'+d.split('/').reverse().join('-')),
-          [1.8,2.0,2.2,2.1,2.3,2.0,2.1], 2.5,
-          ()=>'var(--green)'
-        );
+
+      // ── Kesehatan Tanaman ──
+      + secLbl('🌱 Kesehatan Tanaman')
+      + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">ASPEK VIGOR TANAMAN</div>
+            ${dummyRow('Tinggi Tanaman','— cm','Belum ada data')}
+            ${dummyRow('Laju Tumbuh','+— cm/hari','Belum ada data')}
+            ${dummyRow('Jumlah Ruas','— ruas','Belum ada data')}
+            ${dummyRow('Kondisi Daun','—','Belum ada data')}
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px 12px">
+            <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">ASPEK PERAKARAN</div>
+            ${dummyRow('Warna Akar','—','Belum ada data')}
+            ${dummyRow('Panjang Akar','— cm','Belum ada data')}
+            ${dummyRow('Kondisi Media','—','Belum ada data')}
+          </div>
+        </div>`
+
+      // ── Kesehatan Buah ──
+      + secLbl('🍅 Kesehatan Buah')
+      + `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="font-size:10px;color:var(--text3);font-weight:600;margin-bottom:6px">SIMETRI BUAH</div>
+          ${dummyRow('Keseragaman Ukuran','—','Belum ada data')}
+          ${dummyRow('Bentuk Buah','—','Belum ada data')}
+          ${dummyRow('Warna Kulit','—','Belum ada data')}
+          ${dummyRow('Estimasi Panen','— hari','Dari data gramasi')}
+        </div>`
+
+      + `<div style="font-size:10px;color:var(--text3);padding:8px;background:var(--yellow-lt);border-radius:6px;border:0.5px solid #f5d08a">
+          ⚙️ Data monitoring kesehatan tanaman akan tersedia setelah form pengisian disiapkan.
+        </div>`;
+
+    function dummyRow(label, val, note) {
+      return \`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:11px;color:var(--text)">\${label}</span>
+        <div style="text-align:right">
+          <span style="font-size:11px;font-weight:600;color:var(--text3)">\${val}</span>
+          <span style="font-size:9px;color:var(--text4);display:block">\${note}</span>
+        </div>
+      </div>\`;
+    }
   }
 
   function detailEst() {
@@ -8270,7 +8323,7 @@ function ccShowGhIssue(ghName) {
     { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
     { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: hptDetailStr },
     { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
-    { id:'vigor',    icon:'⚡',  label:'Vigor',              soon:true,  status:'—',      detail:'Sedang dikembangkan' },
+    { id:'vigor',    icon:'🌿',  label:'Kesehatan Tanaman',  soon:true,  status:'—',      detail:'Sedang dikembangkan' },
     { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
     { id:'semp',     icon:'🌿',  label:'Penyemprotan',       soon:false, status:'ok',     detail:'Tidak ada jadwal aktif' },
   ];
