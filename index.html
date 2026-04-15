@@ -5190,18 +5190,82 @@ function renderSntTrend(rows) {
     const meta = chart.getDatasetMeta(0);
     if (!meta || !meta.data || !meta.data.length) return;
     const ctx2 = chart.ctx;
+    const chartArea = chart.chartArea;
+    if (!chartArea) return;
     ctx2.save();
-    ctx2.font = '14px sans-serif';
+    ctx2.font = '15px sans-serif';
     ctx2.textAlign = 'center';
-    ctx2.textBaseline = 'bottom';
+    ctx2.textBaseline = 'middle';
+    // Fixed Y position: 18px dari atas chart area agar tidak tertutup titik
+    const fixedY = chartArea.top + 14;
     meta.data.forEach((pt, i) => {
       const dayKey = _keys[i];
       const cuaca  = cuacaHarian(dayKey);
-      const icon   = cuaca ? wxIco(cuaca) : null;
-      if (!icon) return;
-      ctx2.fillText(icon, pt.x, pt.y - 4);
+      if (!cuaca) return;
+      // Gambar icon cuaca custom (SVG-based via canvas)
+      drawWxIcon(ctx2, cuaca, pt.x, fixedY);
     });
     ctx2.restore();
+  }
+
+  // ── Icon cuaca custom via canvas (bukan emoji) ──
+  function drawWxIcon(ctx2, cuaca, x, y) {
+    const c = (cuaca||'').toLowerCase();
+    ctx2.save();
+    if (c.includes('hujan') || c.includes('gerimis')) {
+      // Awan gelap + tetes hujan
+      drawCloud(ctx2, x, y, '#6b7280', 10);
+      ctx2.fillStyle = '#60a5fa';
+      ctx2.font = '7px sans-serif';
+      ctx2.fillText('💧', x-3, y+10);
+      ctx2.fillText('💧', x+3, y+10);
+    } else if (c.includes('mendung')) {
+      // Awan gelap saja
+      drawCloud(ctx2, x, y, '#9ca3af', 10);
+    } else if (c.includes('cerah berawan')) {
+      // Matahari kecil + awan putih
+      drawSun(ctx2, x-3, y+1, 5, '#facc15');
+      drawCloud(ctx2, x+3, y+1, '#e5e7eb', 8);
+    } else if (c.includes('berawan')) {
+      // Awan putih saja
+      drawCloud(ctx2, x, y, '#e5e7eb', 11);
+    } else {
+      // Cerah — matahari kuning
+      drawSun(ctx2, x, y, 7, '#facc15');
+    }
+    ctx2.restore();
+  }
+
+  function drawSun(ctx2, x, y, r, color) {
+    // Lingkaran
+    ctx2.beginPath();
+    ctx2.arc(x, y, r, 0, Math.PI*2);
+    ctx2.fillStyle = color;
+    ctx2.fill();
+    // Sinar
+    ctx2.strokeStyle = color;
+    ctx2.lineWidth = 1.2;
+    for (let a = 0; a < 360; a += 45) {
+      const rad = a * Math.PI/180;
+      ctx2.beginPath();
+      ctx2.moveTo(x + Math.cos(rad)*(r+2), y + Math.sin(rad)*(r+2));
+      ctx2.lineTo(x + Math.cos(rad)*(r+4.5), y + Math.sin(rad)*(r+4.5));
+      ctx2.stroke();
+    }
+  }
+
+  function drawCloud(ctx2, x, y, color, size) {
+    ctx2.fillStyle = color;
+    ctx2.strokeStyle = 'rgba(0,0,0,0.1)';
+    ctx2.lineWidth = 0.5;
+    const s = size/10;
+    ctx2.beginPath();
+    ctx2.arc(x,      y,      4*s, 0, Math.PI*2);
+    ctx2.arc(x+5*s,  y-1*s,  5*s, 0, Math.PI*2);
+    ctx2.arc(x+10*s, y,      4*s, 0, Math.PI*2);
+    ctx2.arc(x+5*s,  y+3*s,  4*s, 0, Math.PI*2);
+    ctx2.fill();
+    ctx2.stroke();
   }
 
   if (sntTrendChartObj) { sntTrendChartObj.destroy(); sntTrendChartObj = null; }
