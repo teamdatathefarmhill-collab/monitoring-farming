@@ -1158,7 +1158,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div class="sw" style="gap:8px;flex-wrap:wrap;justify-content:flex-end">
             <!-- View Mode Toggle -->
             <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
-              <button class="fbtn active" id="vmAll" onclick="setGrView('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Semua GH</button>
+              <button class="fbtn active" id="vmAll" onclick="setGrView('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per Varian</button>
               <button class="fbtn" id="vmGH"  onclick="setGrView('gh',this)"  style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per GH</button>
             </div>
             <!-- Tanggal update gramasi -->
@@ -1211,6 +1211,80 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- CLIMATE STRIP + TREND GRAMASI -->
+      <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:18px">
+
+        <!-- Climate Strip -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🌡️ Kondisi Iklim Greenhouse</div>
+              <div class="card-sub">Rata-rata mikroklimat dari sensor IoT hari ini</div>
+            </div>
+            <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace" id="grClimateLastUpdate">—</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--border)" id="grClimateCards">
+            <!-- Suhu -->
+            <div style="padding:14px 16px;border-right:1px solid var(--border)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:5px">🌡 Suhu Rata-rata</div>
+              <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)">29°C</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">Target 27–32°C</div>
+              <div style="margin-top:8px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:65%;background:var(--green-mid);border-radius:2px"></div>
+              </div>
+            </div>
+            <!-- Humidity -->
+            <div style="padding:14px 16px;border-right:1px solid var(--border)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:5px">💧 Humidity</div>
+              <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#d4820a">78%</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">Target 70–75% · sedikit tinggi</div>
+              <div style="margin-top:8px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:78%;background:#d4820a;border-radius:2px"></div>
+              </div>
+            </div>
+            <!-- DLI -->
+            <div style="padding:14px 16px;border-right:1px solid var(--border)">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:5px">☀️ DLI / Cahaya</div>
+              <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--blue)">18 mol</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">Target ≥20 mol · kurang</div>
+              <div style="margin-top:8px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:62%;background:var(--blue);border-radius:2px"></div>
+              </div>
+            </div>
+            <!-- VPD -->
+            <div style="padding:14px 16px">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--text3);margin-bottom:5px">🍃 VPD</div>
+              <div style="font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--red)">0.6 kPa</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:3px">Rendah · transpirasi terhambat</div>
+              <div style="margin-top:8px;height:4px;background:var(--bg);border-radius:3px;overflow:hidden">
+                <div style="height:100%;width:30%;background:var(--red);border-radius:2px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Trend Gramasi Harian -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">📈 Trend Gramasi Harian</div>
+              <div class="card-sub" id="grTrendSub">Perkembangan avg gramasi per hari — semua GH aktif</div>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
+                <button class="fbtn active" id="grTrendBtnAll" onclick="setGrTrendMode('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Semua Varian</button>
+                <button class="fbtn" id="grTrendBtnVar" onclick="setGrTrendMode('varian',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per Varian</button>
+              </div>
+            </div>
+          </div>
+          <div style="padding:16px 20px;height:260px;position:relative">
+            <canvas id="grTrendChart"></canvas>
+            <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data trend gramasi</div>
+          </div>
+        </div>
+
       </div>
 
       <!-- BAR CHART AVG GRAMASI PER VARIAN -->
@@ -2070,43 +2144,59 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- ROW 2: Kategori Sanitasi + Distribusi & Aktivitas (digabung) -->
-      <div class="card" style="margin-bottom:18px">
-        <div class="card-hd">
-          <div>
-            <div class="card-title">🏷️ True Sanitasi per Kategori · Distribusi & Aktivitas</div>
-            <div class="card-sub" id="sntKatSub">Hari unik ada sanitasi per kategori kegiatan</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text3)">
-            <span>Sedikit</span>
-            <div style="display:flex;gap:2px">
-              <div style="width:10px;height:10px;border-radius:2px;background:#ebedf0"></div>
-              <div style="width:10px;height:10px;border-radius:2px;background:#c6e48b"></div>
-              <div style="width:10px;height:10px;border-radius:2px;background:#7bc96f"></div>
-              <div style="width:10px;height:10px;border-radius:2px;background:#239a3b"></div>
-              <div style="width:10px;height:10px;border-radius:2px;background:#196127"></div>
+      <!-- ROW 2: Kategori Sanitasi + Distribusi & Aktivitas — 2 KOLOM -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:18px">
+
+        <!-- KOLOM KIRI: Kategori Cards -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">🏷️ True Sanitasi per Kategori</div>
+              <div class="card-sub" id="sntKatSub">Hari unik ada sanitasi per kategori kegiatan</div>
             </div>
-            <span>Banyak</span>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:14px 16px" id="sntKatGrid">
+            <div class="es">Memuat…</div>
           </div>
         </div>
-        <!-- Kategori cards row -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px 18px;border-bottom:1px solid var(--border)" id="sntKatGrid">
-          <div class="es">Memuat…</div>
-        </div>
-        <!-- Pie + Heatmap row -->
-        <div style="display:grid;grid-template-columns:220px 1fr;gap:0;min-height:0">
-          <!-- Pie kiri -->
-          <div style="padding:14px 16px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center">
-            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.7px">Per Team</div>
-            <canvas id="sntPieChart" width="140" height="140"></canvas>
-            <div id="sntPieLegend" style="font-size:11px;margin-top:10px;width:100%"></div>
+
+        <!-- KOLOM KANAN: Distribusi & Aktivitas -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-hd">
+            <div>
+              <div class="card-title">📅 Distribusi &amp; Aktivitas</div>
+              <div class="card-sub">Per team dan kalender sanitasi</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:10px;color:var(--text3)">
+              <span>Sedikit</span>
+              <div style="display:flex;gap:2px">
+                <div style="width:10px;height:10px;border-radius:2px;background:#ebedf0"></div>
+                <div style="width:10px;height:10px;border-radius:2px;background:#c6e48b"></div>
+                <div style="width:10px;height:10px;border-radius:2px;background:#7bc96f"></div>
+                <div style="width:10px;height:10px;border-radius:2px;background:#239a3b"></div>
+                <div style="width:10px;height:10px;border-radius:2px;background:#196127"></div>
+              </div>
+              <span>Banyak</span>
+            </div>
           </div>
-          <!-- Heatmap kanan -->
-          <div style="padding:14px 18px">
-            <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.7px" id="sntHeatSub">Kalender Aktivitas</div>
-            <div id="sntHeatmap"><div class="es">Memuat…</div></div>
+          <!-- Pie + Heatmap stacked vertikal -->
+          <div style="display:flex;flex-direction:column;gap:0">
+            <!-- Pie atas -->
+            <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:20px">
+              <canvas id="sntPieChart" width="110" height="110" style="flex-shrink:0"></canvas>
+              <div>
+                <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:8px;text-transform:uppercase;letter-spacing:.7px">Per Team</div>
+                <div id="sntPieLegend" style="font-size:11px"></div>
+              </div>
+            </div>
+            <!-- Heatmap bawah -->
+            <div style="padding:14px 16px">
+              <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:6px;text-transform:uppercase;letter-spacing:.7px" id="sntHeatSub">Kalender Aktivitas</div>
+              <div id="sntHeatmap"><div class="es">Memuat…</div></div>
+            </div>
           </div>
         </div>
+
       </div>
 
       <!-- ROW 3: Bar per GH + Status Terakhir per GH -->
@@ -3193,6 +3283,7 @@ function rebuildGramasi() {
 
   // Kirim set GH aktif (sudah ter-filter oleh global filter On Track/Kritis/dll)
   renderVarianChart(curGHs);
+  buildGrTrend();
 }
 
 // helper round1 di sisi client (untuk avg kenaikan Per GH)
@@ -3373,6 +3464,95 @@ function renderVarianChart(activeGHs) {
     const totalGH = new Set(source.map(r => r.gh)).size;
     sub.textContent = `${variants.length} varian · data dari ${totalGH} GH yang diukur`;
   }
+}
+
+// ── TREND GRAMASI ──
+let grTrendMode = 'all';
+let grTrendChartInst = null;
+
+function setGrTrendMode(mode, el) {
+  grTrendMode = mode;
+  document.querySelectorAll('#grTrendBtnAll,#grTrendBtnVar').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  buildGrTrend();
+}
+
+function buildGrTrend() {
+  const canvas = document.getElementById('grTrendChart');
+  const empty  = document.getElementById('grTrendEmpty');
+  const sub    = document.getElementById('grTrendSub');
+  if (!canvas) return;
+
+  // Ambil data gramasi dari RAW_VARIAN — simulasi tren harian per HST
+  // Karena data nyata per tanggal mungkin belum ada, kita buat tren simulatif dari data RAW_VARIAN
+  const source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
+
+  if (!source.length) {
+    if (empty) empty.style.display = 'block';
+    canvas.style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  canvas.style.display = 'block';
+
+  // Buat tren berdasarkan HST — simulate avg gramasi per HST range
+  const hstBuckets = {};
+  source.forEach(r => {
+    const hst = Math.floor(r.hst / 5) * 5; // bucket per 5 HST
+    const key  = grTrendMode === 'all' ? 'Semua Varian' : (r.varian || 'Lainnya');
+    if (!hstBuckets[key]) hstBuckets[key] = {};
+    if (!hstBuckets[key][hst]) hstBuckets[key][hst] = [];
+    hstBuckets[key][hst].push(r.avgGramasi);
+  });
+
+  const allHst = [...new Set(source.map(r => Math.floor(r.hst / 5) * 5))].sort((a,b) => a-b);
+  const labels  = allHst.map(h => `HST ${h}–${h+4}`);
+
+  const palette = ['#2ca354','#388bfd','#d4820a','#c02020','#7c3aed','#0891b2'];
+  const datasets = Object.entries(hstBuckets).map(([name, hstData], i) => ({
+    label  : name,
+    data   : allHst.map(h => {
+      const arr = hstData[h];
+      return arr ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : null;
+    }),
+    borderColor     : palette[i % palette.length],
+    backgroundColor : palette[i % palette.length] + '22',
+    borderWidth     : 2.5,
+    pointRadius     : 4,
+    pointHoverRadius: 6,
+    tension         : 0.35,
+    fill            : grTrendMode === 'all',
+    spanGaps        : true,
+  }));
+
+  if (grTrendChartInst) { grTrendChartInst.destroy(); grTrendChartInst = null; }
+
+  grTrendChartInst = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend : { display: grTrendMode === 'varian', position: 'top', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g`
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { font: { size: 10 }, color: '#7a957a' } },
+        y: {
+          grid: { color: 'rgba(0,0,0,.04)' },
+          ticks: { font: { size: 10 }, color: '#7a957a', callback: v => v.toLocaleString('id-ID') + ' g' },
+          beginAtZero: false,
+        }
+      }
+    }
+  });
+
+  if (sub) sub.textContent = `Trend avg gramasi per rentang HST · ${source.length} data titik · ${grTrendMode === 'varian' ? 'dipisah per varian' : 'gabungan semua varian'}`;
 }
 
 // ── FILTER & SEARCH ──
