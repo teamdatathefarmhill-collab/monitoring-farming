@@ -3611,22 +3611,22 @@ function buildGrTrend() {
   const ghVal  = histGHSel?.value  || '';
   const varVal = histVarSel?.value || '';
 
-  // Fetch historis dari GAS — kirim filter GH & varian supaya data lebih ringan
-  fetchGrHist(ghVal, varVal, () => {
-    // Re-populate dropdown setelah data historis masuk
+  // Fetch hanya filter GH — varian difilter lokal supaya dropdown tidak hilang
+  fetchGrHist(ghVal, '', () => {
     const src = RAW_GRAM_HIST.length ? RAW_GRAM_HIST : [];
-    if (src.length && histGHSel) {
+    // GH list: selalu dari RAW_VARIAN (master list semua GH)
+    if (histGHSel) {
       const curGH  = histGHSel.value;
-      const ghList = [...new Set(src.map(r => r.gh).filter(Boolean))].sort();
+      const ghList = [...new Set(RAW_VARIAN.map(r => r.gh).filter(Boolean))].sort();
       histGHSel.innerHTML = '<option value="">Semua GH</option>' +
         ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
     }
+    // Varian list: dari data GH yang dipilih saja
     if (src.length && histVarSel) {
-      const curGH  = histGHSel?.value || '';
-      const curVar = histVarSel.value;
-      const vs     = curGH ? src.filter(r => r.gh === curGH) : src;
-      const varList= [...new Set(vs.map(r => r.varian).filter(Boolean))].sort();
-      const validVar = varList.includes(curVar) ? curVar : '';
+      const curGH   = histGHSel?.value || '';
+      const vs      = curGH ? src.filter(r => r.gh === curGH) : src;
+      const varList = [...new Set(vs.map(r => r.varian).filter(Boolean))].sort();
+      const validVar = varList.includes(varVal) ? varVal : '';
       histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
         varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
     }
@@ -3635,8 +3635,29 @@ function buildGrTrend() {
 }
 
 function onGrHistFilterChange() {
-  // Dipanggil dari onchange dropdown grHistGH / grHistVarian
-  buildGrTrend();
+  const histGHSel  = document.getElementById('grHistGH');
+  const histVarSel = document.getElementById('grHistVarian');
+  const ghVal  = histGHSel?.value  || '';
+  const varVal = histVarSel?.value || '';
+
+  // Cek apakah GH berubah dari cache — kalau iya fetch ulang, kalau tidak filter lokal
+  const cachedGHs = new Set(RAW_GRAM_HIST.map(r => r.gh));
+  const ghMatch   = ghVal === '' ? true : cachedGHs.has(ghVal);
+
+  if (ghMatch && RAW_GRAM_HIST.length) {
+    // Hanya varian berubah atau GH sudah ada di cache — filter lokal
+    if (histVarSel) {
+      const vs      = ghVal ? RAW_GRAM_HIST.filter(r => r.gh === ghVal) : RAW_GRAM_HIST;
+      const varList = [...new Set(vs.map(r => r.varian).filter(Boolean))].sort();
+      const validVar = varList.includes(varVal) ? varVal : varVal;
+      histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
+        varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
+    }
+    renderGrHist();
+  } else {
+    // GH berubah ke yang belum di-cache — fetch ulang
+    buildGrTrend();
+  }
 }
 
 function renderGrHist() {
