@@ -1263,23 +1263,38 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           </div>
         </div>
 
-        <!-- Trend Gramasi Harian -->
+        <!-- Riwayat Kenaikan Bobot per Varian -->
         <div class="card" style="margin-bottom:0">
           <div class="card-hd">
             <div>
-              <div class="card-title">📈 Trend Gramasi Harian</div>
-              <div class="card-sub" id="grTrendSub">Perkembangan avg gramasi per hari — semua GH aktif</div>
+              <div class="card-title">📋 Riwayat Kenaikan Bobot per Varian</div>
+              <div class="card-sub" id="grTrendSub">Record gramasi tiap pengukuran per GH per varian</div>
             </div>
-            <div style="display:flex;gap:6px;align-items:center">
+            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+              <!-- Toggle chart / tabel -->
               <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
-                <button class="fbtn active" id="grTrendBtnAll" onclick="setGrTrendMode('all',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Semua Varian</button>
-                <button class="fbtn" id="grTrendBtnVar" onclick="setGrTrendMode('varian',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Per Varian</button>
+                <button class="fbtn active" id="grTrendBtnAll" onclick="setGrTrendMode('tabel',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Tabel</button>
+                <button class="fbtn" id="grTrendBtnVar" onclick="setGrTrendMode('chart',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Kurva</button>
               </div>
+              <!-- Filter GH -->
+              <select class="si" id="grHistGH" onchange="buildGrTrend()" style="width:150px;padding-left:10px;background-image:none;font-size:11px">
+                <option value="">Semua GH</option>
+              </select>
+              <!-- Filter Varian -->
+              <select class="si" id="grHistVarian" onchange="buildGrTrend()" style="width:130px;padding-left:10px;background-image:none;font-size:11px">
+                <option value="">Semua Varian</option>
+              </select>
             </div>
           </div>
-          <div style="padding:16px 20px;height:260px;position:relative">
+          <!-- Tabel 2 kolom -->
+          <div id="grHistTabel" style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:0.5px solid var(--border)">
+            <div id="grHistCol1" style="border-right:0.5px solid var(--border);overflow:auto;max-height:320px"></div>
+            <div id="grHistCol2" style="overflow:auto;max-height:320px"></div>
+          </div>
+          <!-- Chart view -->
+          <div id="grHistChart" style="display:none;padding:16px 20px;height:280px;position:relative">
             <canvas id="grTrendChart"></canvas>
-            <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data trend gramasi</div>
+            <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data</div>
           </div>
         </div>
 
@@ -3503,32 +3518,139 @@ function getTipeGH(gh) {
 }
 
 // ── TREND GRAMASI ──
-let grTrendMode = 'all';
+let grTrendMode = 'tabel'; // 'tabel' | 'chart'
 let grTrendChartInst = null;
+// Palette per varian nama — konsisten di chart & tabel
+const GR_VARIAN_PALETTE = ['#2ca354','#388bfd','#d4820a','#c02020','#7c3aed','#0891b2','#059669','#db2777'];
+let   grVarianColorMap = {};
 
 function setGrTrendMode(mode, el) {
   grTrendMode = mode;
   document.querySelectorAll('#grTrendBtnAll,#grTrendBtnVar').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  const tabelDiv = document.getElementById('grHistTabel');
+  const chartDiv = document.getElementById('grHistChart');
+  if (tabelDiv) tabelDiv.style.display = mode === 'tabel' ? 'grid' : 'none';
+  if (chartDiv) chartDiv.style.display = mode === 'chart'  ? ''     : 'none';
   buildGrTrend();
 }
 
 function buildGrTrend() {
-  const canvas = document.getElementById('grTrendChart');
-  const empty  = document.getElementById('grTrendEmpty');
-  const sub    = document.getElementById('grTrendSub');
-  if (!canvas) return;
+  // Populate dropdown GH & Varian dari RAW_VARIAN
+  const histGHSel  = document.getElementById('grHistGH');
+  const histVarSel = document.getElementById('grHistVarian');
 
-  // Baca filter aktif
-  const ghVal   = document.getElementById('grFilterGH')?.value || '';
-  const varVal  = document.getElementById('grFilterVarian')?.value || '';
+  if (histGHSel) {
+    const curGH  = histGHSel.value;
+    const ghList = [...new Set(RAW_VARIAN.map(r => r.gh))].sort();
+    histGHSel.innerHTML = '<option value="">Semua GH</option>' +
+      ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
+  }
+  if (histVarSel) {
+    const curVar  = histVarSel.value;
+    const varList = [...new Set(RAW_VARIAN.map(r => r.varian).filter(Boolean))].sort();
+    histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
+      varList.map(v => `<option value="${v}"${v===curVar?' selected':''}>${v}</option>`).join('');
+  }
+
+  // Baca filter
+  const ghVal   = histGHSel?.value  || '';
+  const varVal  = histVarSel?.value || '';
   const tipeVal = document.getElementById('grFilterTipe')?.value || '';
 
-  // Filter source
+  // Source: RAW_VARIAN — filter sesuai pilihan
   let source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
   if (ghVal)   source = source.filter(r => r.gh === ghVal);
   if (varVal)  source = source.filter(r => (r.varian || '') === varVal);
   if (tipeVal) source = source.filter(r => getTipeGH(r.gh) === tipeVal);
+
+  // Build color map per varian supaya konsisten
+  const allVarians = [...new Set(source.map(r => r.varian || 'Lainnya'))].sort();
+  allVarians.forEach((v, i) => { grVarianColorMap[v] = GR_VARIAN_PALETTE[i % GR_VARIAN_PALETTE.length]; });
+
+  // Update subtitle
+  const sub = document.getElementById('grTrendSub');
+  if (sub) {
+    const filterDesc = ghVal ? `GH: ${ghVal}` : tipeVal ? `Tipe: ${tipeVal}` : 'Semua GH';
+    sub.textContent = `${source.length} data titik · ${filterDesc}${varVal ? ' · ' + varVal : ''}`;
+  }
+
+  if (grTrendMode === 'tabel') buildGrHistTabel(source);
+  else buildGrHistChart(source);
+}
+
+function buildGrHistTabel(source) {
+  const col1 = document.getElementById('grHistCol1');
+  const col2 = document.getElementById('grHistCol2');
+  if (!col1 || !col2) return;
+
+  if (!source.length) {
+    col1.innerHTML = '<div class="es" style="padding:20px">Tidak ada data</div>';
+    col2.innerHTML = '';
+    return;
+  }
+
+  // Group per varian, dalam tiap varian sort by HST
+  const byVarian = {};
+  source.forEach(r => {
+    const v = r.varian || 'Lainnya';
+    if (!byVarian[v]) byVarian[v] = [];
+    byVarian[v].push(r);
+  });
+  Object.values(byVarian).forEach(rows => rows.sort((a, b) => a.hst - b.hst));
+
+  const varianList = Object.keys(byVarian).sort();
+  const half = Math.ceil(varianList.length / 2);
+  const col1Vars = varianList.slice(0, half);
+  const col2Vars = varianList.slice(half);
+
+  function buildColHtml(vars) {
+    if (!vars.length) return '';
+    return vars.map(v => {
+      const rows  = byVarian[v];
+      const col   = grVarianColorMap[v] || '#888';
+      const maxDelta = Math.max(...rows.slice(1).map((r, i) => r.avgGramasi - rows[i].avgGramasi).filter(d => d > 0), 1);
+      const tblRows = rows.map((r, i) => {
+        const prev  = i > 0 ? rows[i-1].avgGramasi : null;
+        const delta = prev !== null ? r.avgGramasi - prev : null;
+        const barW  = delta > 0 ? Math.round((delta / maxDelta) * 60) : 0;
+        const dCol  = delta >= 80 ? '#1D9E75' : delta >= 40 ? '#2ca354' : delta >= 10 ? '#d4820a' : '#c02020';
+        return `<tr>
+          <td style="padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">HST ${r.hst}</td>
+          <td style="padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:right">${r.avgGramasi.toLocaleString('id-ID')} g</td>
+          <td style="padding:5px 10px;text-align:right">
+            ${delta !== null
+              ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;background:${dCol}18;color:${dCol}">+${delta} g</span>`
+              : '<span style="color:var(--text4);font-size:10px">—</span>'}
+          </td>
+        </tr>`;
+      }).join('');
+      return `<div style="border-bottom:1.5px solid var(--border);last-child:none">
+        <div style="padding:7px 10px;background:var(--surface2);display:flex;align-items:center;gap:7px;border-bottom:0.5px solid var(--border)">
+          <div style="width:9px;height:9px;border-radius:50%;background:${col};flex-shrink:0"></div>
+          <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text2)">${v}</span>
+          <span style="font-size:10px;color:var(--text3);margin-left:auto">${rows.length} pengukuran</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead><tr>
+            <th style="padding:4px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);text-align:left;background:var(--surface2)">HST</th>
+            <th style="padding:4px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);text-align:right;background:var(--surface2)">Bobot</th>
+            <th style="padding:4px 10px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text3);text-align:right;background:var(--surface2)">Delta</th>
+          </tr></thead>
+          <tbody>${tblRows}</tbody>
+        </table>
+      </div>`;
+    }).join('');
+  }
+
+  col1.innerHTML = buildColHtml(col1Vars) || '<div class="es" style="padding:16px">—</div>';
+  col2.innerHTML = buildColHtml(col2Vars) || '';
+}
+
+function buildGrHistChart(source) {
+  const canvas = document.getElementById('grTrendChart');
+  const empty  = document.getElementById('grTrendEmpty');
+  if (!canvas) return;
 
   if (!source.length) {
     if (empty) empty.style.display = 'block';
@@ -3538,110 +3660,48 @@ function buildGrTrend() {
   if (empty) empty.style.display = 'none';
   canvas.style.display = 'block';
 
-  // Kalau filter GH spesifik: plot per varian dari GH itu (makin naik seiring HST)
-  // Kalau tidak: plot avg per HST bucket
-  const isGHSelected = !!ghVal;
+  const palette = GR_VARIAN_PALETTE;
+  const byVarian = {};
+  source.forEach(r => {
+    const v = r.varian || 'Lainnya';
+    if (!byVarian[v]) byVarian[v] = [];
+    byVarian[v].push(r);
+  });
 
-  const palette = ['#2ca354','#388bfd','#d4820a','#c02020','#7c3aed','#0891b2','#059669','#db2777'];
-  let datasets = [];
-  let labels   = [];
-
-  if (isGHSelected) {
-    // Mode: tampilkan setiap varian GH itu sebagai titik di HST-nya
-    // Karena data snapshot (bukan time-series), kita plot titik tunggal per varian
-    // Tambahkan garis target sebagai referensi
-    const varianData = {};
-    source.forEach(r => {
-      const v = r.varian || 'Lainnya';
-      if (!varianData[v]) varianData[v] = [];
-      varianData[v].push({ hst: r.hst, gramasi: r.avgGramasi, target: r.targetGramasi || 0 });
-    });
-
-    // Sort by HST untuk tiap varian
-    Object.entries(varianData).forEach(([v, pts], i) => {
-      pts.sort((a, b) => a.hst - b.hst);
-      const col = palette[i % palette.length];
-      datasets.push({
-        label: v,
-        data: pts.map(p => ({ x: `HST ${p.hst}`, y: p.gramasi })),
-        borderColor: col, backgroundColor: col + '33',
-        borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7,
-        tension: 0.3, fill: false, spanGaps: true,
-      });
-      // Target line
-      if (pts[0].target > 0) {
-        datasets.push({
-          label: `${v} (target)`,
-          data: pts.map(p => ({ x: `HST ${p.hst}`, y: p.target })),
-          borderColor: col, backgroundColor: 'transparent',
-          borderWidth: 1.5, borderDash: [5, 4],
-          pointRadius: 0, fill: false, spanGaps: true,
-        });
-      }
-      pts.forEach(p => { if (!labels.includes(`HST ${p.hst}`)) labels.push(`HST ${p.hst}`); });
-    });
-    labels.sort((a, b) => parseInt(a.replace('HST ','')) - parseInt(b.replace('HST ','')));
-
-  } else {
-    // Mode: avg per HST tunggal (satu titik per HST, bukan range)
-    const hstBuckets = {};
-    source.forEach(r => {
-      const hst = r.hst; // satu per satu, bukan bucket
-      const key = grTrendMode === 'varian' ? (r.varian || 'Lainnya') : (tipeVal ? tipeVal : 'Rata-rata');
-      if (!hstBuckets[key]) hstBuckets[key] = {};
-      if (!hstBuckets[key][hst]) hstBuckets[key][hst] = [];
-      hstBuckets[key][hst].push(r.avgGramasi);
-    });
-
-    const allHst = [...new Set(source.map(r => r.hst))].sort((a, b) => a - b);
-    labels = allHst.map(h => `HST ${h}`);
-
-    datasets = Object.entries(hstBuckets).map(([name, hstData], i) => ({
-      label: name === 'DRIP' ? '💧 Drip' : name === 'KOLAM' ? '🏊 Kolam' : name === 'DUTCH_BUCKET' ? '🪣 Dutch Bucket' : name,
-      data: allHst.map(h => {
-        const arr = hstData[h];
-        return arr ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
-      }),
-      borderColor: palette[i % palette.length],
-      backgroundColor: palette[i % palette.length] + '22',
+  const datasets = Object.entries(byVarian).map(([v, rows], i) => {
+    rows.sort((a, b) => a.hst - b.hst);
+    const col = grVarianColorMap[v] || palette[i % palette.length];
+    return {
+      label: v,
+      data: rows.map(r => ({ x: r.hst, y: r.avgGramasi })),
+      borderColor: col, backgroundColor: col + '22',
       borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6,
-      tension: 0.35, fill: grTrendMode === 'all' && !tipeVal, spanGaps: true,
-    }));
-  }
+      tension: 0.3, fill: false, spanGaps: true,
+    };
+  });
 
   if (grTrendChartInst) { grTrendChartInst.destroy(); grTrendChartInst = null; }
-
   grTrendChartInst = new Chart(canvas, {
     type: 'line',
-    data: { labels, datasets },
+    data: { datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend: {
-          display: isGHSelected || grTrendMode === 'varian' || !!tipeVal,
-          position: 'top',
-          labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12, filter: item => !item.text.includes('(target)') }
-        },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g`
-          }
-        }
+        legend: { display: true, position: 'top', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } },
+        tooltip: { callbacks: { title: ctx => `HST ${ctx[0].parsed.x}`, label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g` } }
       },
       scales: {
-        x: { grid: { color: 'rgba(0,0,0,.04)' }, ticks: { font: { size: 10 }, color: '#7a957a' } },
-        y: {
-          grid: { color: 'rgba(0,0,0,.04)' },
-          ticks: { font: { size: 10 }, color: '#7a957a', callback: v => v.toLocaleString('id-ID') + ' g' },
-          beginAtZero: false,
-        }
+        x: { type: 'linear', grid: { color: 'rgba(0,0,0,.04)' },
+             ticks: { font: { size: 10 }, color: '#7a957a', stepSize: 1, callback: v => Number.isInteger(v) ? `HST ${v}` : '' } },
+        y: { grid: { color: 'rgba(0,0,0,.04)' }, beginAtZero: false,
+             ticks: { font: { size: 10 }, color: '#7a957a', callback: v => v.toLocaleString('id-ID') + ' g' } }
       }
     }
   });
+}
 
-  const filterDesc = ghVal ? `GH: ${ghVal}` : tipeVal ? `Tipe: ${tipeVal}` : `semua GH`;
-  if (sub) sub.textContent = `Trend avg gramasi per HST · ${source.length} data titik · ${filterDesc}${varVal ? ' · '+varVal : ''}`;
+
 }
 
 // ── LOG CUACA ──
