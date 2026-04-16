@@ -3580,32 +3580,58 @@ function buildGrTrend() {
   const histGHSel  = document.getElementById('grHistGH');
   const histVarSel = document.getElementById('grHistVarian');
 
+  // Pakai RAW_GRAM_HIST kalau sudah ada data, fallback ke RAW_VARIAN
+  const dataSource = RAW_GRAM_HIST.length ? RAW_GRAM_HIST : RAW_VARIAN.map(r => ({
+    gh: r.gh, varian: r.varian || '', gramasi: r.avgGramasi
+  }));
+
   if (histGHSel) {
     const curGH  = histGHSel.value;
-    const ghList = [...new Set(RAW_VARIAN.map(r => r.gh))].sort();
-    histGHSel.innerHTML = '<option value="">Semua GH</option>' +
-      ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
+    const ghList = [...new Set(dataSource.map(r => r.gh).filter(Boolean))].sort();
+    if (ghList.length) {
+      histGHSel.innerHTML = '<option value="">Semua GH</option>' +
+        ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
+    }
   }
 
   if (histVarSel) {
     const curGH  = histGHSel?.value || '';
     const curVar = histVarSel.value;
-    // Filter varian sesuai GH yang dipilih
     const varSource = curGH
-      ? RAW_VARIAN.filter(r => r.gh === curGH)
-      : RAW_VARIAN;
+      ? dataSource.filter(r => r.gh === curGH)
+      : dataSource;
     const varList = [...new Set(varSource.map(r => r.varian).filter(Boolean))].sort();
-    // Kalau varian yang dipilih tidak ada di GH baru, reset ke semua
     const validVar = varList.includes(curVar) ? curVar : '';
-    histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
-      varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
+    if (varList.length) {
+      histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
+        varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
+    }
   }
 
   const ghVal  = histGHSel?.value  || '';
   const varVal = histVarSel?.value || '';
 
   // Fetch historis dari GAS — kirim filter GH & varian supaya data lebih ringan
-  fetchGrHist(ghVal, varVal, () => renderGrHist());
+  fetchGrHist(ghVal, varVal, () => {
+    // Re-populate dropdown setelah data historis masuk
+    const src = RAW_GRAM_HIST.length ? RAW_GRAM_HIST : [];
+    if (src.length && histGHSel) {
+      const curGH  = histGHSel.value;
+      const ghList = [...new Set(src.map(r => r.gh).filter(Boolean))].sort();
+      histGHSel.innerHTML = '<option value="">Semua GH</option>' +
+        ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
+    }
+    if (src.length && histVarSel) {
+      const curGH  = histGHSel?.value || '';
+      const curVar = histVarSel.value;
+      const vs     = curGH ? src.filter(r => r.gh === curGH) : src;
+      const varList= [...new Set(vs.map(r => r.varian).filter(Boolean))].sort();
+      const validVar = varList.includes(curVar) ? curVar : '';
+      histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
+        varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
+    }
+    renderGrHist();
+  });
 }
 
 function onGrHistFilterChange() {
