@@ -2759,7 +2759,7 @@ function updateMusimBadge() {
 
 // Re-enrich tanpa perlu clear cache (data sudah hardcoded)
 function clearStandarCache() {
-  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
+  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); buildGrTrend(); }
 }
 
 // setMusim tidak lagi digunakan (musim otomatis), tapi tetap ada untuk kompatibilitas
@@ -3307,7 +3307,7 @@ function rebuildGramasi() {
 
   // Kirim set GH aktif (sudah ter-filter oleh global filter On Track/Kritis/dll)
   renderVarianChart(curGHs);
-  buildGrTrend();
+  // buildGrTrend tidak dipanggil di sini — tabel riwayat punya filter sendiri
 }
 
 // helper round1 di sisi client (untuk avg kenaikan Per GH)
@@ -3553,16 +3553,14 @@ function buildGrTrend() {
       varList.map(v => `<option value="${v}"${v===curVar?' selected':''}>${v}</option>`).join('');
   }
 
-  // Baca filter
+  // Baca filter — HANYA dari dropdown milik tabel riwayat sendiri
   const ghVal   = histGHSel?.value  || '';
   const varVal  = histVarSel?.value || '';
-  const tipeVal = document.getElementById('grFilterTipe')?.value || '';
 
-  // Source: RAW_VARIAN — filter sesuai pilihan
+  // Source: semua RAW_VARIAN tanpa pengaruh filter tabel utama
   let source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
-  if (ghVal)   source = source.filter(r => r.gh === ghVal);
-  if (varVal)  source = source.filter(r => (r.varian || '') === varVal);
-  if (tipeVal) source = source.filter(r => getTipeGH(r.gh) === tipeVal);
+  if (ghVal)  source = source.filter(r => r.gh === ghVal);
+  if (varVal) source = source.filter(r => (r.varian || '') === varVal);
 
   // Build color map per varian supaya konsisten
   const allVarians = [...new Set(source.map(r => r.varian || 'Lainnya'))].sort();
@@ -3571,7 +3569,7 @@ function buildGrTrend() {
   // Update subtitle
   const sub = document.getElementById('grTrendSub');
   if (sub) {
-    const filterDesc = ghVal ? `GH: ${ghVal}` : tipeVal ? `Tipe: ${tipeVal}` : 'Semua GH';
+    const filterDesc = ghVal ? `GH: ${ghVal}` : 'Semua GH';
     sub.textContent = `${source.length} data titik · ${filterDesc}${varVal ? ' · ' + varVal : ''}`;
   }
 
@@ -4585,7 +4583,7 @@ setInterval(tick, 1000);
 // Fetch standar gramasi dan data GAS secara paralel
 fetchStandarGramasi().then(() => {
   // Kalau data GAS sudah ada (dari cache), langsung enrich
-  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); }
+  if (RAW_VARIAN.length) { enrichTargetGramasi(); rebuildGramasi(); buildGrTrend(); }
 });
 fetchData();
 
