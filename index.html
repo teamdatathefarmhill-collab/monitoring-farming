@@ -1176,6 +1176,15 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               🌿 Musim: <b id="musimInfoText" style="color:var(--text2)">Memuat standar…</b>
               <span id="musimClearBtn" onclick="clearStandarCache()" title="Reset cache standar gramasi" style="cursor:pointer;font-size:10px;color:var(--text4);margin-left:2px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;display:none">↺</span>
             </div>
+            <!-- Filter Tipe GH -->
+            <div id="wrapFilterTipeGH">
+              <select class="si" id="grFilterTipe" onchange="rebuildGramasi()" style="width:145px;padding-left:10px;background-image:none">
+                <option value="">Semua Tipe</option>
+                <option value="DRIP">💧 Drip</option>
+                <option value="KOLAM">🏊 Kolam</option>
+                <option value="DUTCH_BUCKET">🪣 Dutch Bucket</option>
+              </select>
+            </div>
             <!-- Filter GH -->
             <div id="wrapFilterGH">
               <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
@@ -3108,10 +3117,11 @@ function renderGramasi(d) {
 }
 
 function rebuildGramasi() {
-  const mode   = grViewMode; // 'all' | 'gh'
-  const ghVal  = document.getElementById('grFilterGH')?.value  || '';
-  const varVal = document.getElementById('grFilterVarian')?.value || '';
-  const qGr    = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
+  const mode    = grViewMode; // 'all' | 'gh'
+  const ghVal   = document.getElementById('grFilterGH')?.value  || '';
+  const varVal  = document.getElementById('grFilterVarian')?.value || '';
+  const tipeVal = document.getElementById('grFilterTipe')?.value || '';
+  const qGr     = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
 
   // ── Column visibility ──
   // 'all' (Semua GH) : Varian✓  Target✓  Deviasi✓  Status✓
@@ -3135,16 +3145,19 @@ function rebuildGramasi() {
   if (mode === 'all') {
     // ── Semua GH: satu baris per GH × Varian dari RAW_VARIAN ──
     rows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
-    if (ghVal)  rows = rows.filter(r => r.gh === ghVal);
-    if (varVal) rows = rows.filter(r => r.varian === varVal);
-    if (qGr)    rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
+    if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
+    if (varVal)  rows = rows.filter(r => r.varian === varVal);
+    if (tipeVal) rows = rows.filter(r => getTipeGH(r.gh) === tipeVal);
+    if (qGr)     rows = rows.filter(r => r.gh.toLowerCase().includes(qGr));
     rows.sort((a, b) => grSortAsc ? a.hst - b.hst : b.hst - a.hst);
 
   } else {
     // ── Per GH: akumulasi/avg dari semua varian di GH tersebut ──
     // Sumber: RAW_VARIAN di-group per GH, avg gramasi, sum kenaikan
     const ghMap = {};
-    RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0).forEach(r => {
+    let baseRows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
+    if (tipeVal) baseRows = baseRows.filter(r => getTipeGH(r.gh) === tipeVal);
+    baseRows.forEach(r => {
       const key = r.gh;
       if (!ghMap[key]) {
         ghMap[key] = {
@@ -3264,9 +3277,14 @@ function rebuildGramasi() {
           ? '<span class="pill p-ok">✓ On Track</span>'
           : '<span class="pill p-b">⚠ Di Bawah Std</span>';
 
+        const tipeGH = getTipeGH(r.gh);
+        const tipeBadge = tipeGH !== 'LAINNYA'
+          ? `<span style="font-size:9px;font-weight:700;padding:1px 5px;border-radius:4px;margin-left:5px;background:${tipeGH==='DRIP'?'#e8f0fb':tipeGH==='KOLAM'?'#e6f4ec':'#fef3e2'};color:${tipeGH==='DRIP'?'var(--blue-txt)':tipeGH==='KOLAM'?'var(--green-txt)':'var(--yellow-txt)'};border:1px solid ${tipeGH==='DRIP'?'#bbd1f5':tipeGH==='KOLAM'?'#b8dfc4':'#f5d08a'}">${tipeGH==='DRIP'?'💧 Drip':tipeGH==='KOLAM'?'🏊 Kolam':'🪣 Dutch'}</span>`
+          : '';
+
         return `<tr${misleading ? ' style="background:rgba(255,193,7,.07)!important"' : ''}>
           <td class="no-col">${i+1}</td>
-          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
+          <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}${tipeBadge}</div></td>
           ${varCell}
           <td class="c mono" style="color:var(--text3)">${r.periode}</td>
           <td class="c"><span class="hst-b">HST ${r.hst}</span></td>
@@ -3466,6 +3484,20 @@ function renderVarianChart(activeGHs) {
   }
 }
 
+// ── TIPE GH LOOKUP ──
+function getTipeGH(gh) {
+  const name = gh.toUpperCase().trim();
+  // DRIP: BERGAS 1-8 kecuali 6, COLOMADU 1-4
+  if (/^BERGAS\s*([1-5]|[7-8])$/.test(name)) return 'DRIP';
+  if (/^COLOMADU\s*[1-4]$/.test(name)) return 'DRIP';
+  // DUTCH BUCKET: TOHUDAN 13-21
+  if (/^TOHUDAN\s*(1[3-9]|2[01])$/.test(name)) return 'DUTCH_BUCKET';
+  // KOLAM: TOHUDAN 1-12, SAWAHAN 1-4, TOHUDAN 22
+  if (/^TOHUDAN\s*([1-9]|1[0-2]|22)$/.test(name)) return 'KOLAM';
+  if (/^SAWAHAN\s*[1-4]$/.test(name)) return 'KOLAM';
+  return 'LAINNYA';
+}
+
 // ── TREND GRAMASI ──
 let grTrendMode = 'all';
 let grTrendChartInst = null;
@@ -3483,9 +3515,16 @@ function buildGrTrend() {
   const sub    = document.getElementById('grTrendSub');
   if (!canvas) return;
 
-  // Ambil data gramasi dari RAW_VARIAN — simulasi tren harian per HST
-  // Karena data nyata per tanggal mungkin belum ada, kita buat tren simulatif dari data RAW_VARIAN
-  const source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
+  // Baca filter aktif
+  const ghVal   = document.getElementById('grFilterGH')?.value || '';
+  const varVal  = document.getElementById('grFilterVarian')?.value || '';
+  const tipeVal = document.getElementById('grFilterTipe')?.value || '';
+
+  // Filter source
+  let source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
+  if (ghVal)   source = source.filter(r => r.gh === ghVal);
+  if (varVal)  source = source.filter(r => (r.varian || '') === varVal);
+  if (tipeVal) source = source.filter(r => getTipeGH(r.gh) === tipeVal);
 
   if (!source.length) {
     if (empty) empty.style.display = 'block';
@@ -3495,35 +3534,76 @@ function buildGrTrend() {
   if (empty) empty.style.display = 'none';
   canvas.style.display = 'block';
 
-  // Buat tren berdasarkan HST — simulate avg gramasi per HST range
-  const hstBuckets = {};
-  source.forEach(r => {
-    const hst = Math.floor(r.hst / 5) * 5; // bucket per 5 HST
-    const key  = grTrendMode === 'all' ? 'Semua Varian' : (r.varian || 'Lainnya');
-    if (!hstBuckets[key]) hstBuckets[key] = {};
-    if (!hstBuckets[key][hst]) hstBuckets[key][hst] = [];
-    hstBuckets[key][hst].push(r.avgGramasi);
-  });
+  // Kalau filter GH spesifik: plot per varian dari GH itu (makin naik seiring HST)
+  // Kalau tidak: plot avg per HST bucket
+  const isGHSelected = !!ghVal;
 
-  const allHst = [...new Set(source.map(r => Math.floor(r.hst / 5) * 5))].sort((a,b) => a-b);
-  const labels  = allHst.map(h => `HST ${h}–${h+4}`);
+  const palette = ['#2ca354','#388bfd','#d4820a','#c02020','#7c3aed','#0891b2','#059669','#db2777'];
+  let datasets = [];
+  let labels   = [];
 
-  const palette = ['#2ca354','#388bfd','#d4820a','#c02020','#7c3aed','#0891b2'];
-  const datasets = Object.entries(hstBuckets).map(([name, hstData], i) => ({
-    label  : name,
-    data   : allHst.map(h => {
-      const arr = hstData[h];
-      return arr ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : null;
-    }),
-    borderColor     : palette[i % palette.length],
-    backgroundColor : palette[i % palette.length] + '22',
-    borderWidth     : 2.5,
-    pointRadius     : 4,
-    pointHoverRadius: 6,
-    tension         : 0.35,
-    fill            : grTrendMode === 'all',
-    spanGaps        : true,
-  }));
+  if (isGHSelected) {
+    // Mode: tampilkan setiap varian GH itu sebagai titik di HST-nya
+    // Karena data snapshot (bukan time-series), kita plot titik tunggal per varian
+    // Tambahkan garis target sebagai referensi
+    const varianData = {};
+    source.forEach(r => {
+      const v = r.varian || 'Lainnya';
+      if (!varianData[v]) varianData[v] = [];
+      varianData[v].push({ hst: r.hst, gramasi: r.avgGramasi, target: r.targetGramasi || 0 });
+    });
+
+    // Sort by HST untuk tiap varian
+    Object.entries(varianData).forEach(([v, pts], i) => {
+      pts.sort((a, b) => a.hst - b.hst);
+      const col = palette[i % palette.length];
+      datasets.push({
+        label: v,
+        data: pts.map(p => ({ x: `HST ${p.hst}`, y: p.gramasi })),
+        borderColor: col, backgroundColor: col + '33',
+        borderWidth: 2.5, pointRadius: 5, pointHoverRadius: 7,
+        tension: 0.3, fill: false, spanGaps: true,
+      });
+      // Target line
+      if (pts[0].target > 0) {
+        datasets.push({
+          label: `${v} (target)`,
+          data: pts.map(p => ({ x: `HST ${p.hst}`, y: p.target })),
+          borderColor: col, backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [5, 4],
+          pointRadius: 0, fill: false, spanGaps: true,
+        });
+      }
+      pts.forEach(p => { if (!labels.includes(`HST ${p.hst}`)) labels.push(`HST ${p.hst}`); });
+    });
+    labels.sort((a, b) => parseInt(a.replace('HST ','')) - parseInt(b.replace('HST ','')));
+
+  } else {
+    // Mode: avg per HST bucket (semua GH atau filter tipe/varian)
+    const hstBuckets = {};
+    source.forEach(r => {
+      const hst = Math.floor(r.hst / 5) * 5;
+      const key = grTrendMode === 'varian' ? (r.varian || 'Lainnya') : (tipeVal ? tipeVal : 'Rata-rata');
+      if (!hstBuckets[key]) hstBuckets[key] = {};
+      if (!hstBuckets[key][hst]) hstBuckets[key][hst] = [];
+      hstBuckets[key][hst].push(r.avgGramasi);
+    });
+
+    const allHst = [...new Set(source.map(r => Math.floor(r.hst / 5) * 5))].sort((a, b) => a - b);
+    labels = allHst.map(h => `HST ${h}–${h+4}`);
+
+    datasets = Object.entries(hstBuckets).map(([name, hstData], i) => ({
+      label: name === 'DRIP' ? '💧 Drip' : name === 'KOLAM' ? '🏊 Kolam' : name === 'DUTCH_BUCKET' ? '🪣 Dutch Bucket' : name,
+      data: allHst.map(h => {
+        const arr = hstData[h];
+        return arr ? Math.round(arr.reduce((s, v) => s + v, 0) / arr.length) : null;
+      }),
+      borderColor: palette[i % palette.length],
+      backgroundColor: palette[i % palette.length] + '22',
+      borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6,
+      tension: 0.35, fill: grTrendMode === 'all' && !tipeVal, spanGaps: true,
+    }));
+  }
 
   if (grTrendChartInst) { grTrendChartInst.destroy(); grTrendChartInst = null; }
 
@@ -3534,7 +3614,11 @@ function buildGrTrend() {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
-        legend : { display: grTrendMode === 'varian', position: 'top', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } },
+        legend: {
+          display: isGHSelected || grTrendMode === 'varian' || !!tipeVal,
+          position: 'top',
+          labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12, filter: item => !item.text.includes('(target)') }
+        },
         tooltip: {
           callbacks: {
             label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g`
@@ -3552,7 +3636,9 @@ function buildGrTrend() {
     }
   });
 
-  if (sub) sub.textContent = `Trend avg gramasi per rentang HST · ${source.length} data titik · ${grTrendMode === 'varian' ? 'dipisah per varian' : 'gabungan semua varian'}`;
+  const filterDesc = ghVal ? `GH: ${ghVal}` : tipeVal ? `Tipe: ${tipeVal}` : `semua GH`;
+  if (sub) sub.textContent = `Trend avg gramasi per HST · ${source.length} data titik · ${filterDesc}${varVal ? ' · '+varVal : ''}`;
+}
 }
 
 // ── FILTER & SEARCH ──
