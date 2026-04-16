@@ -3212,9 +3212,10 @@ function rebuildGramasi() {
     const misleadingNote  = misleadingCount > 0
       ? ` · <span style="color:#856404;font-weight:700">⚠ ${misleadingCount} perlu dicek input</span>`
       : '';
+    const tipeLabel = tipeVal === 'DRIP' ? ' · 💧 Drip' : tipeVal === 'KOLAM' ? ' · 🏊 Kolam' : tipeVal === 'DUTCH_BUCKET' ? ' · 🪣 Dutch Bucket' : '';
     subEl.innerHTML = (mode === 'all'
       ? `${rows.length} baris (per GH × Varian) · diurutkan HST`
-      : `${rows.length} GH ditampilkan · diurutkan HST`) + misleadingNote;
+      : `${rows.length} GH ditampilkan · diurutkan HST`) + tipeLabel + misleadingNote;
   }
 
   const colCount = 10 + (showVarian ? 1 : 0);
@@ -3486,15 +3487,27 @@ function renderVarianChart(activeGHs) {
 
 // ── TIPE GH LOOKUP ──
 function getTipeGH(gh) {
-  const name = gh.toUpperCase().trim();
+  if (!gh) return 'LAINNYA';
+  // Normalize: uppercase, collapse multiple spaces, trim
+  const name = gh.toUpperCase().replace(/\s+/g, ' ').trim();
+
+  // Extract base name and number
+  const match = name.match(/^([A-Z]+)\s*(\d+)$/);
+  if (!match) return 'LAINNYA';
+  const base = match[1]; // e.g. 'TOHUDAN', 'BERGAS', 'COLOMADU', 'SAWAHAN'
+  const num  = parseInt(match[2], 10);
+
   // DRIP: BERGAS 1-8 kecuali 6, COLOMADU 1-4
-  if (/^BERGAS\s*([1-5]|[7-8])$/.test(name)) return 'DRIP';
-  if (/^COLOMADU\s*[1-4]$/.test(name)) return 'DRIP';
+  if (base === 'BERGAS'   && num >= 1 && num <= 8 && num !== 6) return 'DRIP';
+  if (base === 'COLOMADU' && num >= 1 && num <= 4)              return 'DRIP';
+
   // DUTCH BUCKET: TOHUDAN 13-21
-  if (/^TOHUDAN\s*(1[3-9]|2[01])$/.test(name)) return 'DUTCH_BUCKET';
-  // KOLAM: TOHUDAN 1-12, SAWAHAN 1-4, TOHUDAN 22
-  if (/^TOHUDAN\s*([1-9]|1[0-2]|22)$/.test(name)) return 'KOLAM';
-  if (/^SAWAHAN\s*[1-4]$/.test(name)) return 'KOLAM';
+  if (base === 'TOHUDAN'  && num >= 13 && num <= 21) return 'DUTCH_BUCKET';
+
+  // KOLAM: TOHUDAN 1-12, TOHUDAN 22, SAWAHAN 1-4
+  if (base === 'TOHUDAN'  && (num >= 1 && num <= 12 || num === 22)) return 'KOLAM';
+  if (base === 'SAWAHAN'  && num >= 1 && num <= 4)                  return 'KOLAM';
+
   return 'LAINNYA';
 }
 
