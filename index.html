@@ -3586,11 +3586,19 @@ function buildGrTrend() {
     histGHSel.innerHTML = '<option value="">Semua GH</option>' +
       ghList.map(g => `<option value="${g}"${g===curGH?' selected':''}>${g}</option>`).join('');
   }
+
   if (histVarSel) {
-    const curVar  = histVarSel.value;
-    const varList = [...new Set(RAW_VARIAN.map(r => r.varian).filter(Boolean))].sort();
+    const curGH  = histGHSel?.value || '';
+    const curVar = histVarSel.value;
+    // Filter varian sesuai GH yang dipilih
+    const varSource = curGH
+      ? RAW_VARIAN.filter(r => r.gh === curGH)
+      : RAW_VARIAN;
+    const varList = [...new Set(varSource.map(r => r.varian).filter(Boolean))].sort();
+    // Kalau varian yang dipilih tidak ada di GH baru, reset ke semua
+    const validVar = varList.includes(curVar) ? curVar : '';
     histVarSel.innerHTML = '<option value="">Semua Varian</option>' +
-      varList.map(v => `<option value="${v}"${v===curVar?' selected':''}>${v}</option>`).join('');
+      varList.map(v => `<option value="${v}"${v===validVar?' selected':''}>${v}</option>`).join('');
   }
 
   const ghVal  = histGHSel?.value  || '';
