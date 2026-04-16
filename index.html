@@ -1225,21 +1225,41 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       <!-- CLIMATE STRIP + TREND GRAMASI -->
       <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:18px">
 
-        <!-- Climate Strip — data belum tersedia dari sheet -->
+        <!-- Log Cuaca dari Google Sheets -->
         <div class="card" style="margin-bottom:0">
           <div class="card-hd">
             <div>
-              <div class="card-title">🌡️ Kondisi Iklim Greenhouse</div>
-              <div class="card-sub">Suhu · Humidity · DLI · VPD — dari sensor IoT</div>
+              <div class="card-title">🌤️ Log Cuaca Harian</div>
+              <div class="card-sub" id="cuacaSub">Skor cuaca per hari · Cerah=100 · Cerah Berawan=80 · Berawan=50 · Mendung=25</div>
             </div>
-            <span style="font-size:10px;font-weight:700;background:#f3f0ff;color:#5b21b6;border:1px solid #c4b5fd;border-radius:20px;padding:2px 10px">Segera Hadir</span>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span id="cuacaLastUpdate" style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">—</span>
+              <button onclick="fetchCuaca(true)" style="background:var(--surface2);border:1.5px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">🔄</button>
+            </div>
           </div>
-          <div style="padding:18px 20px;display:flex;align-items:center;gap:14px;color:var(--text4)">
-            <span style="font-size:22px">📡</span>
-            <div>
-              <div style="font-size:12px;font-weight:600;color:var(--text3)">Data iklim belum terhubung ke Google Sheets</div>
-              <div style="font-size:11px;color:var(--text4);margin-top:3px">Tambahkan sheet "Iklim" di spreadsheet kamu dan expose via GAS endpoint untuk mengaktifkan fitur ini.</div>
+          <!-- Summary strip -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border)" id="cuacaSummaryRow">
+            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">☀️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#d4820a" id="cuacaCerahCount">—</div></div>
             </div>
+            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">⛅</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah Berawan</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)" id="cuacaCBCount">—</div></div>
+            </div>
+            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">🌥️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Berawan</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text2)" id="cuacaBerawanCount">—</div></div>
+            </div>
+            <div style="padding:10px 16px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">☁️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Mendung</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--blue)" id="cuacaMendungCount">—</div></div>
+            </div>
+          </div>
+          <!-- Chart -->
+          <div style="padding:16px 20px;height:200px;position:relative">
+            <canvas id="cuacaChart"></canvas>
+            <div id="cuacaEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Memuat data cuaca…</div>
           </div>
         </div>
 
@@ -3335,6 +3355,7 @@ function switchPage(page) {
   if(document.getElementById('srchGr')) document.getElementById('srchGr').value = '';
 
   if (page === 'dashboard' || page === 'gramasi') rebuild();
+  if (page === 'gramasi') fetchCuaca(false);
   if (page === 'hpt' && !RAW_HPT.length) fetchHpt(false);
   if (page === 'penyiraman' && !RAW_PNY.length) fetchPny(false);
   if (page === 'semai' && !RAW_SEMAI.length) fetchSemai(false);
@@ -3562,18 +3583,18 @@ function buildGrTrend() {
     labels.sort((a, b) => parseInt(a.replace('HST ','')) - parseInt(b.replace('HST ','')));
 
   } else {
-    // Mode: avg per HST bucket (semua GH atau filter tipe/varian)
+    // Mode: avg per HST tunggal (satu titik per HST, bukan range)
     const hstBuckets = {};
     source.forEach(r => {
-      const hst = Math.floor(r.hst / 5) * 5;
+      const hst = r.hst; // satu per satu, bukan bucket
       const key = grTrendMode === 'varian' ? (r.varian || 'Lainnya') : (tipeVal ? tipeVal : 'Rata-rata');
       if (!hstBuckets[key]) hstBuckets[key] = {};
       if (!hstBuckets[key][hst]) hstBuckets[key][hst] = [];
       hstBuckets[key][hst].push(r.avgGramasi);
     });
 
-    const allHst = [...new Set(source.map(r => Math.floor(r.hst / 5) * 5))].sort((a, b) => a - b);
-    labels = allHst.map(h => `HST ${h}–${h+4}`);
+    const allHst = [...new Set(source.map(r => r.hst))].sort((a, b) => a - b);
+    labels = allHst.map(h => `HST ${h}`);
 
     datasets = Object.entries(hstBuckets).map(([name, hstData], i) => ({
       label: name === 'DRIP' ? '💧 Drip' : name === 'KOLAM' ? '🏊 Kolam' : name === 'DUTCH_BUCKET' ? '🪣 Dutch Bucket' : name,
@@ -3621,6 +3642,200 @@ function buildGrTrend() {
 
   const filterDesc = ghVal ? `GH: ${ghVal}` : tipeVal ? `Tipe: ${tipeVal}` : `semua GH`;
   if (sub) sub.textContent = `Trend avg gramasi per HST · ${source.length} data titik · ${filterDesc}${varVal ? ' · '+varVal : ''}`;
+}
+
+// ── LOG CUACA ──
+const CUACA_SHEET_ID  = '1XjxNjlAEElX03oi06Io-lGyza0aeNJ9Cmf5d84NiQ2I';
+const CUACA_GID       = '2083317549';
+let   cuacaChartInst  = null;
+let   RAW_CUACA       = [];
+
+function fetchCuaca(force) {
+  const cacheKey = 'cuaca_cache';
+  const cacheTs  = 'cuaca_cache_ts';
+  if (!force) {
+    try {
+      const ts   = +localStorage.getItem(cacheTs) || 0;
+      const data =  localStorage.getItem(cacheKey);
+      if (data && Date.now() - ts < 30 * 60 * 1000) {
+        RAW_CUACA = JSON.parse(data);
+        renderCuaca();
+        return;
+      }
+    } catch(e) {}
+  }
+
+  const url = `https://docs.google.com/spreadsheets/d/${CUACA_SHEET_ID}/export?format=csv&gid=${CUACA_GID}`;
+  fetch(url)
+    .then(r => r.text())
+    .then(csv => {
+      const lines = csv.trim().split('\n');
+      // Baris pertama = header: Date, Time, Cuaca, Skoring
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+        if (cols.length < 4) continue;
+        const dateStr = cols[0]; // "04-Apr-26" atau "04/04/2026" dst
+        const time    = cols[1]; // "14:00"
+        const cuaca   = cols[2]; // "Cerah", "Berawan", dll
+        const skor    = parseFloat(cols[3]) || 0;
+        if (!dateStr || !cuaca) continue;
+        rows.push({ dateStr, time, cuaca: cuaca.trim(), skor });
+      }
+      RAW_CUACA = rows;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(rows));
+        localStorage.setItem(cacheTs, Date.now());
+      } catch(e) {}
+      renderCuaca();
+    })
+    .catch(err => {
+      console.warn('Gagal fetch Log Cuaca:', err);
+      const empty = document.getElementById('cuacaEmpty');
+      if (empty) { empty.style.display = 'block'; empty.textContent = 'Gagal memuat data cuaca. Pastikan sheet sudah publik.'; }
+    });
+}
+
+function renderCuaca() {
+  if (!RAW_CUACA.length) return;
+
+  // Group per tanggal — avg skor per hari
+  const byDate = {};
+  RAW_CUACA.forEach(r => {
+    if (!byDate[r.dateStr]) byDate[r.dateStr] = { scores: [], cuacaList: [] };
+    byDate[r.dateStr].scores.push(r.skor);
+    byDate[r.dateStr].cuacaList.push(r.cuaca);
+  });
+
+  // Sort tanggal
+  const sorted = Object.entries(byDate).sort((a, b) => {
+    // Parse tanggal — support format "dd-Mon-yy" dan "dd/mm/yyyy"
+    return parseCuacaDate(a[0]) - parseCuacaDate(b[0]);
+  });
+
+  const labels = sorted.map(([d]) => fmtCuacaLabel(d));
+  const avgScores = sorted.map(([, v]) =>
+    Math.round(v.scores.reduce((s, x) => s + x, 0) / v.scores.length)
+  );
+  // Cuaca dominan per hari
+  const dominan = sorted.map(([, v]) => {
+    const freq = {};
+    v.cuacaList.forEach(c => { freq[c] = (freq[c] || 0) + 1; });
+    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0][0];
+  });
+
+  // Warna per skor
+  const barColors = avgScores.map(s =>
+    s >= 90 ? '#d4820a' : s >= 70 ? '#2ca354' : s >= 40 ? '#7a957a' : '#388bfd'
+  );
+
+  // Summary counts (dari data mentah)
+  const allCuaca = RAW_CUACA.map(r => r.cuaca.toLowerCase());
+  document.getElementById('cuacaCerahCount').textContent =
+    allCuaca.filter(c => c === 'cerah').length;
+  document.getElementById('cuacaCBCount').textContent =
+    allCuaca.filter(c => c.includes('berawan') && c.includes('cerah')).length;
+  document.getElementById('cuacaBerawanCount').textContent =
+    allCuaca.filter(c => c === 'berawan').length;
+  document.getElementById('cuacaMendungCount').textContent =
+    allCuaca.filter(c => c === 'mendung').length;
+
+  // Update subtitle
+  const sub = document.getElementById('cuacaSub');
+  if (sub) sub.textContent = `${sorted.length} hari terpantau · ${RAW_CUACA.length} entri · avg skor per hari`;
+  const upd = document.getElementById('cuacaLastUpdate');
+  if (upd) upd.textContent = 'Update: ' + (sorted[sorted.length - 1]?.[0] || '—');
+
+  // Render chart
+  const canvas = document.getElementById('cuacaChart');
+  const empty  = document.getElementById('cuacaEmpty');
+  if (!canvas) return;
+  if (empty) empty.style.display = 'none';
+
+  if (cuacaChartInst) { cuacaChartInst.destroy(); cuacaChartInst = null; }
+
+  // Emoji ikon per cuaca dominan untuk label
+  const cuacaIcon = c => {
+    const cl = (c || '').toLowerCase();
+    if (cl === 'cerah') return '☀️';
+    if (cl.includes('cerah') && cl.includes('berawan')) return '⛅';
+    if (cl === 'berawan') return '🌥️';
+    if (cl === 'mendung') return '☁️';
+    return '🌤️';
+  };
+
+  cuacaChartInst = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Skor Cuaca',
+        data: avgScores,
+        backgroundColor: barColors,
+        borderRadius: 5,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: (ctx) => `${cuacaIcon(dominan[ctx[0].dataIndex])} ${labels[ctx[0].dataIndex]} — ${dominan[ctx[0].dataIndex]}`,
+            label: (ctx) => ` Skor rata-rata: ${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: {
+            font: { size: 10 }, color: '#7a957a',
+            callback: (val, i) => cuacaIcon(dominan[i]) + ' ' + labels[i]
+          }
+        },
+        y: {
+          min: 0, max: 110,
+          grid: { color: 'rgba(0,0,0,.04)' },
+          ticks: {
+            font: { size: 10 }, color: '#7a957a',
+            callback: v => v === 100 ? '☀️ 100' : v === 80 ? '⛅ 80' : v === 50 ? '🌥️ 50' : v === 25 ? '☁️ 25' : v
+          }
+        }
+      }
+    }
+  });
+}
+
+function parseCuacaDate(s) {
+  // "04-Apr-26" → timestamp
+  // "4/4/2026" → timestamp
+  if (!s) return 0;
+  const months = { jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11,
+                   mei:4,agu:7,okt:9,des:11 };
+  // dd-Mon-yy
+  const m1 = s.match(/^(\d{1,2})[\/\-]([a-zA-Z]+)[\/\-](\d{2,4})$/);
+  if (m1) {
+    const d = +m1[1], mo = months[m1[2].toLowerCase().slice(0,3)] ?? 0;
+    const y = +m1[3] < 100 ? 2000 + +m1[3] : +m1[3];
+    return new Date(y, mo, d).getTime();
+  }
+  // dd/mm/yyyy
+  const m2 = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m2) {
+    const y = +m2[3] < 100 ? 2000 + +m2[3] : +m2[3];
+    return new Date(y, +m2[2] - 1, +m2[1]).getTime();
+  }
+  return new Date(s).getTime() || 0;
+}
+
+function fmtCuacaLabel(s) {
+  // Kembalikan format ringkas "04/04"
+  const ts = parseCuacaDate(s);
+  if (!ts) return s;
+  const d = new Date(ts);
+  return String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0');
 }
 
 // ── FILTER & SEARCH ──
