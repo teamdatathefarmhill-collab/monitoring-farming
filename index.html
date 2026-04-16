@@ -1277,11 +1277,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                 <button class="fbtn" id="grTrendBtnVar" onclick="setGrTrendMode('chart',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Kurva</button>
               </div>
               <!-- Filter GH -->
-              <select class="si" id="grHistGH" onchange="buildGrTrend()" style="width:150px;padding-left:10px;background-image:none;font-size:11px">
+              <select class="si" id="grHistGH" onchange="onGrHistFilterChange()" style="width:150px;padding-left:10px;background-image:none;font-size:11px">
                 <option value="">Semua GH</option>
               </select>
               <!-- Filter Varian -->
-              <select class="si" id="grHistVarian" onchange="buildGrTrend()" style="width:130px;padding-left:10px;background-image:none;font-size:11px">
+              <select class="si" id="grHistVarian" onchange="onGrHistFilterChange()" style="width:130px;padding-left:10px;background-image:none;font-size:11px">
                 <option value="">Semua Varian</option>
               </select>
             </div>
@@ -3518,6 +3518,46 @@ function getTipeGH(gh) {
 }
 
 // ── TREND GRAMASI ──
+// ── GRAMASI HISTORIS ──
+let RAW_GRAM_HIST   = [];   // cache hasil fetch
+let grHistFetching  = false;
+
+function fetchGrHist(gh, varian, callback) {
+  const params = new URLSearchParams({ sheet: 'gramasi_hist', _t: Date.now() });
+  if (gh)     params.set('gh', gh);
+  if (varian) params.set('varian', varian);
+
+  grHistFetching = true;
+  showGrHistLoading(true);
+
+  fetch(GAS_URL + '?' + params.toString())
+    .then(r => r.json())
+    .then(json => {
+      if (json.error) { console.warn('gramasi_hist error:', json.error); RAW_GRAM_HIST = []; }
+      else RAW_GRAM_HIST = json.rows || [];
+      grHistFetching = false;
+      showGrHistLoading(false);
+      if (callback) callback();
+    })
+    .catch(err => {
+      console.warn('fetchGrHist failed:', err);
+      grHistFetching = false;
+      showGrHistLoading(false);
+      RAW_GRAM_HIST = [];
+      if (callback) callback();
+    });
+}
+
+function showGrHistLoading(on) {
+  const col1 = document.getElementById('grHistCol1');
+  const col2 = document.getElementById('grHistCol2');
+  if (!col1) return;
+  if (on) {
+    col1.innerHTML = '<div class="es" style="padding:20px">Memuat riwayat gramasi…</div>';
+    if (col2) col2.innerHTML = '';
+  }
+}
+
 let grTrendMode = 'tabel'; // 'tabel' | 'chart'
 let grTrendChartInst = null;
 // Palette per varian nama — konsisten di chart & tabel
@@ -3532,11 +3572,11 @@ function setGrTrendMode(mode, el) {
   const chartDiv = document.getElementById('grHistChart');
   if (tabelDiv) tabelDiv.style.display = mode === 'tabel' ? 'grid' : 'none';
   if (chartDiv) chartDiv.style.display = mode === 'chart'  ? ''     : 'none';
-  buildGrTrend();
+  renderGrHist();
 }
 
 function buildGrTrend() {
-  // Populate dropdown GH & Varian dari RAW_VARIAN
+  // Populate dropdown GH & Varian dari RAW_VARIAN (snapshot terkini)
   const histGHSel  = document.getElementById('grHistGH');
   const histVarSel = document.getElementById('grHistVarian');
 
@@ -3553,16 +3593,41 @@ function buildGrTrend() {
       varList.map(v => `<option value="${v}"${v===curVar?' selected':''}>${v}</option>`).join('');
   }
 
-  // Baca filter — HANYA dari dropdown milik tabel riwayat sendiri
-  const ghVal   = histGHSel?.value  || '';
-  const varVal  = histVarSel?.value || '';
+  const ghVal  = histGHSel?.value  || '';
+  const varVal = histVarSel?.value || '';
 
-  // Source: semua RAW_VARIAN tanpa pengaruh filter tabel utama
-  let source = RAW_VARIAN.filter(r => r.avgGramasi > 0);
+  // Fetch historis dari GAS — kirim filter GH & varian supaya data lebih ringan
+  fetchGrHist(ghVal, varVal, () => renderGrHist());
+}
+
+function onGrHistFilterChange() {
+  // Dipanggil dari onchange dropdown grHistGH / grHistVarian
+  buildGrTrend();
+}
+
+function renderGrHist() {
+  const histGHSel  = document.getElementById('grHistGH');
+  const histVarSel = document.getElementById('grHistVarian');
+  const ghVal  = histGHSel?.value  || '';
+  const varVal = histVarSel?.value || '';
+
+  // Filter lokal dari cache RAW_GRAM_HIST
+  let source = RAW_GRAM_HIST;
   if (ghVal)  source = source.filter(r => r.gh === ghVal);
-  if (varVal) source = source.filter(r => (r.varian || '') === varVal);
+  if (varVal) source = source.filter(r => r.varian === varVal);
 
-  // Build color map per varian supaya konsisten
+  // Kalau RAW_GRAM_HIST kosong, fallback ke RAW_VARIAN snapshot
+  if (!source.length) {
+    let fallback = RAW_VARIAN.filter(r => r.avgGramasi > 0);
+    if (ghVal)  fallback = fallback.filter(r => r.gh === ghVal);
+    if (varVal) fallback = fallback.filter(r => r.varian === varVal);
+    source = fallback.map(r => ({
+      gh: r.gh, varian: r.varian || 'Lainnya',
+      hst: r.hst, tgl: r.lastUpdateGr || '', gramasi: r.avgGramasi,
+    }));
+  }
+
+  // Build color map per varian
   const allVarians = [...new Set(source.map(r => r.varian || 'Lainnya'))].sort();
   allVarians.forEach((v, i) => { grVarianColorMap[v] = GR_VARIAN_PALETTE[i % GR_VARIAN_PALETTE.length]; });
 
@@ -3607,15 +3672,15 @@ function buildGrHistTabel(source) {
     return vars.map(v => {
       const rows  = byVarian[v];
       const col   = grVarianColorMap[v] || '#888';
-      const maxDelta = Math.max(...rows.slice(1).map((r, i) => r.avgGramasi - rows[i].avgGramasi).filter(d => d > 0), 1);
+      const maxDelta = Math.max(...rows.slice(1).map((r, i) => r.gramasi - rows[i].gramasi).filter(d => d > 0), 1);
       const tblRows = rows.map((r, i) => {
-        const prev  = i > 0 ? rows[i-1].avgGramasi : null;
-        const delta = prev !== null ? r.avgGramasi - prev : null;
+        const prev  = i > 0 ? rows[i-1].gramasi : null;
+        const delta = prev !== null ? r.gramasi - prev : null;
         const barW  = delta > 0 ? Math.round((delta / maxDelta) * 60) : 0;
         const dCol  = delta >= 80 ? '#1D9E75' : delta >= 40 ? '#2ca354' : delta >= 10 ? '#d4820a' : '#c02020';
         return `<tr>
           <td style="padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text3)">HST ${r.hst}</td>
-          <td style="padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:right">${r.avgGramasi.toLocaleString('id-ID')} g</td>
+          <td style="padding:5px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;text-align:right">${r.gramasi.toLocaleString('id-ID')} g</td>
           <td style="padding:5px 10px;text-align:right">
             ${delta !== null
               ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:1px 7px;border-radius:5px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;background:${dCol}18;color:${dCol}">+${delta} g</span>`
@@ -3671,7 +3736,7 @@ function buildGrHistChart(source) {
     const col = grVarianColorMap[v] || palette[i % palette.length];
     return {
       label: v,
-      data: rows.map(r => ({ x: r.hst, y: r.avgGramasi })),
+      data: rows.map(r => ({ x: r.hst, y: r.gramasi || r.avgGramasi })),
       borderColor: col, backgroundColor: col + '22',
       borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6,
       tension: 0.3, fill: false, spanGaps: true,
