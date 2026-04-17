@@ -9405,8 +9405,7 @@ function ccShowGhIssue(ghName) {
   const varRows = RAW_VARIAN.filter(x => x.gh.trim().toUpperCase()===gh && x.avgGramasi>0);
 
   // ── EST PANEN ──
-  const grUsed = r.avgGramasi > 0 ? r.avgGramasi : 1000;
-  const estKg  = r.popAkhir > 0 ? Math.round(r.popAkhir * grUsed / 1000) : 0;
+  const estKg  = r.popAkhir > 0 ? r.popAkhir : 0; // selalu pakai 1kg per buah
 
   // ── HPT status from new long format (harus sebelum hasKritis/hasIsu) ──
   const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
@@ -9848,28 +9847,46 @@ function ccShowGhIssue(ghName) {
 
 
   function detailEst() {
-    const grLabel = r.avgGramasi>0?'gramasi aktual':'asumsi 1kg';
-    const grCol   = r.avgGramasi>0?'var(--green-txt)':'var(--yellow-txt)';
+    // Est. total selalu pakai 1kg per buah
+    const estKg1kg = r.popAkhir > 0 ? r.popAkhir : 0;
+
+    // Total avg gramasi aktual dari semua varian (g)
+    const varAvgTotal = varRows.length
+      ? varRows.filter(x=>x.avgGramasi>0).reduce((s,x)=>s+x.avgGramasi,0)
+      : (r.avgGramasi > 0 ? r.avgGramasi : 0);
+
+    // Estimasi aktual: total avg gramasi / popAkhir → dalam g per buah
+    // Persentase: (varAvgTotal / varRows.length) / 1000 = gramasi aktual rata-rata dalam kg
+    const avgGrPerBuah = varRows.filter(x=>x.avgGramasi>0).length
+      ? varAvgTotal / varRows.filter(x=>x.avgGramasi>0).length
+      : (r.avgGramasi > 0 ? r.avgGramasi : 0);
+    const estKgAktual = r.popAkhir > 0 && avgGrPerBuah > 0
+      ? Math.round(r.popAkhir * avgGrPerBuah / 1000)
+      : 0;
+    const pctGr = avgGrPerBuah > 0 ? (avgGrPerBuah / 1000 * 100).toFixed(1) : null;
+    const grCol = avgGrPerBuah >= 900 ? 'var(--green-txt)' : avgGrPerBuah >= 700 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+
     let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
-        ${miniStat('Est. total', estKg>0?ccFmt(estKg)+' kg':'—', estKg>0?'var(--green-txt)':'var(--yellow-txt)')}
-        ${miniStat('Avg gramasi', r.avgGramasi>0?Math.round(r.avgGramasi)+'g':'1.000g', grCol)}
+        <div style="background:var(--surface2);border-radius:8px;padding:9px 11px;text-align:center">
+          <div style="font-size:17px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${estKg1kg>0?'var(--green-txt)':'var(--yellow-txt)'}">
+            ${estKg1kg>0?ccFmt(estKg1kg)+' kg':'—'}
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Est. total (asumsi 1kg)</div>
+          ${estKgAktual>0&&avgGrPerBuah>0?`<div style="font-size:10px;font-weight:600;color:${grCol};margin-top:4px">${ccFmt(estKgAktual)} kg gramasi aktual</div><div style="font-size:10px;color:var(--text4)">${Math.round(avgGrPerBuah)}g avg · ${pctGr}% dari 1kg</div>`:''}
+        </div>
+        ${miniStat('Avg gramasi aktual', avgGrPerBuah>0?Math.round(avgGrPerBuah)+'g':'—', grCol)}
         ${miniStat('Pop akhir', ccFmt(r.popAkhir), 'var(--text)')}
       </div>`;
     if (varRows.length) {
-      html += secLbl('Estimasi per varian')
+      html += secLbl('Gramasi per varian')
         + varRows.map(x => {
-            const grV  = x.avgGramasi>0?x.avgGramasi:1000;
-            const estV = x.popAkhir>0?Math.round(x.popAkhir*grV/1000):Math.round((r.popAkhir/varRows.length)*grV/1000);
             return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);border-radius:8px;margin-bottom:5px;font-size:11px">
               <span style="font-weight:700;color:var(--text)">${x.varian||'—'}</span>
-              <div style="display:flex;gap:14px;align-items:center">
-                <span style="color:var(--text3)">${x.avgGramasi>0?Math.round(x.avgGramasi)+'g':'1.000g'} avg</span>
-                <span style="font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green-txt)">${ccFmt(estV)} kg</span>
-              </div>
+              <span style="color:var(--text3)">${x.avgGramasi>0?Math.round(x.avgGramasi)+'g avg':'Belum ada data'}</span>
             </div>`;
           }).join('');
     }
-    html += `<div style="font-size:10px;color:var(--text3);margin-top:6px">Rumus: pop akhir × avg gramasi · ${grLabel}</div>`;
+    html += `<div style="font-size:10px;color:var(--text3);margin-top:6px">Est. total = pop akhir × 1kg · gramasi aktual dari data pengukuran</div>`;
     return html;
   }
 
@@ -9937,7 +9954,7 @@ function ccShowGhIssue(ghName) {
         : (r.hst < 7 ? `Checkpoint pertama HST 7` : 'Belum ada data');
       return { id:'vigor', icon:'🌿', label:'Kesehatan Tanaman', soon: vd===null && r.hst < 7, status: st, detail };
     })(),
-    { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · '+(r.avgGramasi>0?'gramasi aktual':'asumsi 1kg'):'Belum cukup data' },
+    { id:'est',      icon:'📦',  label:'Est. Panen',         soon:false, status:estSt,    detail: estKg>0?ccFmt(estKg)+' kg · asumsi 1kg/buah'+(r.avgGramasi>0?' · gramasi aktual '+Math.round(r.avgGramasi)+'g':''):'Belum cukup data' },
     { id:'semp',     icon:'🌿',  label:'Penyemprotan',       soon:false, status:'ok',     detail:'Tidak ada jadwal aktif' },
   ];
 
