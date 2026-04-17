@@ -3181,8 +3181,9 @@ function renderGramasi(d) {
     ).join('');
   }
 
-  // Klasifikasi GH — pakai ghGrStatus() sebagai single source of truth (sama dengan tabel)
-  const allGHs = [...new Set(RAW_VARIAN.filter(r => r.avgGramasi > 0 && r.targetGramasi > 0).map(r => r.gh))];
+  // Klasifikasi GH — hanya GH aktif (HST < 69), pakai ghGrStatus() sebagai single source of truth
+  const activeGHsForKpi = RAW.filter(r => r.hst < 69).map(r => r.gh);
+  const allGHs    = [...new Set(activeGHsForKpi)];
   const ghOntrack = allGHs.filter(gh => ghGrStatus(gh) === 'ontrack').sort();
   const ghBawah   = allGHs.filter(gh => ghGrStatus(gh) === 'bawah').sort();
   const ghKritis  = allGHs.filter(gh => ghGrStatus(gh) === 'kritis').sort();
@@ -3214,9 +3215,17 @@ function renderGramasi(d) {
 // ── GH Gramasi Status dari RAW_VARIAN (single source of truth) ──
 // Return: 'ontrack' | 'bawah' | 'kritis' | null (tidak ada data)
 function ghGrStatus(gh) {
-  const varRows = RAW_VARIAN.filter(r => r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0);
+  // Cari periode aktif GH ini dari RAW
+  const rawRow = RAW.find(r => r.gh === gh);
+  const periode = rawRow ? rawRow.periode : '';
+  const varRows = RAW_VARIAN.filter(r =>
+    r.gh === gh &&
+    r.avgGramasi > 0 &&
+    r.targetGramasi > 0 &&
+    (!periode || r.periode === periode)
+  );
   if (!varRows.length) return null;
-  // Pakai worst-case (varian terburuk) bukan avg — lebih konservatif & fair
+  // Worst-case varian (konservatif)
   const worstDev = Math.min(...varRows.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
   if (worstDev >= -5)  return 'ontrack';
   if (worstDev > -20)  return 'bawah';
@@ -3244,14 +3253,21 @@ function rebuildGramasi() {
   if (thD) thD.style.display = '';
   if (thS) thS.style.display = '';
 
-  // GH aktif dari RAW penuh (tidak terpengaruh filter filt dari rebuild)
-  const curGHs = new Set(RAW.map(r => r.gh));
+  // Hanya GH aktif (HST < 69) dari RAW — buat map periode per GH
+  const activeRAW   = RAW.filter(r => r.hst < 69);
+  const periodeByGH = {};
+  activeRAW.forEach(r => { periodeByGH[r.gh] = r.periode; });
+  const curGHs = new Set(activeRAW.map(r => r.gh));
 
   let rows;
 
   if (mode === 'all') {
     // ── Semua GH: satu baris per GH × Varian dari RAW_VARIAN ──
-    rows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
+    rows = RAW_VARIAN.filter(r =>
+      curGHs.has(r.gh) &&
+      r.avgGramasi > 0 &&
+      (!periodeByGH[r.gh] || r.periode === periodeByGH[r.gh])
+    );
     if (ghVal)   rows = rows.filter(r => r.gh === ghVal);
     if (varVal)  rows = rows.filter(r => r.varian === varVal);
     if (tipeVal) rows = rows.filter(r => getTipeGH(r.gh) === tipeVal);
@@ -3266,7 +3282,11 @@ function rebuildGramasi() {
     // ── Per GH: akumulasi/avg dari semua varian di GH tersebut ──
     // Sumber: RAW_VARIAN di-group per GH, avg gramasi, sum kenaikan
     const ghMap = {};
-    let baseRows = RAW_VARIAN.filter(r => curGHs.has(r.gh) && r.avgGramasi > 0);
+    let baseRows = RAW_VARIAN.filter(r =>
+      curGHs.has(r.gh) &&
+      r.avgGramasi > 0 &&
+      (!periodeByGH[r.gh] || r.periode === periodeByGH[r.gh])
+    );
     if (tipeVal) baseRows = baseRows.filter(r => getTipeGH(r.gh) === tipeVal);
     baseRows.forEach(r => {
       const key = r.gh;
