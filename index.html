@@ -1130,21 +1130,58 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- STAT CARDS -->
-      <div class="stat-grid">
-        <div class="sc g">
-          <div class="sc-lbl">Avg Gramasi Keseluruhan</div>
-          <div class="sc-val g" id="scGr1"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr1n">Rata-rata dari GH aktif (diukur)</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+
+        <!-- Est. Gramasi Akhir vs Standar -->
+        <div class="card" style="padding:14px 18px;border-top:3px solid var(--blue)">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+            <div>
+              <div class="sc-lbl" style="margin-bottom:4px">Est. Gramasi Akhir vs Standar</div>
+              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+                <span class="sc-val b" id="scGr4" style="font-size:28px"><span class="sk" style="width:80px;height:28px;display:inline-block"></span></span>
+                <span style="font-size:16px;color:var(--text3)">/</span>
+                <span style="font-size:20px;font-weight:700;color:var(--text3)" id="scGrStd">—</span>
+                <span id="scGrDevBadge" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;display:inline-block">—</span>
+              </div>
+              <div class="sc-note" id="scGr4n" style="margin-top:4px">Rata-rata estimasi panen vs target standar varian aktif</div>
+            </div>
+            <div style="display:flex;gap:10px;flex-shrink:0">
+              <div style="background:var(--surface2);border-radius:8px;padding:9px 14px;text-align:center;min-width:90px">
+                <div style="font-size:15px;font-weight:700;color:var(--blue)" id="scGrEstVal">—</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Avg est. akhir</div>
+              </div>
+              <div style="background:var(--surface2);border-radius:8px;padding:9px 14px;text-align:center;min-width:90px">
+                <div style="font-size:15px;font-weight:700;color:var(--text)" id="scGrStdVal">—</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:2px">Target standar</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="sc b">
-          <div class="sc-lbl">Est. Gramasi Akhir</div>
-          <div class="sc-val b" id="scGr4"><span class="sk" style="width:80px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr4n">Rata-rata estimasi panen berdasarkan tren saat ini</div>
-        </div>
-        <div class="sc y">
-          <div class="sc-lbl">GH Performa Terbaik</div>
-          <div class="sc-val y" id="scGr2" style="font-size:18px;word-break:break-word"><span class="sk" style="width:100px;height:32px;display:inline-block"></span></div>
-          <div class="sc-note" id="scGr2n"><span class="sk" style="width:130px;height:12px;display:inline-block;margin-top:4px"></span></div>
+
+        <!-- 3 Status Cards -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+
+          <div class="card" id="grCardOntrack" style="padding:14px 18px;border-top:3px solid var(--green-mid);cursor:pointer;transition:opacity .15s" onclick="setFilter('ontrack',document.getElementById('grBtnAll'))">
+            <div style="font-size:28px;font-weight:700;color:var(--green-mid)" id="scGrOntrack">—</div>
+            <div style="font-size:12px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Gramasi sesuai standar HST</div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrOntrackGH"></div>
+          </div>
+
+          <div class="card" id="grCardBawah" style="padding:14px 18px;border-top:3px solid var(--yellow);cursor:pointer;transition:opacity .15s" onclick="setFilter('bawah',document.getElementById('grBtnAll'))">
+            <div style="font-size:28px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
+            <div style="font-size:12px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Deviasi -5% s/d -20%</div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrBawahGH"></div>
+          </div>
+
+          <div class="card" id="grCardKritis" style="padding:14px 18px;border-top:3px solid var(--red);cursor:pointer;transition:opacity .15s" onclick="setFilter('kritis',document.getElementById('grBtnAll'))">
+            <div style="font-size:28px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
+            <div style="font-size:12px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">Deviasi lebih dari -20%</div>
+            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrKritisGH"></div>
+          </div>
+
         </div>
       </div>
 
@@ -3051,7 +3088,7 @@ function renderBar(d) {
         const pct = pctPopVsStd(r);
         const w = (Math.min(pct,MAX)/MAX*100).toFixed(1);
         const c = pct>=100?'bf-g':pct>=90?'bf-y':'bf-r';
-        const l = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
+        const l = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CO').replace(/BERGAS/i,'BGS');
         return `<div class="br"><div class="bl" title="${r.gh}">${l}</div><div class="bt"><div class="bf ${c}" style="width:${w}%">${pct.toFixed(1)}%</div><div class="pt" style="left:${tl}%"></div></div></div>`;
       }).join('')
     : '<div class="es">Tidak ada data</div>';
@@ -3099,24 +3136,77 @@ function renderGramasi(d) {
   const wGr = d.filter(hasGr);
 
   // ── KPI CARDS ──
-  const avgGes  = wGr.length ? wGr.reduce((s,r) => s + r.avgGramasi, 0) / wGr.length : 0;
-
   // Est. Akhir: hitung per row dari RAW_VARIAN (punya info varian+musim), avg-kan
   const varWithEst = RAW_VARIAN.filter(r => r.targetGramasi > 0 && r.avgGramasi > 0);
   const estValues  = varWithEst.map(r => estGramasiAkhir(r)).filter(v => v > 0);
   const avgEst     = estValues.length ? Math.round(estValues.reduce((s,v) => s+v, 0) / estValues.length) : 0;
 
-  let bestGH = '—', bestDev = -999;
-  wGr.forEach(r => {
-    const dev = r.targetGramasi ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : -999;
-    if (dev > bestDev) { bestDev = dev; bestGH = r.gh; }
+  // Target standar rata-rata dari varian aktif
+  const stdValues  = varWithEst.map(r => r.targetGramasi).filter(v => v > 0);
+  const avgStd     = stdValues.length ? Math.round(stdValues.reduce((s,v) => s+v, 0) / stdValues.length) : 0;
+  const devPct     = avgStd > 0 && avgEst > 0 ? ((avgEst - avgStd) / avgStd * 100) : null;
+
+  // Update Est. Gramasi card
+  document.getElementById('scGr4').textContent    = avgEst > 0 ? avgEst + ' g' : '—';
+  document.getElementById('scGrEstVal').textContent = avgEst > 0 ? avgEst + ' g' : '—';
+  document.getElementById('scGrStdVal').textContent = avgStd > 0 ? avgStd + ' g' : '—';
+  document.getElementById('scGrStd').textContent   = avgStd > 0 ? avgStd + ' g' : '—';
+  const badgeEl = document.getElementById('scGrDevBadge');
+  if (devPct !== null && badgeEl) {
+    const isPos = devPct >= 0;
+    badgeEl.textContent = (isPos ? '+' : '') + devPct.toFixed(1) + '%';
+    badgeEl.style.background = isPos ? 'var(--green-lt)' : devPct > -20 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+    badgeEl.style.color      = isPos ? 'var(--green-txt)' : devPct > -20 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+  }
+
+  // Helper singkatan GH — pakai RAW_VARIAN (per GH, deduplicate)
+  function ghShort(gh) {
+    return String(gh)
+      .replace(/TOHUDAN\s*/i, 'TH')
+      .replace(/SAWAHAN\s*/i, 'SW')
+      .replace(/COLOMADU\s*/i, 'CO')
+      .replace(/BERGAS\s*/i, 'BG');
+  }
+  function ghPillColor(cat) {
+    if (cat === 'ontrack') return {bg:'var(--green-lt)',col:'var(--green-txt)',bc:'#b8dfc4'};
+    if (cat === 'bawah')   return {bg:'var(--yellow-lt)',col:'var(--yellow-txt)',bc:'#f5d08a'};
+    return                        {bg:'var(--red-lt)',col:'var(--red-txt)',bc:'#f0b0b0'};
+  }
+  function renderGhPills(ghList, cat, elId) {
+    const el = document.getElementById(elId); if (!el) return;
+    const pc = ghPillColor(cat);
+    el.innerHTML = ghList.map(gh =>
+      `<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;background:${pc.bg};color:${pc.col};border:0.5px solid ${pc.bc};white-space:nowrap">${ghShort(gh)}</span>`
+    ).join('');
+  }
+
+  // Klasifikasi GH berdasarkan pctGramasi (% avg gramasi vs target)
+  // Per GH — deduplicate dari wGr (satu baris per GH, ambil avg deviasi)
+  const ghMap = {};
+  wGr.filter(r => r.avgGramasi > 0 && r.targetGramasi > 0).forEach(r => {
+    if (!ghMap[r.gh]) ghMap[r.gh] = { devSum: 0, cnt: 0 };
+    const dev = (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100;
+    ghMap[r.gh].devSum += dev;
+    ghMap[r.gh].cnt++;
   });
-  document.getElementById('scGr1').textContent = wGr.length ? Math.round(avgGes) + ' g' : '—';
-  document.getElementById('scGr4').textContent = avgEst > 0 ? avgEst + ' g' : '—';
-  document.getElementById('scGr2').textContent = bestGH !== '—' ? bestGH : '—';
-  document.getElementById('scGr2n').innerHTML  = wGr.length && bestDev > -999
-    ? (bestDev >= 0 ? `Deviasi <b class="up">+${bestDev.toFixed(1)}%</b>` : `Deviasi <b class="dn">${bestDev.toFixed(1)}%</b>`)
-    : '—';
+  const ghOntrack = [], ghBawah = [], ghKritis = [];
+  Object.entries(ghMap).forEach(([gh, v]) => {
+    const dev = v.devSum / v.cnt;
+    if (dev >= -5)       ghOntrack.push(gh);
+    else if (dev >= -20) ghBawah.push(gh);
+    else                 ghKritis.push(gh);
+  });
+  ghOntrack.sort(); ghBawah.sort(); ghKritis.sort();
+
+  const elOn = document.getElementById('scGrOntrack');
+  const elBw = document.getElementById('scGrBawah');
+  const elKr = document.getElementById('scGrKritis');
+  if (elOn) elOn.textContent = ghOntrack.length;
+  if (elBw) elBw.textContent = ghBawah.length;
+  if (elKr) elKr.textContent = ghKritis.length;
+  renderGhPills(ghOntrack, 'ontrack', 'scGrOntrackGH');
+  renderGhPills(ghBawah,   'bawah',   'scGrBawahGH');
+  renderGhPills(ghKritis,  'kritis',  'scGrKritisGH');
 
   // ── POPULATE DROPDOWNS ──
   const ghSel  = document.getElementById('grFilterGH');
@@ -8025,7 +8115,7 @@ function ccRenderDetail(id, panel) {
       const col    = r.dev === null ? 'var(--text4)' : r.dev >= 0 ? 'var(--green-mid)' : (r.dev > -15 ? '#c87800' : 'var(--red)');
       const devStr = r.dev !== null ? (r.dev >= 0 ? `+${r.dev.toFixed(1)}%` : `${r.dev.toFixed(1)}%`) : '—';
       const barW   = Math.max(pct / 130 * 100, 2).toFixed(1);
-      const label  = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
+      const label  = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CO').replace(/BERGAS/i,'BGS');
       return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
         <div style="display:flex;align-items:center;gap:5px;width:88px;flex-shrink:0">
           <span style="width:6px;height:6px;border-radius:50%;background:${dot};flex-shrink:0"></span>
@@ -8088,7 +8178,7 @@ function ccRenderDetail(id, panel) {
           ${popBawah.map(r => {
             const pct    = pctPopVsStd(r);
             const dot    = CC[clOf(r.gh)] || '#999';
-            const label  = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS');
+            const label  = r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CO').replace(/BERGAS/i,'BGS');
             const col    = pct < 80 ? 'var(--red)' : '#c87800';
             const barW   = Math.max(Math.min(pct, 100) / 100 * 100, 2).toFixed(1);
             const selisih = r.popAwal > 0
@@ -8121,7 +8211,7 @@ function ccRenderDetail(id, panel) {
       ${kritis.map(r => `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
         <div style="display:flex;align-items:center;gap:5px;width:88px;flex-shrink:0">
           <span style="width:6px;height:6px;border-radius:50%;background:${CC[clOf(r.gh)]||'#999'};flex-shrink:0"></span>
-          <span style="font-size:10.5px;font-weight:700;color:var(--red);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CLM').replace(/BERGAS/i,'BGS')}</span>
+          <span style="font-size:10.5px;font-weight:700;color:var(--red);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.gh.replace(/TOHUDAN/i,'TDN').replace(/SAWAHAN/i,'SWH').replace(/COLOMADU/i,'CO').replace(/BERGAS/i,'BGS')}</span>
         </div>
         <div style="flex:1;height:16px;background:var(--red-lt);border-radius:3px;display:flex;align-items:center;padding:0 8px">
           <span style="font-size:10px;color:var(--red);font-weight:700">Belum input gramasi · HST ${r.hst}</span>
