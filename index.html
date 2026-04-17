@@ -2765,10 +2765,16 @@ function enrichTargetGramasi() {
     };
   });
 
-  // Update RAW juga — avg target DAN avg gramasi aktual dari RAW_VARIAN per GH
+  // Buat lookup periode aktif per GH dari RAW
+  const periodeAktif = {};
+  RAW.forEach(r => { periodeAktif[r.gh] = r.periode; });
+
+  // Update RAW — avg target DAN avg gramasi aktual dari RAW_VARIAN per GH (hanya periode aktif)
   const tgtByGH = {};
   RAW_VARIAN.forEach(r => {
-    if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { tgtSum: 0, tgtCnt: 0, grSum: 0, grCnt: 0, musim: r.musim, periode: r.periode };
+    // Skip baris dari periode lain
+    if (periodeAktif[r.gh] && r.periode && r.periode !== periodeAktif[r.gh]) return;
+    if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { tgtSum: 0, tgtCnt: 0, grSum: 0, grCnt: 0, musim: r.musim };
     if (r.targetGramasi > 0) { tgtByGH[r.gh].tgtSum += r.targetGramasi; tgtByGH[r.gh].tgtCnt++; }
     if (r.avgGramasi > 0)    { tgtByGH[r.gh].grSum  += r.avgGramasi;    tgtByGH[r.gh].grCnt++; }
   });
@@ -2776,13 +2782,11 @@ function enrichTargetGramasi() {
     const tgt = tgtByGH[r.gh];
     const fromSheetTgt = tgt && tgt.tgtCnt > 0 ? Math.round(tgt.tgtSum / tgt.tgtCnt) : 0;
     const fromSheetGr  = tgt && tgt.grCnt  > 0 ? Math.round(tgt.grSum  / tgt.grCnt)  : 0;
-    // Hanya update avgGramasi dari RAW_VARIAN jika periode cocok atau RAW tidak punya data sendiri
-    const grToUse = (fromSheetGr > 0 && (!tgt?.periode || tgt.periode === r.periode)) ? fromSheetGr : (r.avgGramasi || 0);
     return {
       ...r,
       musim        : (tgt && tgt.musim) || musimByGH[r.gh] || 'kemarau',
       targetGramasi: fromSheetTgt || r.targetGramasi || 0,
-      avgGramasi   : grToUse,
+      avgGramasi   : fromSheetGr  || r.avgGramasi    || 0,
     };
   });
 
