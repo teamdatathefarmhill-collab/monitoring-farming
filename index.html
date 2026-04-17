@@ -1167,7 +1167,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div style="font-size:26px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
           <div style="font-size:11px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi -5% s/d -20%</div>
-          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrBawahGH"></div>
+          <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrBawahGH"></div>
         </div>
 
         <!-- Kritis -->
@@ -1175,7 +1175,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
           <div style="font-size:26px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
           <div style="font-size:11px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≤ -20%</div>
-          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrKritisGH"></div>
+          <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrKritisGH"></div>
         </div>
 
       </div>
@@ -3181,6 +3181,38 @@ function renderGramasi(d) {
     ).join('');
   }
 
+  // Render detail varian yang drop untuk card Di Bawah Std dan Kritis
+  function renderGhVarianDetail(ghList, cat, elId) {
+    const el = document.getElementById(elId); if (!el) return;
+    const threshold = cat === 'kritis' ? -20 : -5;
+    const pc = ghPillColor(cat);
+
+    el.innerHTML = ghList.map(gh => {
+      const rawRow = RAW.find(r => r.gh === gh);
+      const periode = rawRow ? rawRow.periode : '';
+      const varRows = RAW_VARIAN.filter(r =>
+        r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0 &&
+        (!periode || r.periode === periode)
+      );
+      // Varian yang drop (di bawah threshold kategori)
+      const dropVars = varRows
+        .map(r => ({ varian: r.varian, dev: (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 }))
+        .filter(v => v.dev <= threshold)
+        .sort((a, b) => a.dev - b.dev);
+
+      const varHtml = dropVars.length
+        ? dropVars.map(v =>
+            `<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${pc.bg};color:${pc.col};border:0.5px solid ${pc.bc};white-space:nowrap">${v.varian} <b>${v.dev.toFixed(1)}%</b></span>`
+          ).join('')
+        : '';
+
+      return `<div style="margin-bottom:6px">
+        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:5px;background:${pc.bg};color:${pc.col};border:0.5px solid ${pc.bc}">${ghShort(gh)}</span>
+        ${varHtml ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px;margin-left:2px">${varHtml}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
   // Klasifikasi GH — hanya GH aktif (HST < 69), pakai ghGrStatus() sebagai single source of truth
   const activeGHsForKpi = RAW.filter(r => r.hst < 69).map(r => r.gh);
   const allGHs    = [...new Set(activeGHsForKpi)];
@@ -3195,8 +3227,8 @@ function renderGramasi(d) {
   if (elBw) elBw.textContent = ghBawah.length;
   if (elKr) elKr.textContent = ghKritis.length;
   renderGhPills(ghOntrack, 'ontrack', 'scGrOntrackGH');
-  renderGhPills(ghBawah,   'bawah',   'scGrBawahGH');
-  renderGhPills(ghKritis,  'kritis',  'scGrKritisGH');
+  renderGhVarianDetail(ghBawah,  'bawah',  'scGrBawahGH');
+  renderGhVarianDetail(ghKritis, 'kritis', 'scGrKritisGH');
 
   // ── POPULATE DROPDOWNS ──
   const ghSel  = document.getElementById('grFilterGH');
