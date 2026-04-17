@@ -9616,29 +9616,32 @@ function ccShowGhIssue(ghName) {
       </div>`;
 
     if (allHptRows.length) {
-      // Group by hptName, sum nilai
+      // Group by hptName — ambil nilai & status dari pengamatan TERBARU per hama
       const byHpt = {};
       hptInRange.forEach(x => {
-        if (!byHpt[x.hptName]) byHpt[x.hptName] = {kat:x.kat,total:0,maxSt:0,lastTgl:''};
-        byHpt[x.hptName].total += x.nilai;
+        if (!byHpt[x.hptName]) byHpt[x.hptName] = {kat:x.kat, nilai:0, maxSt:0, lastTgl:'', lastStatus:''};
+        // Pakai data dari tgl terbaru
+        if (x.tgl > byHpt[x.hptName].lastTgl) {
+          byHpt[x.hptName].nilai     = x.nilai;
+          byHpt[x.hptName].lastTgl   = x.tgl;
+          byHpt[x.hptName].lastStatus= x.status;
+        }
         if (statusLevel(x.status) > byHpt[x.hptName].maxSt) byHpt[x.hptName].maxSt = statusLevel(x.status);
-        if (x.tgl > byHpt[x.hptName].lastTgl) byHpt[x.hptName].lastTgl = x.tgl;
       });
-      const ranked = Object.entries(byHpt).sort((a,b)=>b[1].maxSt-a[1].maxSt||b[1].total-a[1].total);
-      const maxTotal = ranked.reduce((m,[,v])=>Math.max(m,v.total),1);
+      const ranked = Object.entries(byHpt).sort((a,b)=>b[1].maxSt-a[1].maxSt||b[1].nilai-a[1].nilai);
+      const maxVal = ranked.reduce((m,[,v])=>Math.max(m,v.nilai),1);
 
-      html += secLbl('HPT dalam date range ini');
+      html += secLbl('Pengamatan terbaru per hama');
       if (ranked.length) {
         html += ranked.map(([name,v]) => {
           const col = v.maxSt>=4?'#A32D2D':v.maxSt>=3?'var(--red)':v.maxSt>=2?'#c87800':'var(--green)';
           const stLbl = statusLabel(v.maxSt);
-          const w = Math.round(v.total/maxTotal*100);
-          const isP = (v.kat||'').toLowerCase().includes('penyakit');
+          const w = Math.round(v.nilai/maxVal*100);
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <div style="font-size:11px;color:var(--text);width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
             <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
               <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px">
-                <span style="font-size:9px;color:#fff;font-weight:700">${w>20?v.total.toFixed(1):''}</span>
+                <span style="font-size:9px;color:#fff;font-weight:700">${w>20?v.nilai.toFixed(1):''}</span>
               </div>
             </div>
             <div style="width:60px;flex-shrink:0;text-align:right">
