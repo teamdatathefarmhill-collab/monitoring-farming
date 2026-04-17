@@ -3216,9 +3216,10 @@ function renderGramasi(d) {
 function ghGrStatus(gh) {
   const varRows = RAW_VARIAN.filter(r => r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0);
   if (!varRows.length) return null;
-  const avgDev = varRows.reduce((s, r) => s + (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100, 0) / varRows.length;
-  if (avgDev >= -5)  return 'ontrack';
-  if (avgDev > -20)  return 'bawah';
+  // Pakai worst-case (varian terburuk) bukan avg — lebih konservatif & fair
+  const worstDev = Math.min(...varRows.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
+  if (worstDev >= -5)  return 'ontrack';
+  if (worstDev > -20)  return 'bawah';
   return 'kritis';
 }
 
