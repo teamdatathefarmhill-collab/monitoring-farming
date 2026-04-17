@@ -2769,24 +2769,20 @@ function enrichTargetGramasi() {
   const periodeAktif = {};
   RAW.forEach(r => { periodeAktif[r.gh] = r.periode; });
 
-  // DEBUG — cek sample periode matching (hapus setelah fix)
-  const sampleGH = ['SAWAHAN 1','TOHUDAN 11','BERGAS 7','COLOMADU 1'];
-  sampleGH.forEach(gh => {
-    const rawPeriode = periodeAktif[gh] || '(not in RAW)';
-    const varRows = RAW_VARIAN.filter(r => r.gh === gh);
-    const varPeriodes = [...new Set(varRows.map(r => r.periode))];
-    console.log(`[PERIODE DEBUG] ${gh}: RAW periode="${rawPeriode}", RAW_VARIAN periodes=[${varPeriodes.join(',')}], varRows=${varRows.length}, grRows=${varRows.filter(r=>r.avgGramasi>0).length}`);
-  });
-
-  // Update RAW — avg target DAN avg gramasi aktual dari RAW_VARIAN per GH (hanya periode aktif)
+  // Update RAW — avg target DAN avg gramasi aktual dari RAW_VARIAN per GH
+  // Filter per periode aktif jika periode tersedia, kalau tidak pakai semua data
   const tgtByGH = {};
   RAW_VARIAN.forEach(r => {
-    // Skip baris dari periode lain
-    if (periodeAktif[r.gh] && r.periode && r.periode !== periodeAktif[r.gh]) return;
+    const pAktif = periodeAktif[r.gh];
+    // Skip jika periode tidak cocok (hanya kalau kedua-duanya terisi dan beda)
+    if (pAktif && r.periode && r.periode !== pAktif) return;
     if (!tgtByGH[r.gh]) tgtByGH[r.gh] = { tgtSum: 0, tgtCnt: 0, grSum: 0, grCnt: 0, musim: r.musim };
     if (r.targetGramasi > 0) { tgtByGH[r.gh].tgtSum += r.targetGramasi; tgtByGH[r.gh].tgtCnt++; }
     if (r.avgGramasi > 0)    { tgtByGH[r.gh].grSum  += r.avgGramasi;    tgtByGH[r.gh].grCnt++; }
   });
+
+  // DEBUG — cek sample (hapus setelah fix)
+  // Dihapus
   RAW = RAW.map(r => {
     const tgt = tgtByGH[r.gh];
     const fromSheetTgt = tgt && tgt.tgtCnt > 0 ? Math.round(tgt.tgtSum / tgt.tgtCnt) : 0;
@@ -3017,10 +3013,11 @@ function popAkhirCell(r) {
 // ── AVG GRAMASI CELL dengan warna standar (Good >105%, Ok 100%, Poor 95%, Bad <95%) ──
 function avgCell(r) {
   if (belumGr(r) || !hasGr(r)) return `<td class="av av-none r">—</td>`;
-  if (grKrit(r)) return `<td class="av av-bad r" style="background:var(--red-lt)">0 <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
+  // Gramasi belum tercatat (= 0), bukan kritis deviasi
+  if (r.avgGramasi === 0) return `<td class="av av-bad r" style="background:var(--red-lt)">0 <span style="font-size:10px;font-weight:400">/ ${r.targetGramasi}g</span></td>`;
   const pctGr = r.targetGramasi > 0 ? (r.avgGramasi / r.targetGramasi * 100) : 0;
   let col, bg;
-  if (pctGr > 105)      { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; }
+  if (pctGr > 105)       { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; }
   else if (pctGr >= 100) { col = '#134880'; bg = '#e8f4fb'; }
   else if (pctGr >= 95)  { col = 'var(--yellow-txt)'; bg = 'var(--yellow-lt)'; }
   else                   { col = 'var(--red-txt)'; bg = 'var(--red-lt)'; }
