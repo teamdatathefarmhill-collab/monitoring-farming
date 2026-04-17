@@ -799,7 +799,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block"></span>On track</span>
             <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:#c87800;display:inline-block"></span>Ada isu</span>
             <span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)"><span style="width:7px;height:7px;border-radius:50%;background:var(--red);display:inline-block"></span>Kritis</span>
-            <span style="font-size:10px;color:var(--text4)">· klik GH untuk detail</span>
+            <span style="font-size:10px;color:var(--text4)">· klik fase untuk avg · klik GH untuk detail</span>
           </div>
         </div>
         <div style="padding:14px 16px;overflow-x:auto">
@@ -814,6 +814,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
       </div>
 
       <!-- GH ISSUE PANEL -->
+      <div id="ccFaseAvgPanel" style="display:none;margin-bottom:14px"></div>
       <div id="ccGhIssuePanel" style="display:none;margin-bottom:14px"></div>
 
       <!-- HIDDEN COMPAT elements for old JS -->
@@ -9488,7 +9489,9 @@ function ccBuildPhaseTimeline() {
                        `<span style="font-size:9px;color:var(--green);margin-top:3px">✓ ok</span>`;
 
     return `<div style="flex:1;min-width:90px;display:flex;flex-direction:column">
-      <div style="font-size:10px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;margin-bottom:6px;color:${ph.color};background:${ph.bg};line-height:1.3">
+      <div onclick="ccShowFaseAvg('${ph.id}')" data-fase-id="${ph.id}"
+        style="font-size:10px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;margin-bottom:6px;color:${ph.color};background:${ph.bg};line-height:1.3;cursor:pointer;transition:opacity .12s"
+        onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
         ${ph.label}<br><span style="font-weight:400;font-size:9px;opacity:.8">HST ${ph.hstMin}–${ph.hstMax}</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:34px;align-items:center">
@@ -9497,6 +9500,120 @@ function ccBuildPhaseTimeline() {
       <div style="text-align:center;min-height:16px">${countBadge}</div>
     </div>`;
   }).join('');
+}
+
+// ── SHOW FASE AVG PANEL ──
+let _ccActiveFase = null;
+
+function ccShowFaseAvg(phaseId) {
+  const panel = document.getElementById('ccFaseAvgPanel');
+  if (!panel) return;
+
+  // Toggle off jika klik fase yang sama
+  if (_ccActiveFase === phaseId && panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    _ccActiveFase = null;
+    document.querySelectorAll('[data-fase-id]').forEach(el => el.style.outline = '');
+    return;
+  }
+  _ccActiveFase = phaseId;
+
+  // Highlight fase aktif
+  document.querySelectorAll('[data-fase-id]').forEach(el => {
+    el.style.outline = el.getAttribute('data-fase-id') === phaseId ? '2px solid var(--green-mid)' : '';
+    el.style.outlineOffset = '2px';
+  });
+
+  const PHASES = [
+    { id:'preparation',       label:'Preparation',         hstMin:-1,  hstMax:0  },
+    { id:'shoot-growth',      label:'Shoot Growth',        hstMin:0,   hstMax:7  },
+    { id:'establishment',     label:'Establishment',       hstMin:8,   hstMax:16 },
+    { id:'fruit-set',         label:'Fruit Set',           hstMin:17,  hstMax:25 },
+    { id:'early-fruit-dev',   label:'Early Fruit Dev',     hstMin:26,  hstMax:35 },
+    { id:'fruit-enlargement', label:'Fruit Enlargement',   hstMin:36,  hstMax:50 },
+    { id:'ripening',          label:'Ripening',            hstMin:51,  hstMax:65 },
+  ];
+  const ph = PHASES.find(p => p.id === phaseId);
+  if (!ph) return;
+
+  const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
+  const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
+
+  // GH di fase ini
+  const ghsInFase = RAW.filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax);
+  const n = ghsInFase.length;
+  if (!n) {
+    panel.innerHTML = `<div class="card" style="padding:14px 18px;font-size:12px;color:var(--text3)">Tidak ada GH di fase <b>${ph.label}</b> saat ini.</div>`;
+    panel.style.display = '';
+    return;
+  }
+
+  // ── Avg Gramasi & Deviasi ──
+  const grRows = ghsInFase.filter(r => r.avgGramasi > 0 && r.targetGramasi > 0);
+  const avgGr  = grRows.length ? Math.round(grRows.reduce((s,r)=>s+r.avgGramasi,0)/grRows.length) : null;
+  const avgDev = grRows.length ? grRows.reduce((s,r)=>s+(r.avgGramasi-r.targetGramasi)/r.targetGramasi*100,0)/grRows.length : null;
+  const onTrackGr = ghsInFase.filter(r => ghGrStatus(r.gh) === 'ontrack').length;
+
+  // ── Avg Populasi ──
+  const popRows = ghsInFase.filter(r => r.popAwal > 0);
+  const avgPop  = popRows.length ? popRows.reduce((s,r)=>s+pctPopVsStd(r),0)/popRows.length : null;
+
+  // ── Penyiraman ──
+  const pnyDeviasi = ghsInFase.filter(r => {
+    const latest = RAW_PNY.filter(x => x.gh.trim().toUpperCase()===r.gh.trim().toUpperCase()
+      && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV))
+      .reduce((m,x)=>(!m||x.tgl>m.tgl)?x:m, null);
+    return latest && (isEcDev(latest)||(latest.phIn&&(latest.phIn<5.8||latest.phIn>6.3)));
+  }).length;
+  const pnyOk = n - pnyDeviasi;
+
+  // ── HPT ──
+  const hptHigh = ghsInFase.filter(r => {
+    const hptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===r.gh.trim().toUpperCase()
+      && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    return hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0) >= 3;
+  }).length;
+  const hptMed = ghsInFase.filter(r => {
+    const hptRows = RAW_HPT.filter(x => x.gh.trim().toUpperCase()===r.gh.trim().toUpperCase()
+      && (!fromV||(x.tgl||'')>=fromV) && (!toV||(x.tgl||'')<=toV));
+    const lvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
+    return lvl === 2;
+  }).length;
+
+  // ── Sanitasi ──
+  const sntOk = ghsInFase.filter(r => {
+    const keys = new Set(RAW_SNT.filter(x=>x.gh&&x.periode).map(x=>x.gh.trim().toUpperCase()+'||'+x.periode.trim().toLowerCase()));
+    return keys.has(r.gh.trim().toUpperCase()+'||'+r.periode.trim().toLowerCase());
+  }).length;
+  const sntIssue = n - sntOk;
+
+  // ── Helper warna ──
+  const devCol = avgDev === null ? 'var(--text3)' : avgDev >= -5 ? 'var(--green-txt)' : avgDev > -20 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+  const fmtDev = avgDev === null ? '—' : (avgDev >= 0 ? '+' : '') + avgDev.toFixed(1) + '%';
+  const popCol = avgPop === null ? 'var(--text3)' : avgPop >= 97 ? 'var(--green-txt)' : avgPop >= 90 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+
+  function miniStat(icon, lbl, val, valCol, sub) {
+    return `<div style="background:var(--surface2);border-radius:8px;padding:10px 12px;flex:1;min-width:110px">
+      <div style="font-size:13px;margin-bottom:5px">${icon}</div>
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px">${lbl}</div>
+      <div style="font-size:15px;font-weight:700;color:${valCol||'var(--text)'}">${val}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${sub}</div>
+    </div>`;
+  }
+
+  panel.style.display = '';
+  panel.innerHTML = `<div class="card" style="padding:14px 18px;border-left:3px solid var(--green-mid)">
+    <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">
+      Rata-rata fase · ${ph.label} · HST ${ph.hstMin}–${ph.hstMax} · ${n} GH
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${miniStat('⚖️','Avg gramasi',avgGr?avgGr+'g':'—',devCol,`Deviasi avg: <b style="color:${devCol}">${fmtDev}</b> · ${onTrackGr}/${n} on track`)}
+      ${miniStat('👥','Avg populasi',avgPop?avgPop.toFixed(1)+'%':'—',popCol,`vs standar HST`)}
+      ${miniStat('💧','Penyiraman',pnyOk+'/'+n,'var(--green-txt)',pnyDeviasi>0?`<span style="color:var(--red-txt)">${pnyDeviasi} GH deviasi EC/pH</span>`:'Semua EC & pH normal')}
+      ${miniStat('🔍','HPT',hptHigh>0?hptHigh+' high risk':hptMed>0?hptMed+' medium':'Aman',hptHigh>0?'var(--red-txt)':hptMed>0?'var(--yellow-txt)':'var(--green-txt)',hptHigh>0?`+ ${hptMed} medium`:hptMed>0?'Perlu monitoring':'Tidak ada serangan signifikan')}
+      ${miniStat('🧹','Sanitasi',sntOk+'/'+n+' ok',sntOk===n?'var(--green-txt)':'var(--yellow-txt)',sntIssue>0?`<span style="color:var(--yellow-txt)">${sntIssue} GH belum periode ini</span>`:'Semua sudah sanitasi')}
+    </div>
+  </div>`;
 }
 
 // ── SHOW GH ISSUE CARD ──
