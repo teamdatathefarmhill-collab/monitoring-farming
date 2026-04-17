@@ -1129,60 +1129,55 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         </div>
       </div>
 
-      <!-- STAT CARDS -->
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <!-- STAT CARDS — satu baris: Est. Gramasi (kiri) + 3 status cards (kanan) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px;margin-bottom:16px">
 
         <!-- Est. Gramasi Akhir vs Standar -->
-        <div class="card" style="padding:14px 18px;border-top:3px solid var(--blue)">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
-            <div>
-              <div class="sc-lbl" style="margin-bottom:4px">Est. Gramasi Akhir vs Standar</div>
-              <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-                <span class="sc-val b" id="scGr4" style="font-size:28px"><span class="sk" style="width:80px;height:28px;display:inline-block"></span></span>
-                <span style="font-size:16px;color:var(--text3)">/</span>
-                <span style="font-size:20px;font-weight:700;color:var(--text3)" id="scGrStd">—</span>
-                <span id="scGrDevBadge" style="font-size:12px;font-weight:700;padding:3px 10px;border-radius:6px;display:inline-block">—</span>
-              </div>
-              <div class="sc-note" id="scGr4n" style="margin-top:4px">Rata-rata estimasi panen vs target standar varian aktif</div>
+        <div class="card" style="padding:14px 18px;border-top:3px solid var(--blue);grid-column:1/2">
+          <div class="sc-lbl" style="margin-bottom:6px">Est. Gramasi Akhir vs Standar</div>
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span class="sc-val b" id="scGr4" style="font-size:26px"><span class="sk" style="width:70px;height:26px;display:inline-block"></span></span>
+            <span style="font-size:14px;color:var(--text3)">/</span>
+            <span style="font-size:17px;font-weight:700;color:var(--text3)" id="scGrStd">—</span>
+            <span id="scGrDevBadge" style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;display:inline-block">—</span>
+          </div>
+          <div class="sc-note" id="scGr4n">Estimasi panen vs target standar</div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <div style="background:var(--surface2);border-radius:7px;padding:7px 10px;flex:1;text-align:center">
+              <div style="font-size:13px;font-weight:700;color:var(--blue)" id="scGrEstVal">—</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:1px">Est. akhir</div>
             </div>
-            <div style="display:flex;gap:10px;flex-shrink:0">
-              <div style="background:var(--surface2);border-radius:8px;padding:9px 14px;text-align:center;min-width:90px">
-                <div style="font-size:15px;font-weight:700;color:var(--blue)" id="scGrEstVal">—</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">Avg est. akhir</div>
-              </div>
-              <div style="background:var(--surface2);border-radius:8px;padding:9px 14px;text-align:center;min-width:90px">
-                <div style="font-size:15px;font-weight:700;color:var(--text)" id="scGrStdVal">—</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:2px">Target standar</div>
-              </div>
+            <div style="background:var(--surface2);border-radius:7px;padding:7px 10px;flex:1;text-align:center">
+              <div style="font-size:13px;font-weight:700;color:var(--text)" id="scGrStdVal">—</div>
+              <div style="font-size:10px;color:var(--text3);margin-top:1px">Standar</div>
             </div>
           </div>
         </div>
 
-        <!-- 3 Status Cards -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
-
-          <div class="card" id="grCardOntrack" style="padding:14px 18px;border-top:3px solid var(--green-mid);cursor:pointer;transition:opacity .15s" onclick="setFilter('ontrack',document.getElementById('grBtnAll'))">
-            <div style="font-size:28px;font-weight:700;color:var(--green-mid)" id="scGrOntrack">—</div>
-            <div style="font-size:12px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">Gramasi sesuai standar HST</div>
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrOntrackGH"></div>
-          </div>
-
-          <div class="card" id="grCardBawah" style="padding:14px 18px;border-top:3px solid var(--yellow);cursor:pointer;transition:opacity .15s" onclick="setFilter('bawah',document.getElementById('grBtnAll'))">
-            <div style="font-size:28px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
-            <div style="font-size:12px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">Deviasi -5% s/d -20%</div>
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrBawahGH"></div>
-          </div>
-
-          <div class="card" id="grCardKritis" style="padding:14px 18px;border-top:3px solid var(--red);cursor:pointer;transition:opacity .15s" onclick="setFilter('kritis',document.getElementById('grBtnAll'))">
-            <div style="font-size:28px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
-            <div style="font-size:12px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">Deviasi lebih dari -20%</div>
-            <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:4px" id="scGrKritisGH"></div>
-          </div>
-
+        <!-- On Track -->
+        <div class="card" id="grCardOntrack" style="padding:14px 18px;border-top:3px solid var(--green-mid);cursor:pointer" onclick="setFilter('ontrack',document.getElementById('grBtnAll'))">
+          <div style="font-size:26px;font-weight:700;color:var(--green-mid)" id="scGrOntrack">—</div>
+          <div style="font-size:11px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≥ -5%</div>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrOntrackGH"></div>
         </div>
+
+        <!-- Di Bawah Standar -->
+        <div class="card" id="grCardBawah" style="padding:14px 18px;border-top:3px solid var(--yellow);cursor:pointer" onclick="setFilter('bawah',document.getElementById('grBtnAll'))">
+          <div style="font-size:26px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
+          <div style="font-size:11px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi -5% s/d -20%</div>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrBawahGH"></div>
+        </div>
+
+        <!-- Kritis -->
+        <div class="card" id="grCardKritis" style="padding:14px 18px;border-top:3px solid var(--red);cursor:pointer" onclick="setFilter('kritis',document.getElementById('grBtnAll'))">
+          <div style="font-size:26px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
+          <div style="font-size:11px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≤ -20%</div>
+          <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrKritisGH"></div>
+        </div>
+
       </div>
 
       <!-- TABEL UTAMA GRAMASI -->
@@ -3186,23 +3181,11 @@ function renderGramasi(d) {
     ).join('');
   }
 
-  // Klasifikasi GH — pakai RAW_VARIAN sebagai sumber (sama dengan tabel gramasi)
-  // Group per GH, avg deviasi semua varian
-  const ghMapKpi = {};
-  RAW_VARIAN.filter(r => r.avgGramasi > 0 && r.targetGramasi > 0).forEach(r => {
-    if (!ghMapKpi[r.gh]) ghMapKpi[r.gh] = { devSum: 0, cnt: 0 };
-    const dev = (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100;
-    ghMapKpi[r.gh].devSum += dev;
-    ghMapKpi[r.gh].cnt++;
-  });
-  const ghOntrack = [], ghBawah = [], ghKritis = [];
-  Object.entries(ghMapKpi).forEach(([gh, v]) => {
-    const dev = v.devSum / v.cnt;
-    if (dev >= -5)      ghOntrack.push(gh); // On Track: deviasi ≥ -5%
-    else if (dev > -20) ghBawah.push(gh);   // Di Bawah: -5% s/d > -20%
-    else                ghKritis.push(gh);  // Kritis: ≤ -20%
-  });
-  ghOntrack.sort(); ghBawah.sort(); ghKritis.sort();
+  // Klasifikasi GH — pakai ghGrStatus() sebagai single source of truth (sama dengan tabel)
+  const allGHs = [...new Set(RAW_VARIAN.filter(r => r.avgGramasi > 0 && r.targetGramasi > 0).map(r => r.gh))];
+  const ghOntrack = allGHs.filter(gh => ghGrStatus(gh) === 'ontrack').sort();
+  const ghBawah   = allGHs.filter(gh => ghGrStatus(gh) === 'bawah').sort();
+  const ghKritis  = allGHs.filter(gh => ghGrStatus(gh) === 'kritis').sort();
 
   const elOn = document.getElementById('scGrOntrack');
   const elBw = document.getElementById('scGrBawah');
