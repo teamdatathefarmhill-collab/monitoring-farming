@@ -1478,9 +1478,10 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
       <!-- FILTER BAR -->
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
-        <button class="fbtn active" id="pnyBtnSemua" onclick="setPnyTipe('semua',this)">Semua</button>
-        <button class="fbtn"        id="pnyBtnDutch" onclick="setPnyTipe('dutch',this)">Dutch Bucket</button>
-        <button class="fbtn"        id="pnyBtnDrip"  onclick="setPnyTipe('drip',this)">Drip</button>
+        <button class="fbtn active" id="pnyBtnSemua"  onclick="setPnyTipe('semua',this)">Semua</button>
+        <button class="fbtn"        id="pnyBtnDutch"  onclick="setPnyTipe('dutch',this)">🪣 Dutch Bucket</button>
+        <button class="fbtn"        id="pnyBtnKolam"  onclick="setPnyTipe('kolam',this)">🏊 Kolam</button>
+        <button class="fbtn"        id="pnyBtnDrip"   onclick="setPnyTipe('drip',this)">💧 Drip</button>
         <select class="si" id="pnySelGH" onchange="rebuildPny()" style="width:160px;padding-left:10px;background-image:none">
           <option value="">Semua GH</option>
         </select>
@@ -1562,14 +1563,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
               <table>
                 <thead>
                   <tr>
-                    <th>#</th><th>Greenhouse</th><th>Tipe</th>
+                    <th>#</th><th>Greenhouse</th><th>Tipe</th><th class="c">HST</th>
                     <th class="r">EC In</th><th class="r">EC Out</th>
                     <th class="r">pH In</th><th class="r">pH Out</th>
                     <th class="r">DO</th><th class="r">Vol (L)</th>
                     <th class="r">Suhu</th><th class="r">RH</th><th>Status</th>
                   </tr>
                 </thead>
-                <tbody id="pnyBody"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
+                <tbody id="pnyBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
               </table>
             </div>
           </div>
@@ -1594,16 +1595,27 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
                     <div id="pnyBarDutch" style="height:100%;background:linear-gradient(90deg,#1a7a3a,#2ca354);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
                   </div>
                 </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                  <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Kolam</span>
+                  <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
+                    <div id="pnyBarKolam" style="height:100%;background:linear-gradient(90deg,#1a5fa0,#2ca354);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
+                  </div>
+                </div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="font-size:11px;color:var(--text2);width:90px;flex-shrink:0">Drip</span>
                   <div style="flex:1;height:16px;background:var(--bg);border-radius:4px;overflow:hidden">
                     <div id="pnyBarDrip" style="height:100%;background:linear-gradient(90deg,#1a5fa0,#388bfd);border-radius:4px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:700;color:#fff;width:0%;transition:width .8s">0%</div>
                   </div>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px">
                   <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
                     <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Dutch Bucket</div>
                     <div style="font-size:15px;font-weight:700" id="pnyCtDutch">—</div>
+                    <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
+                  </div>
+                  <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
+                    <div style="font-size:10px;color:var(--text3);margin-bottom:3px">Kolam</div>
+                    <div style="font-size:15px;font-weight:700" id="pnyCtKolam">—</div>
                     <div style="font-size:10px;color:var(--text3);margin-top:1px">GH disiram</div>
                   </div>
                   <div style="background:var(--surface2);border-radius:8px;padding:9px 11px">
@@ -1684,14 +1696,14 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
             <table>
               <thead>
                 <tr>
-                  <th>#</th><th>Tanggal</th><th>Jam</th><th>Greenhouse</th><th>Tipe</th>
+                  <th>#</th><th>Tanggal</th><th>Jam</th><th>Greenhouse</th><th>Tipe</th><th class="c">HST</th>
                   <th class="r">EC In</th><th class="r">EC Out</th>
                   <th class="r">pH In</th><th class="r">pH Out</th>
                   <th class="r">DO</th><th class="r">Vol (L)</th>
                   <th>Operator</th><th>Status</th>
                 </tr>
               </thead>
-              <tbody id="pjBody"><tr><td colspan="13" class="es">Memuat…</td></tr></tbody>
+              <tbody id="pjBody"><tr><td colspan="14" class="es">Memuat…</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -3507,11 +3519,11 @@ function getTipeGH(gh) {
   if (base === 'BERGAS'   && num >= 1 && num <= 8 && num !== 6) return 'DRIP';
   if (base === 'COLOMADU' && num >= 1 && num <= 4)              return 'DRIP';
 
-  // DUTCH BUCKET: TOHUDAN 13-21
-  if (base === 'TOHUDAN'  && num >= 13 && num <= 21) return 'DUTCH_BUCKET';
+  // DUTCH BUCKET: TOHUDAN 14-21
+  if (base === 'TOHUDAN'  && num >= 14 && num <= 21) return 'DUTCH_BUCKET';
 
-  // KOLAM: TOHUDAN 1-12, TOHUDAN 22, SAWAHAN 1-4
-  if (base === 'TOHUDAN'  && (num >= 1 && num <= 12 || num === 22)) return 'KOLAM';
+  // KOLAM: TOHUDAN 1-13, TOHUDAN 22, SAWAHAN 1-4
+  if (base === 'TOHUDAN'  && (num >= 1 && num <= 13 || num === 22)) return 'KOLAM';
   if (base === 'SAWAHAN'  && num >= 1 && num <= 4)                  return 'KOLAM';
 
   return 'LAINNYA';
@@ -5082,13 +5094,22 @@ function isEcAirBaku(r) {
   return false;
 }
 
-// Cek apakah EC deviasi (excludes air baku)
+// Ambil standar EC berdasarkan HST
+function getEcStd(hst) {
+  const h = +hst || 0;
+  if (h >= 1 && h <= 3) return { min: 1.8, max: 2.0, outMin: 0.8, outMax: 3.0 };
+  return { min: 2.5, max: 3.2, outMin: null, outMax: null };
+}
+
+// Cek apakah EC deviasi (excludes air baku), HST-aware
 function isEcDev(r) {
   if (!r || !r.ecIn || r.ecIn <= 0) return false;
   if (isEcAirBaku(r)) return false;
-  return r.ecIn < 2.5 || r.ecIn > 3.2;
+  const std = getEcStd(r.hst);
+  return r.ecIn < std.min || r.ecIn > std.max;
 }
 
+// EC_MIN / EC_MAX sebagai fallback global (HST normal)
 const EC_MIN = 2.5, EC_MAX = 3.2;
 const PH_MIN = 5.8, PH_MAX = 6.3;
 const PNY_HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18];
@@ -5195,21 +5216,23 @@ function setPnyTab(tab, el) {
 // ── TIPE FILTER ──
 function setPnyTipe(tipe, el) {
   PNY_TIPE = tipe;
-  document.querySelectorAll('#pnyBtnSemua,#pnyBtnDutch,#pnyBtnDrip').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#pnyBtnSemua,#pnyBtnDutch,#pnyBtnKolam,#pnyBtnDrip').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   rebuildPny();
 }
 
 // ── CHIP STATUS ──
 function pnyStatus(r) {
-  if (r.ecIn>0&&r.ecIn>EC_MAX) return 'warn';
+  const std = getEcStd(r.hst);
+  if (r.ecIn>0&&r.ecIn>std.max) return 'warn';
   if (r.ecIn>0&&isEcDev(r)) return 'bad'; // pakai isEcDev: air baku jam 10-14 = ok
   if (r.phIn>0&&r.phIn>PH_MAX) return 'warn';
   if (r.phIn>0&&r.phIn<PH_MIN) return 'bad';
   return 'ok';
 }
 function pnyStatusPill(r) {
-  if (r.ecIn>0&&r.ecIn>EC_MAX) return '<span class="pill p-w">EC Tinggi</span>';
+  const std = getEcStd(r.hst);
+  if (r.ecIn>0&&r.ecIn>std.max) return '<span class="pill p-w">EC Tinggi</span>';
   if (r.ecIn>0&&isEcDev(r)) return '<span class="pill p-b">EC Rendah</span>';
   if (r.phIn>0&&r.phIn>PH_MAX) return '<span class="pill p-w">pH Tinggi</span>';
   if (r.phIn>0&&r.phIn<PH_MIN) return '<span class="pill p-b">pH Rendah</span>';
@@ -5220,8 +5243,9 @@ function pnyStatusPill(r) {
 function rebuildPny() {
   pnyInitDates();
   let rows = pnyDateFilter(RAW_PNY);
-  if (PNY_TIPE==='dutch') rows = rows.filter(r=>r.tipe.toLowerCase().includes('dutch'));
-  if (PNY_TIPE==='drip')  rows = rows.filter(r=>r.tipe.toLowerCase().includes('drip'));
+  if (PNY_TIPE==='dutch') rows = rows.filter(r=>getTipeGH(r.gh)==='DUTCH_BUCKET');
+  if (PNY_TIPE==='kolam') rows = rows.filter(r=>getTipeGH(r.gh)==='KOLAM');
+  if (PNY_TIPE==='drip')  rows = rows.filter(r=>getTipeGH(r.gh)==='DRIP');
   const ghSel = (document.getElementById('pnySelGH')||{}).value||'';
   if (ghSel) rows = rows.filter(r=>r.gh===ghSel);
 
@@ -5255,6 +5279,10 @@ function rebuildPny() {
   const phVals = rows.filter(r=>r.phIn>0).map(r=>r.phIn);
   const avgEC  = ecVals.length?ecVals.reduce((a,b)=>a+b,0)/ecVals.length:null;
   const avgPH  = phVals.length?phVals.reduce((a,b)=>a+b,0)/phVals.length:null;
+  // Cek apakah ada GH HST 1-3 dalam filter aktif
+  const hasEarlyHst = rows.some(r=>r.hst>=1&&r.hst<=3);
+  const ecNoteText = hasEarlyHst ? 'Target HST 1-3: 1.8–2.0 · lain: 2.5–3.2' : 'Target 2.5 – 3.2';
+  const sc2n=document.getElementById('pnySc2n'); if(sc2n) sc2n.textContent=ecNoteText;
   const sc1=document.getElementById('pnySc1'); if(sc1) sc1.textContent=rows.length||'—';
   const sc1n=document.getElementById('pnySc1n'); if(sc1n) sc1n.textContent='entri data';
   const sc2=document.getElementById('pnySc2'); if(sc2){sc2.textContent=avgEC?avgEC.toFixed(2):'—';sc2.style.color=avgEC?(avgEC<EC_MIN||avgEC>EC_MAX?'var(--red)':'var(--green)'):'var(--text)';}
@@ -5266,8 +5294,9 @@ function rebuildPny() {
   const latest=Object.values(latestByGH).sort((a,b)=>a.gh.localeCompare(b.gh));
   const alerts=[];
   latest.forEach(r=>{
-    if(r.ecIn>0&&r.ecIn>EC_MAX) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas atas ${EC_MAX}`});
-    if(r.ecIn>0&&isEcDev(r)) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${EC_MIN}`}); // skip air baku
+    const std = getEcStd(r.hst);
+    if(r.ecIn>0&&r.ecIn>std.max) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas atas ${std.max} (HST ${r.hst})`});
+    if(r.ecIn>0&&isEcDev(r)) alerts.push({lvl:'red',gh:r.gh,msg:`EC In ${r.ecIn.toFixed(2)} · batas bawah ${std.min} (HST ${r.hst})`}); // skip air baku
     if(r.phIn>0&&r.phIn>PH_MAX) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas atas ${PH_MAX}`});
     if(r.phIn>0&&r.phIn<PH_MIN) alerts.push({lvl:'amber',gh:r.gh,msg:`pH In ${r.phIn.toFixed(2)} · batas bawah ${PH_MIN}`});
   });
@@ -5287,21 +5316,27 @@ function renderPnyRekap(rows, latest, alerts) {
   const q=((document.getElementById('pnySrch')||{}).value||'').toLowerCase();
   const filtered = q ? latest.filter(r=>r.gh.toLowerCase().includes(q)||r.tipe.toLowerCase().includes(q)) : latest;
   const body=document.getElementById('pnyBody');
-  if(!filtered.length){body.innerHTML='<tr><td colspan="12" class="es">Tidak ada data</td></tr>';}
+  if(!filtered.length){body.innerHTML='<tr><td colspan="13" class="es">Tidak ada data</td></tr>';}
   else {
     body.innerHTML = filtered.map((r,i)=>{
-      const ecSt=r.ecIn>0?(r.ecIn>EC_MAX?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
+      const ecSt=r.ecIn>0?(r.ecIn>getEcStd(r.hst).max?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
       const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
       const st2=pnyStatus(r); const rowCls=st2==='bad'?'rc':st2==='warn'?'rw':'';
       const dot=CC[clOf(r.gh)]||'#999';
-      const tipeTag=r.tipe.toLowerCase().includes('dutch')
-        ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
-        :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Drip</span>`;
+      const ghTipe = getTipeGH(r.gh);
+      const tipeTag = ghTipe==='DUTCH_BUCKET'
+        ?`<span style="background:var(--yellow-lt);color:var(--yellow-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">🪣 Dutch</span>`
+        : ghTipe==='KOLAM'
+        ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">🏊 Kolam</span>`
+        :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">💧 Drip</span>`;
+      const hstBadge = r.hst>0?`<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#f0f4f0;color:var(--text2)">HST ${r.hst}</span>`:'—';
+      const ecStdInfo = `${getEcStd(r.hst).min}–${getEcStd(r.hst).max}`;
       return `<tr class="${rowCls}">
         <td class="no-col">${i+1}</td>
         <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
         <td>${tipeTag}</td>
-        <td class="r mono ${ecSt}">${r.ecIn>0?r.ecIn.toFixed(2):'—'}</td>
+        <td class="c">${hstBadge}</td>
+        <td class="r mono ${ecSt}" title="Std HST ${r.hst}: ${ecStdInfo}">${r.ecIn>0?r.ecIn.toFixed(2):'—'}</td>
         <td class="r mono" style="color:var(--text3)">${r.ecOut>0?r.ecOut.toFixed(2):'—'}</td>
         <td class="r mono ${phSt}">${r.phIn>0?r.phIn.toFixed(2):'—'}</td>
         <td class="r mono" style="color:var(--text3)">${r.phOut>0?r.phOut.toFixed(2):'—'}</td>
@@ -5323,13 +5358,16 @@ function renderPnyRekap(rows, latest, alerts) {
     :'<div class="es">✅ Tidak ada alert deviasi</div>';
 
   // volume per tipe
-  const dutchGH=new Set(rows.filter(r=>r.tipe.toLowerCase().includes('dutch')).map(r=>r.gh)).size;
-  const dripGH =new Set(rows.filter(r=>r.tipe.toLowerCase().includes('drip')).map(r=>r.gh)).size;
-  const tot=dutchGH+dripGH||1;
-  const pD=Math.round(dutchGH/tot*100), pR=Math.round(dripGH/tot*100);
+  const dutchGH=new Set(rows.filter(r=>getTipeGH(r.gh)==='DUTCH_BUCKET').map(r=>r.gh)).size;
+  const kolamGH=new Set(rows.filter(r=>getTipeGH(r.gh)==='KOLAM').map(r=>r.gh)).size;
+  const dripGH =new Set(rows.filter(r=>getTipeGH(r.gh)==='DRIP').map(r=>r.gh)).size;
+  const tot=dutchGH+kolamGH+dripGH||1;
+  const pD=Math.round(dutchGH/tot*100), pK=Math.round(kolamGH/tot*100), pR=Math.round(dripGH/tot*100);
   const bD=document.getElementById('pnyBarDutch');if(bD){bD.style.width=pD+'%';bD.textContent=pD+'%';}
+  const bK=document.getElementById('pnyBarKolam');if(bK){bK.style.width=pK+'%';bK.textContent=pK+'%';}
   const bR=document.getElementById('pnyBarDrip'); if(bR){bR.style.width=pR+'%';bR.textContent=pR+'%';}
   const cD=document.getElementById('pnyCtDutch');if(cD) cD.textContent=dutchGH+' GH';
+  const cK=document.getElementById('pnyCtKolam');if(cK) cK.textContent=kolamGH+' GH';
   const cR=document.getElementById('pnyCtDrip'); if(cR) cR.textContent=dripGH+' GH';
   const vs=document.getElementById('pnyVolSub'); if(vs) vs.textContent=rangeLabel;
 }
@@ -5414,23 +5452,28 @@ function renderPnyJam(rows) {
   if(pjDetailSub) pjDetailSub.textContent=`${sorted.length} entri · diurutkan tanggal & jam`;
   if (!sorted.length) { body.innerHTML='<tr><td colspan="13" class="es">Tidak ada data untuk filter ini</td></tr>'; return; }
   body.innerHTML = sorted.map((r,i)=>{
-    const ecSt=r.ecIn>0?(r.ecIn>EC_MAX?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
+    const ecSt=r.ecIn>0?(r.ecIn>getEcStd(r.hst).max?'av-w':isEcDev(r)?'av-bad':'av-ok'):'av-none'; // air baku = ok
     const phSt=r.phIn>0?(r.phIn>PH_MAX||r.phIn<PH_MIN?(r.phIn>PH_MAX?'av-w':'av-bad'):'av-ok'):'av-none';
     const st=pnyStatus(r);
     const rowCls=st==='bad'?'rc':st==='warn'?'rw':'';
-    const tipeTag=r.tipe.toLowerCase().includes('dutch')
-      ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Dutch</span>`
-      :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">Drip</span>`;
+    const ghTipeJ = getTipeGH(r.gh);
+    const tipeTag = ghTipeJ==='DUTCH_BUCKET'
+      ?`<span style="background:var(--yellow-lt);color:var(--yellow-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">🪣 Dutch</span>`
+      : ghTipeJ==='KOLAM'
+      ?`<span style="background:var(--green-lt);color:var(--green-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">🏊 Kolam</span>`
+      :`<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:4px;padding:2px 7px;font-size:10px;font-weight:700">💧 Drip</span>`;
     const dot=CC[clOf(r.gh)]||'#999';
     // format date dd/mm/yyyy
     const tglFmt = r.tgl ? r.tgl.split('-').reverse().join('/') : '—';
+    const hstBadgeJ = r.hst>0?`<span style="font-size:10px;font-weight:700;padding:1px 6px;border-radius:4px;background:#f0f4f0;color:var(--text2)">HST ${r.hst}</span>`:'—';
     return `<tr class="${rowCls}">
       <td class="no-col">${i+1}</td>
       <td class="mono" style="font-size:11px">${tglFmt}</td>
       <td class="mono" style="font-weight:700;font-size:12px">${r.jam?r.jam.slice(0,5):'—'}</td>
       <td><div class="gh-name"><span class="gh-dot" style="background:${dot}"></span>${r.gh}</div></td>
       <td>${tipeTag}</td>
-      <td class="r mono ${ecSt}">${r.ecIn>0?r.ecIn.toFixed(2):'—'}</td>
+      <td class="c">${hstBadgeJ}</td>
+      <td class="r mono ${ecSt}" title="Std HST ${r.hst}: ${getEcStd(r.hst).min}–${getEcStd(r.hst).max}">${r.ecIn>0?r.ecIn.toFixed(2):'—'}</td>
       <td class="r mono" style="color:var(--text3)">${r.ecOut>0?r.ecOut.toFixed(2):'—'}</td>
       <td class="r mono ${phSt}">${r.phIn>0?r.phIn.toFixed(2):'—'}</td>
       <td class="r mono" style="color:var(--text3)">${r.phOut>0?r.phOut.toFixed(2):'—'}</td>
@@ -6908,7 +6951,10 @@ if (typeof isEcDev === 'undefined') {
   window.isEcDev = function(r) {
     if (!r || !r.ecIn || r.ecIn <= 0) return false;
     if (isEcAirBaku(r)) return false;
-    return r.ecIn < 2.5 || r.ecIn > 3.2;
+    const h = +r.hst || 0;
+    const ecMin = (h >= 1 && h <= 3) ? 1.8 : 2.5;
+    const ecMax = (h >= 1 && h <= 3) ? 2.0 : 3.2;
+    return r.ecIn < ecMin || r.ecIn > ecMax;
   };
 }
 // ══════════════════════════════════════════════
@@ -7910,7 +7956,7 @@ function ccRenderDetail(id, panel) {
         ? devAll.map(gh => {
             const r = latestByGH[gh];
             const issues = [];
-            if(isEcDev(r)) issues.push('EC in '+r.ecIn+' (std 2.5–3.2)');
+            if(isEcDev(r)) issues.push('EC in '+r.ecIn+' (std HST '+r.hst+': '+getEcStd(r.hst).min+'–'+getEcStd(r.hst).max+')');
             if(r.phIn&&(r.phIn<5.8||r.phIn>6.3)) issues.push('pH in '+r.phIn+' (std 5.8–6.3)');
             return ccAlertItem('⚠️', gh, issues.join(' · '));
           }).join('')
