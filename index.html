@@ -9681,11 +9681,30 @@ function ccShowGhIssue(ghName) {
   function detailPny() {
     const avgEC = pnyRows.filter(x=>x.ecIn>0).length ? (pnyRows.filter(x=>x.ecIn>0).reduce((s,x)=>s+x.ecIn,0)/pnyRows.filter(x=>x.ecIn>0).length).toFixed(2) : null;
     const avgPH = pnyRows.filter(x=>x.phIn>0).length ? (pnyRows.filter(x=>x.phIn>0).reduce((s,x)=>s+x.phIn,0)/pnyRows.filter(x=>x.phIn>0).length).toFixed(2) : null;
-    // Cek avg EC — tapi air baku hanya berlaku per record (butuh cek per row)
     const pnyDevRows = pnyRows.filter(x => isEcDev(x));
     const ecCol = avgEC ? (pnyDevRows.length===0?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
     const phCol = avgPH ? (avgPH>=5.8&&avgPH<=6.3?'var(--green-txt)':'var(--red-txt)') : 'var(--text)';
-    let html = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+
+    // Tipe GH badge
+    const ghTipePny = getTipeGH(r.gh);
+    const tipePnyBadge = ghTipePny==='DUTCH_BUCKET'
+      ? `<span style="background:var(--yellow-lt);color:var(--yellow-txt);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700">🪣 Dutch Bucket</span>`
+      : ghTipePny==='KOLAM'
+      ? `<span style="background:var(--green-lt);color:var(--green-txt);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700">🏊 Kolam</span>`
+      : `<span style="background:var(--blue-lt);color:var(--blue-txt);border-radius:5px;padding:2px 9px;font-size:10px;font-weight:700">💧 Drip</span>`;
+
+    // Standar EC sesuai HST
+    const ecStd = getEcStd(r.hst);
+    const ecStdNote = (r.hst>=1&&r.hst<=3)
+      ? `HST 1–3: EC in ${ecStd.min}–${ecStd.max} · EC out ${ecStd.outMin}–${ecStd.outMax}`
+      : `EC in ${ecStd.min}–${ecStd.max} · pH ${PH_MIN}–${PH_MAX}`;
+
+    let html = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        ${tipePnyBadge}
+        <span style="font-size:10px;color:var(--text3)">${ecStdNote}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
         ${miniStat('Avg EC in', avgEC||'—', ecCol)}
         ${miniStat('Avg pH in', avgPH||'—', phCol)}
         ${miniStat('Total input', pnyRows.length, 'var(--text)')}
@@ -9696,12 +9715,14 @@ function ccShowGhIssue(ghName) {
             ${pnyDays.map(d => {
               const x = pnyByDay[d];
               const ecOk = !isEcDev(x), phOk = x.phIn>=5.8&&x.phIn<=6.3;
+              const std = getEcStd(x.hst);
               return `<div style="flex-shrink:0;text-align:center;background:var(--surface2);border-radius:8px;padding:6px 9px;min-width:54px">
                 <div style="font-size:8px;color:var(--text3);margin-bottom:4px">${d.slice(5).split('-').reverse().join('/')}</div>
-                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}">${x.ecIn||'—'}</div>
+                <div style="font-size:11px;font-weight:700;color:${ecOk?'var(--green-txt)':'var(--red-txt)'}" title="Std: ${std.min}–${std.max}">${x.ecIn||'—'}</div>
                 <div style="font-size:9px;color:var(--text4);margin-bottom:3px">EC</div>
                 <div style="font-size:11px;font-weight:700;color:${phOk?'var(--green-txt)':'var(--red-txt)'}">${x.phIn||'—'}</div>
                 <div style="font-size:9px;color:var(--text4)">pH</div>
+                ${x.hst>0?`<div style="font-size:8px;color:var(--text4);margin-top:2px">HST ${x.hst}</div>`:''}
               </div>`;
             }).join('')}
           </div>`;
@@ -9902,7 +9923,7 @@ function ccShowGhIssue(ghName) {
     { id:'pop',      icon:'⚖️',  label:'Populasi & Gramasi', soon:false, status:popGrSt,  detail:'Pop: '+(popPct>0?popPct.toFixed(1)+'% vs std':'—')+(r.avgGramasi>0?' · Gramasi: '+Math.round(r.avgGramasi)+'g':' · Gramasi: belum input') },
     { id:'snt',      icon:'🧹',  label:'Sanitasi',           soon:false, status:sntSt,    detail: sntDetailTxt },
     { id:'hpt',      icon:'🔍',  label:'HPT',                soon:false, status:hptSt,    detail: hptDetailStr },
-    { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
+    { id:'pny',      icon:'💧',  label:'Penyiraman',         soon:false, status:pnySt,    detail: latestPNY?(ecDev?'EC '+latestPNY.ecIn+' (std '+getEcStd(latestPNY.hst).min+'–'+getEcStd(latestPNY.hst).max+') ':'' )+(phDev?'pH '+latestPNY.phIn:'') || 'EC & pH normal':'Belum ada data' },
     (function(){
       const vd = getVigorForGH(r.gh, r.periode, r.hst);
       const sk = vd ? vd.skor : null;
