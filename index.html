@@ -2769,6 +2769,15 @@ function enrichTargetGramasi() {
   const periodeAktif = {};
   RAW.forEach(r => { periodeAktif[r.gh] = r.periode; });
 
+  // DEBUG — cek sample periode matching (hapus setelah fix)
+  const sampleGH = ['SAWAHAN 1','TOHUDAN 11','BERGAS 7','COLOMADU 1'];
+  sampleGH.forEach(gh => {
+    const rawPeriode = periodeAktif[gh] || '(not in RAW)';
+    const varRows = RAW_VARIAN.filter(r => r.gh === gh);
+    const varPeriodes = [...new Set(varRows.map(r => r.periode))];
+    console.log(`[PERIODE DEBUG] ${gh}: RAW periode="${rawPeriode}", RAW_VARIAN periodes=[${varPeriodes.join(',')}], varRows=${varRows.length}, grRows=${varRows.filter(r=>r.avgGramasi>0).length}`);
+  });
+
   // Update RAW — avg target DAN avg gramasi aktual dari RAW_VARIAN per GH (hanya periode aktif)
   const tgtByGH = {};
   RAW_VARIAN.forEach(r => {
