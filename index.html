@@ -9542,12 +9542,24 @@ function ccBuildPhaseTimeline() {
         .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
 
       const dots = planGHs.map(p => {
-        const diffDays = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
-        const isUrgent = diffDays !== null && diffDays > 2;
-        const bg  = isUrgent ? 'var(--red)'   : '#1a5fa0';
-        const bdr = isUrgent ? '#8b1515'      : '#0c447f';
+        // Urgent kalau GH tidak ada di RAW (belum ada pemetaan) DAN
+        // periode sebelumnya (lastPeriode) sudah lewat tglTanam > 2 hari
+        const ghKeyP = p.gh.trim().toUpperCase();
+        const rawRowP = RAW.find(x => x.gh.trim().toUpperCase() === ghKeyP);
+        const notMapped = !rawRowP; // tidak ada di RAW = belum ada pemetaan
+        // Cari tglTanam periode terakhir yang sudah lewat (= periode sebelum yang ditampilkan)
+        const lastTanamRows = RAW_PLANNING
+          .filter(x => x.gh.trim().toUpperCase() === ghKeyP && x.tglTanam)
+          .filter(x => new Date(x.tglTanam) <= today);
+        const lastTanamDates = lastTanamRows.map(x => new Date(x.tglTanam));
+        const lastTanamDate  = lastTanamDates.length ? new Date(Math.max(...lastTanamDates)) : null;
+        const daysSinceTanam = lastTanamDate ? Math.floor((today - lastTanamDate) / 864e5) : null;
+        const isUrgent = notMapped && daysSinceTanam !== null && daysSinceTanam > 2;
+
+        const bg  = isUrgent ? 'var(--red)' : '#1a5fa0';
+        const bdr = isUrgent ? '#8b1515'    : '#0c447f';
         const ttl = isUrgent
-          ? `${p.gh} · Terlambat ${diffDays} hari (planning tanam: ${p.tglTanam})`
+          ? `${p.gh} · Belum ada pemetaan! Tanam periode lalu: ${lastTanamDate?.toISOString().slice(0,10)} (${daysSinceTanam} hari lalu)`
           : `${p.gh} · Semai: ${p.tglSemai} · Tanam: ${p.tglTanam||'—'}`;
         const code = ghCodeOf(p.gh);
         const ghKey = p.gh.replace(/'/g,"\\'");
@@ -9561,8 +9573,16 @@ function ccBuildPhaseTimeline() {
       }).join('');
 
       const urgentCount = planGHs.filter(p => {
-        const d = p.tglTanamDate ? Math.floor((today-p.tglTanamDate)/864e5) : null;
-        return d !== null && d > 2;
+        const ghKeyU = p.gh.trim().toUpperCase();
+        const rawRowU = RAW.find(x => x.gh.trim().toUpperCase() === ghKeyU);
+        if (rawRowU) return false;
+        const lastTanamDatesU = RAW_PLANNING
+          .filter(x => x.gh.trim().toUpperCase() === ghKeyU && x.tglTanam)
+          .filter(x => new Date(x.tglTanam) <= today)
+          .map(x => new Date(x.tglTanam));
+        if (!lastTanamDatesU.length) return false;
+        const lastD = new Date(Math.max(...lastTanamDatesU));
+        return Math.floor((today - lastD) / 864e5) > 2;
       }).length;
       const countBadge = planGHs.length === 0 ? '' :
         urgentCount > 0
@@ -9732,7 +9752,18 @@ function ccShowFaseAvg(phaseId) {
     });
     const planGHs = Object.values(ghPlanMap)
       .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
-    const urgentGHs = planGHs.filter(p => p.tglTanamDate && Math.floor((today-p.tglTanamDate)/864e5) > 2);
+    const urgentGHs = planGHs.filter(p => {
+      const ghKeyU = p.gh.trim().toUpperCase();
+      const rawRowU = RAW.find(x => x.gh.trim().toUpperCase() === ghKeyU);
+      if (rawRowU) return false;
+      const lastTanamDatesU = RAW_PLANNING
+        .filter(x => x.gh.trim().toUpperCase() === ghKeyU && x.tglTanam)
+        .filter(x => new Date(x.tglTanam) <= today)
+        .map(x => new Date(x.tglTanam));
+      if (!lastTanamDatesU.length) return false;
+      const lastD = new Date(Math.max(...lastTanamDatesU));
+      return Math.floor((today - lastD) / 864e5) > 2;
+    });
     const normalGHs = planGHs.filter(p => !urgentGHs.includes(p));
 
     if (!planGHs.length) {
