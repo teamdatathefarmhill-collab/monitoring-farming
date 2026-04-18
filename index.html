@@ -9554,6 +9554,10 @@ function ccBuildPhaseTimeline() {
       const planGHs = Object.values(ghPlanMap)
         .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
 
+      // DEBUG
+      const th16 = planGHs.find(p => p.gh.toUpperCase().includes('TOHUDAN 16'));
+      if (th16) console.log('[DEBUG TH16]', th16.gh, 'periode:', th16.periode, 'tglTanam:', th16.tglTanam, 'tglTanamDate:', th16.tglTanamDate, 'diffDays:', th16.tglTanamDate ? Math.floor((today - th16.tglTanamDate)/864e5) : null, 'inRAW:', !!RAW.find(x=>x.gh.trim().toUpperCase()===th16.gh.trim().toUpperCase()));
+
       const dots = planGHs.map(p => {
         // Urgent kalau GH tidak ada di RAW (belum ada pemetaan) DAN
         // tglTanam periode yang ditampilkan sudah lewat > 2 hari
