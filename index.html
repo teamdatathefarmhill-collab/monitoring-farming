@@ -9554,10 +9554,6 @@ function ccBuildPhaseTimeline() {
       const planGHs = Object.values(ghPlanMap)
         .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
 
-      // DEBUG
-      const th16 = planGHs.find(p => p.gh.toUpperCase().includes('TOHUDAN 16'));
-      if (th16) console.log('[DEBUG TH16]', th16.gh, 'periode:', th16.periode, 'tglTanam:', th16.tglTanam, 'tglTanamDate:', th16.tglTanamDate, 'diffDays:', th16.tglTanamDate ? Math.floor((today - th16.tglTanamDate)/864e5) : null, 'inRAW:', !!RAW.find(x=>x.gh.trim().toUpperCase()===th16.gh.trim().toUpperCase()));
-
       const dots = planGHs.map(p => {
         // Urgent kalau GH tidak ada di RAW (belum ada pemetaan) DAN
         // tglTanam periode yang ditampilkan sudah lewat > 2 hari
@@ -9565,7 +9561,7 @@ function ccBuildPhaseTimeline() {
         const rawRowP = RAW.find(x => x.gh.trim().toUpperCase() === ghKeyP);
         const notMapped  = !rawRowP;
         const diffDays   = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
-        const isUrgent   = notMapped && diffDays !== null && diffDays > 2;
+        const isUrgent   = notMapped && diffDays !== null && diffDays >= 2;
 
         const bg  = isUrgent ? 'var(--red)' : '#1a5fa0';
         const bdr = isUrgent ? '#8b1515'    : '#0c447f';
@@ -9966,13 +9962,15 @@ function ccShowPlanningDetail(ghName) {
   const tglTanam  = sample.tglTanam;
   const tglTanamD = tglTanam ? new Date(tglTanam) : null;
   const diffDays  = tglTanamD ? Math.floor((today - tglTanamD) / 864e5) : null;
-  const isUrgent  = diffDays !== null && diffDays > 2;
+  const isUrgent  = diffDays !== null && diffDays >= 2;
 
   const statusBadge = isUrgent
-    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--red-lt);color:var(--red-txt)">Terlambat ${diffDays} hari · follow up!</span>`
-    : diffDays !== null && diffDays >= 0
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--red-lt);color:var(--red-txt)">H+${diffDays} · konfirmasi pemetaan!</span>`
+    : diffDays !== null && diffDays === 0
     ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--yellow-lt);color:var(--yellow-txt)">Hari ini</span>`
-    : `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">H-${tglTanamD?Math.floor((tglTanamD-today)/864e5):'-'} lagi</span>`;
+    : diffDays !== null && diffDays < 0
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">H-${Math.abs(diffDays)} lagi</span>`
+    : `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--yellow-lt);color:var(--yellow-txt)">H+${diffDays}</span>`;
 
   // Deduplicate varian (satu baris per varian)
   const varUniq = [];
