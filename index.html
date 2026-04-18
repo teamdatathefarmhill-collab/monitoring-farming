@@ -9521,17 +9521,23 @@ function ccBuildPhaseTimeline() {
           // GH masih di RAW (HST ≥ 65) → tampilkan periode berikutnya
           targetPeriodeForGH = nextPeriode(lastPeriode);
         } else {
-          // GH tidak ada di RAW → cari periode terbesar yang tglTanam sudah lewat
+          // GH tidak ada di RAW → cari periode yang tglSemai sudah mulai dan paling relevan hari ini
           const today2 = new Date(); today2.setHours(0,0,0,0);
-          const pastRows = RAW_PLANNING
-            .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
-            .filter(x => new Date(x.tglTanam) <= today2)
-            .sort((a,b) => b.periode.localeCompare(a.periode));
-          if (pastRows.length) {
-            // Periode terbesar yang sudah lewat = periode yang harusnya sudah ditanam
-            // tapi belum ada di RAW → ini yang perlu di-follow up
-            targetPeriodeForGH = pastRows[0].periode;
-          }
+          const periodeMap = {};
+          RAW_PLANNING
+            .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam && x.tglSemai)
+            .forEach(x => { if (!periodeMap[x.periode]) periodeMap[x.periode] = x; });
+          const candidates = Object.values(periodeMap)
+            .filter(x => new Date(x.tglSemai) <= today2) // semai sudah dimulai
+            .sort((a,b) => {
+              const da = new Date(a.tglTanam) - today2;
+              const db = new Date(b.tglTanam) - today2;
+              // Belum lewat → ambil yang paling dekat; sudah lewat → ambil yang terbaru
+              if (da >= 0 && db >= 0) return da - db;
+              if (da < 0 && db < 0) return db - da;
+              return da >= 0 ? -1 : 1;
+            });
+          if (candidates.length) targetPeriodeForGH = candidates[0].periode;
         }
         if (!targetPeriodeForGH || r.periode !== targetPeriodeForGH) return;
 
@@ -9735,11 +9741,20 @@ function ccShowFaseAvg(phaseId) {
         targetPeriodeForGH2 = nextPeriode(periodeAktif2);
       } else {
         const today2 = new Date(); today2.setHours(0,0,0,0);
-        const pastRows2 = RAW_PLANNING
-          .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
-          .filter(x => new Date(x.tglTanam) <= today2)
-          .sort((a,b) => b.periode.localeCompare(a.periode));
-        if (pastRows2.length) targetPeriodeForGH2 = pastRows2[0].periode;
+        const periodeMap2 = {};
+        RAW_PLANNING
+          .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam && x.tglSemai)
+          .forEach(x => { if (!periodeMap2[x.periode]) periodeMap2[x.periode] = x; });
+        const candidates2 = Object.values(periodeMap2)
+          .filter(x => new Date(x.tglSemai) <= today2)
+          .sort((a,b) => {
+            const da = new Date(a.tglTanam) - today2;
+            const db = new Date(b.tglTanam) - today2;
+            if (da >= 0 && db >= 0) return da - db;
+            if (da < 0 && db < 0) return db - da;
+            return da >= 0 ? -1 : 1;
+          });
+        if (candidates2.length) targetPeriodeForGH2 = candidates2[0].periode;
       }
       if (!targetPeriodeForGH2 || r.periode !== targetPeriodeForGH2) return;
       const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
@@ -9913,11 +9928,20 @@ function ccShowPlanningDetail(ghName) {
   if (rawRow) {
     targetPeriode = nextPeriodeLocal(rawRow.periode);
   } else {
-    const pastRows = RAW_PLANNING
-      .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
-      .filter(x => new Date(x.tglTanam) <= today)
-      .sort((a,b) => b.periode.localeCompare(a.periode));
-    if (pastRows.length) targetPeriode = pastRows[0].periode;
+    const periodeMapD = {};
+    RAW_PLANNING
+      .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam && x.tglSemai)
+      .forEach(x => { if (!periodeMapD[x.periode]) periodeMapD[x.periode] = x; });
+    const candidatesD = Object.values(periodeMapD)
+      .filter(x => new Date(x.tglSemai) <= today)
+      .sort((a,b) => {
+        const da = new Date(a.tglTanam) - today;
+        const db = new Date(b.tglTanam) - today;
+        if (da >= 0 && db >= 0) return da - db;
+        if (da < 0 && db < 0) return db - da;
+        return da >= 0 ? -1 : 1;
+      });
+    if (candidatesD.length) targetPeriode = candidatesD[0].periode;
   }
 
   // Filter hanya periode yang relevan
