@@ -9492,20 +9492,22 @@ function ccBuildPhaseTimeline() {
         // 1. GH milik sendiri — bukan GH mitra
         if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return;
 
-        // 2. GH masih aktif (HST ≤ 65) → skip
+        // 2. GH masih aktif (HST < 65) → skip. HST 65 = hari terakhir Ripening = sudah boleh
         const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
         if (rawRow && rawRow.hst < 65) return;
 
-        // 3. Cari periode terakhir GH ini:
-        //    - Kalau masih ada di RAW (HST > 65): pakai periode dari RAW
-        //    - Kalau sudah tidak ada di RAW: cari periode terbesar di RAW_PLANNING untuk GH ini
+        // 3. Cari periode terakhir yang sudah selesai:
+        //    - Ada di RAW (HST ≥ 65): pakai periode dari RAW
+        //    - Tidak ada di RAW: cari periode terbesar yang tglTanam sudah lewat hari ini
         let lastPeriode = periodeAktif; // dari RAW
         if (!lastPeriode) {
-          // Cari periode terbesar di planning untuk GH ini
-          const periodeList = RAW_PLANNING
-            .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode)
+          const today2 = new Date(); today2.setHours(0,0,0,0);
+          // Ambil periode yang tglTanam sudah lewat, pilih yang terbesar
+          const pastPeriodes = RAW_PLANNING
+            .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
+            .filter(x => new Date(x.tglTanam) <= today2)
             .map(x => x.periode);
-          if (periodeList.length) lastPeriode = periodeList.sort().pop();
+          if (pastPeriodes.length) lastPeriode = pastPeriodes.sort().pop();
         }
         if (!lastPeriode) return;
 
@@ -9698,13 +9700,14 @@ function ccShowFaseAvg(phaseId) {
       const ghKey = r.gh.trim().toUpperCase();
       const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
       if (rawRow && rawRow.hst < 65) return;
-      // Cari periode terakhir
       let lastPeriode = periodeAktifByGH[ghKey];
       if (!lastPeriode) {
-        const periodeList = RAW_PLANNING
-          .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode)
+        const today2 = new Date(); today2.setHours(0,0,0,0);
+        const pastPeriodes = RAW_PLANNING
+          .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
+          .filter(x => new Date(x.tglTanam) <= today2)
           .map(x => x.periode);
-        if (periodeList.length) lastPeriode = periodeList.sort().pop();
+        if (pastPeriodes.length) lastPeriode = pastPeriodes.sort().pop();
       }
       if (!lastPeriode) return;
       const expected = nextPeriode(lastPeriode);
