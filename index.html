@@ -9494,7 +9494,7 @@ function ccBuildPhaseTimeline() {
 
         // 2. GH masih aktif (HST ≤ 65) → skip
         const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
-        if (rawRow && rawRow.hst <= 65) return;
+        if (rawRow && rawRow.hst < 65) return;
 
         // 3. Cari periode terakhir GH ini:
         //    - Kalau masih ada di RAW (HST > 65): pakai periode dari RAW
@@ -9697,7 +9697,7 @@ function ccShowFaseAvg(phaseId) {
       if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return;
       const ghKey = r.gh.trim().toUpperCase();
       const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
-      if (rawRow && rawRow.hst <= 65) return;
+      if (rawRow && rawRow.hst < 65) return;
       // Cari periode terakhir
       let lastPeriode = periodeAktifByGH[ghKey];
       if (!lastPeriode) {
