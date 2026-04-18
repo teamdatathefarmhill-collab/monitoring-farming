@@ -9405,7 +9405,20 @@ function ccBuildPhaseTimeline() {
       if (!rawByGH[r.gh.trim().toUpperCase()] && r.hst <= 65) histExtra.push(r);
     });
   }
-  let allGH = [...RAW, ...histExtra].filter(r => (r.hst||0) <= 65);
+
+  // Helper: cek apakah GH sudah tidak aktif (data terakhir > 3 hari lalu DAN HST = 65)
+  function isGHStale(r) {
+    if (!r.tgl) return false;
+    const lastTgl = new Date(r.tgl); lastTgl.setHours(0,0,0,0);
+    const today2  = new Date(); today2.setHours(0,0,0,0);
+    const daysSince = Math.floor((today2 - lastTgl) / 864e5);
+    return r.hst >= 65 && daysSince > 3;
+  }
+
+  let allGH = [...RAW, ...histExtra]
+    .filter(r => (r.hst||0) <= 65)
+    .filter(r => !isGHStale(r)); // exclude GH yang sudah stale (selesai tapi belum hilang dari data)
+
   // Apply GH filter
   if (CC_GH_FILTER !== 'semua') allGH = allGH.filter(r => clOf(r.gh||'').toLowerCase() === CC_GH_FILTER);
 
@@ -9525,7 +9538,8 @@ function ccBuildPhaseTimeline() {
       // Kecuali kalau mau tampilkan GH baru yang belum pernah ada di RAW sama sekali
       // → untuk sekarang cukup yang dikenal RAW saja
 
-      const planGHs = Object.values(ghPlanMap);
+      const planGHs = Object.values(ghPlanMap)
+        .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
 
       const dots = planGHs.map(p => {
         const diffDays = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
@@ -9716,7 +9730,8 @@ function ccShowFaseAvg(phaseId) {
       if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
         ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
     });
-    const planGHs = Object.values(ghPlanMap);
+    const planGHs = Object.values(ghPlanMap)
+      .filter(p => CC_GH_FILTER === 'semua' || clOf(p.gh||'').toLowerCase() === CC_GH_FILTER);
     const urgentGHs = planGHs.filter(p => p.tglTanamDate && Math.floor((today-p.tglTanamDate)/864e5) > 2);
     const normalGHs = planGHs.filter(p => !urgentGHs.includes(p));
 
