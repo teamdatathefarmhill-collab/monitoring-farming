@@ -9937,6 +9937,21 @@ function ccShowPlanningDetail(ghName) {
   const varianRows = varUniq.map(r => {
     const sr    = semaiRows.find(s => s.varian && s.varian.toUpperCase() === r.varian.toUpperCase());
     const benih = sr ? (sr.qty||sr.realQtyBenih||0) : 0;
+    const siap  = sr ? (sr.totalBibitSiap||0) : 0;
+    const pct   = benih > 0 ? Math.round(siap/benih*100) : null;
+    const stLbl = pct === null ? '—' : pct >= 90 ? 'Siap' : pct > 0 ? 'Sebagian' : 'Belum';
+    const stBg  = pct === null ? 'var(--surface2)' : pct >= 90 ? 'var(--green-lt)' : pct > 0 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+    const stCol = pct === null ? 'var(--text3)' : pct >= 90 ? 'var(--green-txt)' : pct > 0 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+      <span style="font-weight:500;flex:2">${r.varian||'—'}</span>
+      <span style="flex:1;text-align:right;color:var(--text3)">${benih>0?benih.toLocaleString('id-ID'):'—'}</span>
+      <span style="flex:1;text-align:right;font-weight:500;color:${siap>0?'var(--green-txt)':'var(--text3)'}">${siap>0?siap.toLocaleString('id-ID'):'—'}</span>
+      <span style="flex:1;text-align:right"><span style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:5px;background:${stBg};color:${stCol}">${stLbl}</span></span>
+    </div>`;
+  }).join('');
+
+  const totalBenih = semaiRows.reduce((s,r) => s+(r.qty||r.realQtyBenih||0), 0);
+  const bibitSiap  = semaiRows.reduce((s,r) => s+(r.totalBibitSiap||0), 0);
   const dot = CC[clOf(ghName)] || '#999';
   panel.style.display = '';
   panel.innerHTML = `<div class="card" style="padding:14px 18px;border-left:3px solid var(--blue)">
