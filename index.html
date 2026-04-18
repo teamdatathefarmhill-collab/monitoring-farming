@@ -3575,7 +3575,7 @@ function switchPage(page) {
     if (!RAW_PNY.length) fetchPny(false);
   }
   if (page === 'penyemprotan') initSemp();
-  if (page === 'commandcenter') { initCC(); ensureVigorFetched(); }
+  if (page === 'commandcenter') { initCC(); ensureVigorFetched(); if (!RAW_PLANNING.length) fetchPlanning(); }
   if (page === 'vigor') { ensureVigorFetched(); setTimeout(rebuildVigor, 300); }
   if (page === 'timeline') initTimeline();
   if (page === 'montimeline') initMonTimeline();
@@ -9461,6 +9461,63 @@ function ccBuildPhaseTimeline() {
   ];
 
   container.innerHTML = PHASES.map(ph => {
+    // ── Fase Preparation: pakai data RAW_PLANNING ──
+    if (ph.id === 'preparation') {
+      const today = new Date(); today.setHours(0,0,0,0);
+      // Deduplicate per GH — ambil tglTanam paling dekat
+      const ghPlanMap = {};
+      RAW_PLANNING.forEach(r => {
+        if (!r.tglSemai) return;
+        const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
+        if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanam || tglTanam < ghPlanMap[r.gh].tglTanam)))
+          ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
+      });
+      // Hanya tampilkan GH yang belum ada di RAW aktif (belum geser ke Shoot Growth+)
+      const activeGHs = new Set(RAW.filter(r => r.hst > 0).map(r => r.gh.trim().toUpperCase()));
+      const planGHs = Object.values(ghPlanMap).filter(p => !activeGHs.has(p.gh.trim().toUpperCase()));
+
+      const dots = planGHs.map(p => {
+        const diffDays = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
+        const isUrgent = diffDays !== null && diffDays > 2;
+        const bg  = isUrgent ? 'var(--red)'   : '#1a5fa0';
+        const bdr = isUrgent ? '#8b1515'      : '#0c447f';
+        const ttl = isUrgent
+          ? `${p.gh} · Terlambat ${diffDays} hari (planning tanam: ${p.tglTanam})`
+          : `${p.gh} · Semai: ${p.tglSemai} · Tanam: ${p.tglTanam||'—'}`;
+        const code = ghCodeOf(p.gh);
+        const ghKey = p.gh.replace(/'/g,"\\'");
+        return `<div onclick="ccShowPlanningDetail('${ghKey}')" data-tl-gh="${p.gh}" data-planning="1"
+          style="width:28px;height:28px;border-radius:50%;background:${bg};color:#fff;
+                 display:flex;align-items:center;justify-content:center;font-size:8.5px;font-weight:700;
+                 cursor:pointer;border:2px solid ${bdr};transition:transform .12s;flex-shrink:0;font-family:'JetBrains Mono',monospace"
+          onmouseover="this.style.transform='scale(1.18)'"
+          onmouseout="this.style.transform=''"
+          title="${ttl}">${code}</div>`;
+      }).join('');
+
+      const urgentCount = planGHs.filter(p => {
+        const d = p.tglTanamDate ? Math.floor((today-p.tglTanamDate)/864e5) : null;
+        return d !== null && d > 2;
+      }).length;
+      const countBadge = planGHs.length === 0 ? '' :
+        urgentCount > 0
+          ? `<span style="font-size:9px;font-weight:700;color:var(--red);margin-top:3px">${urgentCount} follow up</span>`
+          : `<span style="font-size:9px;color:var(--green);margin-top:3px">${planGHs.length} semai</span>`;
+
+      return `<div style="flex:1;min-width:90px;display:flex;flex-direction:column">
+        <div onclick="ccShowFaseAvg('${ph.id}')" data-fase-id="${ph.id}"
+          style="font-size:10px;font-weight:700;text-align:center;padding:5px 4px;border-radius:6px;margin-bottom:6px;color:${ph.color};background:${ph.bg};line-height:1.3;cursor:pointer;transition:opacity .12s"
+          onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+          ${ph.label}<br><span style="font-weight:400;font-size:9px;opacity:.8">HST ${ph.hstMin}–${ph.hstMax}</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:34px;align-items:center">
+          ${dots || `<span style="font-size:10px;color:var(--text4)">—</span>`}
+        </div>
+        <div style="text-align:center;min-height:16px">${countBadge}</div>
+      </div>`;
+    }
+
+    // ── Fase lain: pakai RAW seperti biasa ──
     const ghs = allGH
       .filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax)
       .sort((a,b) => a.hst - b.hst);
@@ -9502,7 +9559,36 @@ function ccBuildPhaseTimeline() {
   }).join('');
 }
 
-// ── SHOW FASE AVG PANEL ──
+// ── RAW_PLANNING: data planning tanam (dari GAS sheet planning) ──
+// Format: { gh, periode, varian, tglPeram, tglSemai, tglTanam }
+// Diisi dari fetchPlanning() — sementara pakai dummy data
+let RAW_PLANNING = [];
+
+function applyPlanningData(rows) {
+  RAW_PLANNING = rows.map(r => ({
+    gh      : String(r.gh      || r.GH      || '').trim(),
+    periode : String(r.periode || r.Periode || '').trim(),
+    varian  : String(r.varian  || r.Varian  || '').trim(),
+    tglPeram: String(r.tglPeram|| r.Peram   || '').trim(),
+    tglSemai: String(r.tglSemai|| r.Semai   || '').trim(),
+    tglTanam: String(r.tglTanam|| r.Tanam   || '').trim(),
+  })).filter(r => r.gh && r.tglSemai);
+}
+
+async function fetchPlanning() {
+  try {
+    const url = GAS_URL + '?sheet=planning&_t=' + Date.now();
+    const resp = await fetch(url);
+    const json = await resp.json();
+    if (Array.isArray(json.data)) {
+      applyPlanningData(json.data);
+      // Re-render fase timeline jika CC sedang aktif
+      if (document.getElementById('ccPhaseTimeline')) buildCCPhaseTimeline();
+    }
+  } catch(e) {
+    console.warn('[Planning] Gagal fetch:', e);
+  }
+}
 let _ccActiveFase = null;
 
 function ccShowFaseAvg(phaseId) {
@@ -9539,7 +9625,70 @@ function ccShowFaseAvg(phaseId) {
   const fromV = (document.getElementById('ccDateFrom')||{}).value || '';
   const toV   = (document.getElementById('ccDateTo')||{}).value   || '';
 
-  // GH di fase ini
+  // GH di fase ini — special case untuk Preparation
+  if (phaseId === 'preparation') {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const activeGHs = new Set(RAW.filter(r => r.hst > 0).map(r => r.gh.trim().toUpperCase()));
+    const ghPlanMap = {};
+    RAW_PLANNING.forEach(r => {
+      if (!r.tglSemai) return;
+      const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
+      if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanam || tglTanam < ghPlanMap[r.gh].tglTanam)))
+        ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
+    });
+    const planGHs = Object.values(ghPlanMap).filter(p => !activeGHs.has(p.gh.trim().toUpperCase()));
+    const urgentGHs = planGHs.filter(p => p.tglTanamDate && Math.floor((today-p.tglTanamDate)/864e5) > 2);
+    const normalGHs = planGHs.filter(p => !urgentGHs.includes(p));
+
+    if (!planGHs.length) {
+      panel.innerHTML = `<div class="card" style="padding:14px 18px;font-size:12px;color:var(--text3)">Tidak ada GH dalam proses semai saat ini.</div>`;
+      panel.style.display = '';
+      return;
+    }
+
+    function fmtTglPlan(s) { return s ? s.split('-').reverse().join('/') : '—'; }
+    function diffLabel(p) {
+      if (!p.tglTanamDate) return '—';
+      const d = Math.floor((today - p.tglTanamDate) / 864e5);
+      return d > 0 ? `+${d} hari lewat` : d === 0 ? 'Hari ini' : `H${d}`;
+    }
+
+    const urgentRows = urgentGHs.sort((a,b) => a.tglTanamDate-b.tglTanamDate).map(p => {
+      const d = Math.floor((today-p.tglTanamDate)/864e5);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid #F09595;font-size:12px">
+        <span style="font-weight:500;color:#791F1F;min-width:100px">${p.gh}</span>
+        <span style="color:#A32D2D;flex:1">Semai: ${fmtTglPlan(p.tglSemai)} · Tanam: ${fmtTglPlan(p.tglTanam)}</span>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:#F7C1C1;color:#501313">Terlambat ${d} hari</span>
+      </div>`;
+    }).join('');
+
+    const normalRows = normalGHs.sort((a,b)=>(a.tglTanamDate||0)-(b.tglTanamDate||0)).map(p => {
+      const d = p.tglTanamDate ? Math.floor((p.tglTanamDate-today)/864e5) : null;
+      const lbl = d !== null ? `H-${d}` : '—';
+      return `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+        <span style="font-weight:500;color:var(--text);min-width:100px">${p.gh}</span>
+        <span style="color:var(--text3);flex:1">Semai: ${fmtTglPlan(p.tglSemai)} · Tanam: ${fmtTglPlan(p.tglTanam)}</span>
+        <span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">${lbl}</span>
+      </div>`;
+    }).join('');
+
+    panel.style.display = '';
+    panel.innerHTML = `<div class="card" style="padding:14px 18px;border-left:3px solid var(--blue)">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px">
+        Pra Tanam · ${planGHs.length} GH sedang semai
+      </div>
+      ${urgentGHs.length ? `
+        <div style="font-size:10px;font-weight:700;color:var(--red-txt);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Perlu follow up — sudah lewat tanggal tanam</div>
+        <div style="background:var(--red-lt);border:0.5px solid #f0b0b0;border-radius:8px;padding:8px 12px;margin-bottom:12px">${urgentRows}</div>
+      ` : ''}
+      ${normalGHs.length ? `
+        <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Semai berjalan</div>
+        <div>${normalRows}</div>
+      ` : ''}
+    </div>`;
+    return;
+  }
+
   const ghsInFase = RAW.filter(r => r.hst >= ph.hstMin && r.hst <= ph.hstMax);
   const n = ghsInFase.length;
   if (!n) {
@@ -9612,6 +9761,109 @@ function ccShowFaseAvg(phaseId) {
       ${miniStat('💧','Penyiraman',pnyOk+'/'+n,'var(--green-txt)',pnyDeviasi>0?`<span style="color:var(--red-txt)">${pnyDeviasi} GH deviasi EC/pH</span>`:'Semua EC & pH normal')}
       ${miniStat('🔍','HPT',hptHigh>0?hptHigh+' high risk':hptMed>0?hptMed+' medium':'Aman',hptHigh>0?'var(--red-txt)':hptMed>0?'var(--yellow-txt)':'var(--green-txt)',hptHigh>0?`+ ${hptMed} medium`:hptMed>0?'Perlu monitoring':'Tidak ada serangan signifikan')}
       ${miniStat('🧹','Sanitasi',sntOk+'/'+n+' ok',sntOk===n?'var(--green-txt)':'var(--yellow-txt)',sntIssue>0?`<span style="color:var(--yellow-txt)">${sntIssue} GH belum periode ini</span>`:'Semua sudah sanitasi')}
+    </div>
+  </div>`;
+}
+
+// ── SHOW PLANNING DETAIL (klik dot di Preparation) ──
+function ccShowPlanningDetail(ghName) {
+  const panel = document.getElementById('ccGhIssuePanel');
+  if (!panel) return;
+
+  // Toggle off
+  if (panel._currentGH === ghName && panel.style.display !== 'none') {
+    panel.style.display = 'none';
+    panel._currentGH = null;
+    document.querySelectorAll('[data-tl-gh]').forEach(d => { d.style.outline = ''; d.style.outlineOffset = ''; });
+    return;
+  }
+  panel._currentGH = ghName;
+  document.querySelectorAll('[data-tl-gh]').forEach(d => {
+    d.style.outline = d.getAttribute('data-tl-gh') === ghName ? '3px solid var(--blue)' : '';
+    d.style.outlineOffset = '2px';
+  });
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const varRows = RAW_PLANNING.filter(r => r.gh.trim().toUpperCase() === ghName.trim().toUpperCase());
+  if (!varRows.length) {
+    panel.innerHTML = `<div class="card" style="padding:14px 18px;font-size:12px;color:var(--text3)">Tidak ada data planning untuk ${ghName}.</div>`;
+    panel.style.display = '';
+    return;
+  }
+
+  const sample    = varRows[0];
+  const tglSemai  = sample.tglSemai;
+  const tglTanam  = sample.tglTanam;
+  const tglTanamD = tglTanam ? new Date(tglTanam) : null;
+  const diffDays  = tglTanamD ? Math.floor((today - tglTanamD) / 864e5) : null;
+  const isUrgent  = diffDays !== null && diffDays > 2;
+  const fmtTgl    = s => s ? s.split('-').reverse().join('/') : '—';
+
+  const statusBadge = isUrgent
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--red-lt);color:var(--red-txt)">Terlambat ${diffDays} hari · follow up!</span>`
+    : diffDays !== null && diffDays >= 0
+    ? `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--yellow-lt);color:var(--yellow-txt)">Hari ini / H+${diffDays}</span>`
+    : `<span style="font-size:10px;font-weight:700;padding:2px 9px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">H-${tglTanamD?Math.floor((tglTanamD-today)/864e5):'-'} lagi</span>`;
+
+  // Per varian dari data semai (RAW_SEMAI) jika ada, fallback dummy
+  const semaiRows = RAW_SEMAI ? RAW_SEMAI.filter(r => r.gh && r.gh.trim().toUpperCase()===ghName.trim().toUpperCase() && !r.realTglTanam) : [];
+  const totalBenih = semaiRows.reduce((s,r) => s+(r.qty||r.realQtyBenih||0), 0);
+  const bibitSiap  = semaiRows.reduce((s,r) => s+(r.totalBibitSiap||0), 0);
+
+  const varianRows = varRows.map(r => {
+    const sr = semaiRows.find(s => s.varian && s.varian.toUpperCase()===r.varian.toUpperCase());
+    const benih = sr ? (sr.qty||sr.realQtyBenih||0) : 0;
+    const siap  = sr ? (sr.totalBibitSiap||0) : 0;
+    const pct   = benih > 0 ? Math.round(siap/benih*100) : null;
+    const stLbl = pct === null ? '—' : pct >= 90 ? 'Siap' : pct > 0 ? 'Sebagian' : 'Belum';
+    const stBg  = pct === null ? 'var(--surface2)' : pct >= 90 ? 'var(--green-lt)' : pct > 0 ? 'var(--yellow-lt)' : 'var(--red-lt)';
+    const stCol = pct === null ? 'var(--text3)' : pct >= 90 ? 'var(--green-txt)' : pct > 0 ? 'var(--yellow-txt)' : 'var(--red-txt)';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:0.5px solid var(--border);font-size:12px">
+      <span style="font-weight:500;flex:2">${r.varian||'—'}</span>
+      <span style="flex:1;text-align:right;color:var(--text3)">${benih>0?benih.toLocaleString('id-ID'):'—'}</span>
+      <span style="flex:1;text-align:right;font-weight:500;color:${pct>=90?'var(--green-txt)':pct>0?'var(--yellow-txt)':'var(--text3)'}">${siap>0?siap.toLocaleString('id-ID'):'—'}</span>
+      <span style="flex:1;text-align:right"><span style="font-size:10px;font-weight:500;padding:1px 7px;border-radius:5px;background:${stBg};color:${stCol}">${stLbl}</span></span>
+    </div>`;
+  }).join('');
+
+  const dot = CC[clOf(ghName)] || '#999';
+  panel.style.display = '';
+  panel.innerHTML = `<div class="card" style="padding:14px 18px;border-left:3px solid var(--blue)">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:8px">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:10px;height:10px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>
+          <span style="font-size:15px;font-weight:700">${ghName}</span>
+          ${statusBadge}
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">
+          Periode ${sample.periode||'—'} &nbsp;·&nbsp; Semai: ${fmtTgl(tglSemai)} &nbsp;·&nbsp; Planning tanam: ${fmtTgl(tglTanam)}
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px">
+      <div style="background:var(--surface2);border-radius:8px;padding:9px 12px;text-align:center">
+        <div style="font-size:20px;font-weight:700">${varRows.length}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Varian</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:9px 12px;text-align:center">
+        <div style="font-size:20px;font-weight:700">${totalBenih>0?totalBenih.toLocaleString('id-ID'):'—'}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Total benih</div>
+      </div>
+      <div style="background:var(--surface2);border-radius:8px;padding:9px 12px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:${bibitSiap>0?'var(--green-txt)':'var(--text3)'}">${bibitSiap>0?bibitSiap.toLocaleString('id-ID'):'—'}</div>
+        <div style="font-size:10px;color:var(--text3);margin-top:2px">Siap tanam</div>
+      </div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Detail per varian</div>
+    <div style="background:var(--surface2);border-radius:8px;padding:8px 12px">
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0 6px;border-bottom:0.5px solid var(--border);font-size:10px;color:var(--text3);font-weight:500">
+        <span style="flex:2">Varian</span>
+        <span style="flex:1;text-align:right">Total benih</span>
+        <span style="flex:1;text-align:right">Siap tanam</span>
+        <span style="flex:1;text-align:right">Status</span>
+      </div>
+      ${varianRows || `<div style="font-size:11px;color:var(--text3);padding:8px 0">Data semai belum tersedia — akan muncul setelah tim input data</div>`}
     </div>
   </div>`;
 }
