@@ -9566,24 +9566,27 @@ let RAW_PLANNING = [];
 
 function applyPlanningData(rows) {
   RAW_PLANNING = rows.map(r => ({
-    gh      : String(r.gh      || r.GH      || '').trim(),
-    periode : String(r.periode || r.Periode || '').trim(),
-    varian  : String(r.varian  || r.Varian  || '').trim(),
-    tglPeram: String(r.tglPeram|| r.Peram   || '').trim(),
-    tglSemai: String(r.tglSemai|| r.Semai   || '').trim(),
-    tglTanam: String(r.tglTanam|| r.Tanam   || '').trim(),
+    gh      : String(r.gh       || r.GH      || '').trim(),
+    periode : String(r.periode  || r.Periode || '').trim(),
+    varian  : String(r.varian   || r.Varian  || '').trim(),
+    tglPeram: String(r.tglPeram || r.Peram   || '').trim(),
+    tglSemai: String(r.tglSemai || r.Semai   || '').trim(),
+    tglTanam: String(r.tglTanam || r.Tanam   || '').trim(),
   })).filter(r => r.gh && r.tglSemai);
+  console.log('[Planning] applyPlanningData:', RAW_PLANNING.length, 'rows, sample:', RAW_PLANNING[0]);
 }
 
 async function fetchPlanning() {
   try {
-    const url = GAS_URL + '?sheet=planning&_t=' + Date.now();
-    const resp = await fetch(url);
+    const url = 'https://script.google.com/macros/s/AKfycbwgxxO1ZOY5Cr2MrcO2nYvnz7Gi0aRiFIli7kms3R-0RblQK_kslvg_RZDq_OY6FG4M/exec' + '?_t=' + Date.now();
+    const resp = await fetch(url, { redirect: 'follow' });
     const json = await resp.json();
-    if (Array.isArray(json.data)) {
+    if (Array.isArray(json.data) && json.data.length) {
       applyPlanningData(json.data);
-      // Re-render fase timeline jika CC sedang aktif
+      console.log('[Planning] Loaded:', RAW_PLANNING.length, 'rows');
       if (document.getElementById('ccPhaseTimeline')) ccBuildPhaseTimeline();
+    } else {
+      console.warn('[Planning] Data kosong atau format salah:', json);
     }
   } catch(e) {
     console.warn('[Planning] Gagal fetch:', e);
