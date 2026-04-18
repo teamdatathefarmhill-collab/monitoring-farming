@@ -9489,16 +9489,29 @@ function ccBuildPhaseTimeline() {
         const expectedPeriode = periodeAktif ? nextPeriode(periodeAktif) : null;
 
         // Hanya ambil jika:
-        // 1. GH milik sendiri (Tohudan, Bergas, Colomadu, Sawahan) — bukan GH mitra
-        // 2. GH ada di RAW (GH yang dikenal sistem)
-        // 3. Periodenya adalah periode berikutnya dari periode aktif
-        // 4. GH sudah tidak aktif (HST > 65) — belum selesai jangan ditampilkan
-        if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return; // GH mitra, skip
-        if (!periodeAktif) return; // GH tidak dikenal, skip
-        if (expectedPeriode && r.periode !== expectedPeriode) return; // bukan periode berikutnya
-        // Cek apakah GH masih aktif di fase manapun (HST ≤ 65)
+        // 1. GH milik sendiri — bukan GH mitra
+        if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return;
+
+        // 2. GH masih aktif (HST ≤ 65) → skip
         const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
-        if (rawRow && rawRow.hst <= 65) return; // masih aktif, belum waktunya muncul di Preparation
+        if (rawRow && rawRow.hst <= 65) return;
+
+        // 3. Cari periode terakhir GH ini:
+        //    - Kalau masih ada di RAW (HST > 65): pakai periode dari RAW
+        //    - Kalau sudah tidak ada di RAW: cari periode terbesar di RAW_PLANNING untuk GH ini
+        let lastPeriode = periodeAktif; // dari RAW
+        if (!lastPeriode) {
+          // Cari periode terbesar di planning untuk GH ini
+          const periodeList = RAW_PLANNING
+            .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode)
+            .map(x => x.periode);
+          if (periodeList.length) lastPeriode = periodeList.sort().pop();
+        }
+        if (!lastPeriode) return;
+
+        // 4. Periode yang dicari = periode terakhir + 1
+        const expected = nextPeriode(lastPeriode);
+        if (!expected || r.periode !== expected) return;
 
         const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
         if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
@@ -9681,15 +9694,21 @@ function ccShowFaseAvg(phaseId) {
     const ghPlanMap = {};
     RAW_PLANNING.forEach(r => {
       if (!r.tglSemai || !r.gh) return;
-      if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return; // GH mitra, skip
+      if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return;
       const ghKey = r.gh.trim().toUpperCase();
-      const periodeAktif = periodeAktifByGH[ghKey];
-      if (!periodeAktif) return;
-      const expectedPeriode = nextPeriode(periodeAktif);
-      if (expectedPeriode && r.periode !== expectedPeriode) return;
-      // Jangan tampilkan kalau GH masih aktif (HST ≤ 65)
       const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
       if (rawRow && rawRow.hst <= 65) return;
+      // Cari periode terakhir
+      let lastPeriode = periodeAktifByGH[ghKey];
+      if (!lastPeriode) {
+        const periodeList = RAW_PLANNING
+          .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode)
+          .map(x => x.periode);
+        if (periodeList.length) lastPeriode = periodeList.sort().pop();
+      }
+      if (!lastPeriode) return;
+      const expected = nextPeriode(lastPeriode);
+      if (!expected || r.periode !== expected) return;
       const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
       if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
         ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
