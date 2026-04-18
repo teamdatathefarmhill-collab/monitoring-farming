@@ -9464,17 +9464,53 @@ function ccBuildPhaseTimeline() {
     // ── Fase Preparation: pakai data RAW_PLANNING ──
     if (ph.id === 'preparation') {
       const today = new Date(); today.setHours(0,0,0,0);
-      // Deduplicate per GH — ambil tglTanam paling dekat
+
+      // Buat lookup periode aktif per GH dari RAW (periode yang sedang berjalan)
+      const periodeAktifByGH = {};
+      RAW.forEach(r => { periodeAktifByGH[r.gh.trim().toUpperCase()] = r.periode; });
+
+      // Helper: increment periode (misal "26.1" → "26.2")
+      function nextPeriode(p) {
+        if (!p) return null;
+        const parts = String(p).split('.');
+        if (parts.length === 2) {
+          return parts[0] + '.' + (parseInt(parts[1]) + 1);
+        }
+        return null;
+      }
+
+      // Dari planning: ambil GH yang periodenya = periode aktif + 1
+      // Ini artinya GH sudah selesai periode sekarang dan siap mulai periode berikutnya
       const ghPlanMap = {};
       RAW_PLANNING.forEach(r => {
-        if (!r.tglSemai) return;
+        if (!r.tglSemai || !r.gh) return;
+        const ghKey = r.gh.trim().toUpperCase();
+        const periodeAktif = periodeAktifByGH[ghKey];
+        const expectedPeriode = periodeAktif ? nextPeriode(periodeAktif) : null;
+
+        // Hanya ambil jika:
+        // 1. GH milik sendiri (Tohudan, Bergas, Colomadu, Sawahan) — bukan GH mitra
+        // 2. GH ada di RAW (GH yang dikenal sistem)
+        // 3. Periodenya adalah periode berikutnya dari periode aktif
+        // 4. GH sudah tidak aktif (HST > 65) — belum selesai jangan ditampilkan
+        if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return; // GH mitra, skip
+        if (!periodeAktif) return; // GH tidak dikenal, skip
+        if (expectedPeriode && r.periode !== expectedPeriode) return; // bukan periode berikutnya
+        // Cek apakah GH masih aktif di fase manapun (HST ≤ 65)
+        const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
+        if (rawRow && rawRow.hst <= 65) return; // masih aktif, belum waktunya muncul di Preparation
+
         const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
-        if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanam || tglTanam < ghPlanMap[r.gh].tglTanam)))
+        if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
           ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
       });
-      // Hanya tampilkan GH yang belum ada di RAW aktif (belum geser ke Shoot Growth+)
-      const activeGHs = new Set(RAW.filter(r => r.hst > 0).map(r => r.gh.trim().toUpperCase()));
-      const planGHs = Object.values(ghPlanMap).filter(p => !activeGHs.has(p.gh.trim().toUpperCase()));
+
+      // GH yang sudah hilang dari semua fase aktif (HST > 65 atau tidak ada di RAW)
+      // sudah otomatis tidak punya periode aktif → tidak masuk filter di atas
+      // Kecuali kalau mau tampilkan GH baru yang belum pernah ada di RAW sama sekali
+      // → untuk sekarang cukup yang dikenal RAW saja
+
+      const planGHs = Object.values(ghPlanMap);
 
       const dots = planGHs.map(p => {
         const diffDays = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
@@ -9631,15 +9667,34 @@ function ccShowFaseAvg(phaseId) {
   // GH di fase ini — special case untuk Preparation
   if (phaseId === 'preparation') {
     const today = new Date(); today.setHours(0,0,0,0);
-    const activeGHs = new Set(RAW.filter(r => r.hst > 0).map(r => r.gh.trim().toUpperCase()));
+
+    // Helper increment periode
+    function nextPeriode(p) {
+      if (!p) return null;
+      const parts = String(p).split('.');
+      return parts.length === 2 ? parts[0] + '.' + (parseInt(parts[1]) + 1) : null;
+    }
+
+    const periodeAktifByGH = {};
+    RAW.forEach(r => { periodeAktifByGH[r.gh.trim().toUpperCase()] = r.periode; });
+
     const ghPlanMap = {};
     RAW_PLANNING.forEach(r => {
-      if (!r.tglSemai) return;
+      if (!r.tglSemai || !r.gh) return;
+      if (!/^(TOHUDAN|BERGAS|COLOMADU|SAWAHAN)/i.test(r.gh)) return; // GH mitra, skip
+      const ghKey = r.gh.trim().toUpperCase();
+      const periodeAktif = periodeAktifByGH[ghKey];
+      if (!periodeAktif) return;
+      const expectedPeriode = nextPeriode(periodeAktif);
+      if (expectedPeriode && r.periode !== expectedPeriode) return;
+      // Jangan tampilkan kalau GH masih aktif (HST ≤ 65)
+      const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
+      if (rawRow && rawRow.hst <= 65) return;
       const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
-      if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanam || tglTanam < ghPlanMap[r.gh].tglTanam)))
+      if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
         ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
     });
-    const planGHs = Object.values(ghPlanMap).filter(p => !activeGHs.has(p.gh.trim().toUpperCase()));
+    const planGHs = Object.values(ghPlanMap);
     const urgentGHs = planGHs.filter(p => p.tglTanamDate && Math.floor((today-p.tglTanamDate)/864e5) > 2);
     const normalGHs = planGHs.filter(p => !urgentGHs.includes(p));
 
