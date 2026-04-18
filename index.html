@@ -9509,24 +9509,31 @@ function ccBuildPhaseTimeline() {
         const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
         if (rawRow && rawRow.hst < 65) return;
 
-        // 3. Cari periode terakhir yang sudah selesai:
-        //    - Ada di RAW (HST ≥ 65): pakai periode dari RAW
-        //    - Tidak ada di RAW: cari periode terbesar yang tglTanam sudah lewat hari ini
+        // 3. Cari periode yang tepat untuk ditampilkan:
+        //    - Ada di RAW (HST ≥ 65): pakai periode aktif + 1 (akan tanam berikutnya)
+        //    - Tidak ada di RAW: cek periode terbesar yang tglTanam sudah lewat
+        //      → kalau sudah lewat > 2 hari = belum ada pemetaan, tampilkan periode itu (urgent)
+        //      → kalau belum lewat atau baru lewat = tampilkan periode itu (semai berjalan)
         let lastPeriode = periodeAktif; // dari RAW
-        if (!lastPeriode) {
+        let targetPeriodeForGH = null;
+
+        if (lastPeriode) {
+          // GH masih di RAW (HST ≥ 65) → tampilkan periode berikutnya
+          targetPeriodeForGH = nextPeriode(lastPeriode);
+        } else {
+          // GH tidak ada di RAW → cari periode terbesar yang tglTanam sudah lewat
           const today2 = new Date(); today2.setHours(0,0,0,0);
-          // Ambil periode yang tglTanam sudah lewat, pilih yang terbesar
-          const pastPeriodes = RAW_PLANNING
+          const pastRows = RAW_PLANNING
             .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
             .filter(x => new Date(x.tglTanam) <= today2)
-            .map(x => x.periode);
-          if (pastPeriodes.length) lastPeriode = pastPeriodes.sort().pop();
+            .sort((a,b) => b.periode.localeCompare(a.periode));
+          if (pastRows.length) {
+            // Periode terbesar yang sudah lewat = periode yang harusnya sudah ditanam
+            // tapi belum ada di RAW → ini yang perlu di-follow up
+            targetPeriodeForGH = pastRows[0].periode;
+          }
         }
-        if (!lastPeriode) return;
-
-        // 4. Periode yang dicari = periode terakhir + 1
-        const expected = nextPeriode(lastPeriode);
-        if (!expected || r.periode !== expected) return;
+        if (!targetPeriodeForGH || r.periode !== targetPeriodeForGH) return;
 
         const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
         if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
@@ -9722,18 +9729,19 @@ function ccShowFaseAvg(phaseId) {
       const ghKey = r.gh.trim().toUpperCase();
       const rawRow = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
       if (rawRow && rawRow.hst < 65) return;
-      let lastPeriode = periodeAktifByGH[ghKey];
-      if (!lastPeriode) {
+      const periodeAktif2 = periodeAktifByGH[ghKey];
+      let targetPeriodeForGH2 = null;
+      if (periodeAktif2) {
+        targetPeriodeForGH2 = nextPeriode(periodeAktif2);
+      } else {
         const today2 = new Date(); today2.setHours(0,0,0,0);
-        const pastPeriodes = RAW_PLANNING
+        const pastRows2 = RAW_PLANNING
           .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
           .filter(x => new Date(x.tglTanam) <= today2)
-          .map(x => x.periode);
-        if (pastPeriodes.length) lastPeriode = pastPeriodes.sort().pop();
+          .sort((a,b) => b.periode.localeCompare(a.periode));
+        if (pastRows2.length) targetPeriodeForGH2 = pastRows2[0].periode;
       }
-      if (!lastPeriode) return;
-      const expected = nextPeriode(lastPeriode);
-      if (!expected || r.periode !== expected) return;
+      if (!targetPeriodeForGH2 || r.periode !== targetPeriodeForGH2) return;
       const tglTanam = r.tglTanam ? new Date(r.tglTanam) : null;
       if (!ghPlanMap[r.gh] || (tglTanam && (!ghPlanMap[r.gh].tglTanamDate || tglTanam < ghPlanMap[r.gh].tglTanamDate)))
         ghPlanMap[r.gh] = { ...r, tglTanamDate: tglTanam };
@@ -9901,15 +9909,16 @@ function ccShowPlanningDetail(ghName) {
     return parts.length === 2 ? parts[0] + '.' + (parseInt(parts[1]) + 1) : null;
   }
   const rawRow     = RAW.find(x => x.gh.trim().toUpperCase() === ghKey);
-  let lastPeriode  = rawRow ? rawRow.periode : null;
-  if (!lastPeriode) {
-    const pastPeriodes = RAW_PLANNING
+  let targetPeriode = null;
+  if (rawRow) {
+    targetPeriode = nextPeriodeLocal(rawRow.periode);
+  } else {
+    const pastRows = RAW_PLANNING
       .filter(x => x.gh.trim().toUpperCase() === ghKey && x.periode && x.tglTanam)
       .filter(x => new Date(x.tglTanam) <= today)
-      .map(x => x.periode);
-    if (pastPeriodes.length) lastPeriode = pastPeriodes.sort().pop();
+      .sort((a,b) => b.periode.localeCompare(a.periode));
+    if (pastRows.length) targetPeriode = pastRows[0].periode;
   }
-  const targetPeriode = nextPeriodeLocal(lastPeriode);
 
   // Filter hanya periode yang relevan
   const allRows = RAW_PLANNING.filter(r => r.gh.trim().toUpperCase() === ghKey);
