@@ -9583,7 +9583,7 @@ async function fetchPlanning() {
     if (Array.isArray(json.data)) {
       applyPlanningData(json.data);
       // Re-render fase timeline jika CC sedang aktif
-      if (document.getElementById('ccPhaseTimeline')) buildCCPhaseTimeline();
+      if (document.getElementById('ccPhaseTimeline')) ccBuildPhaseTimeline();
     }
   } catch(e) {
     console.warn('[Planning] Gagal fetch:', e);
