@@ -498,6 +498,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-commandcenter" onclick="switchPage('commandcenter')"><span class="nav-icon">🎯</span> Command Center</div>
 
     <div class="nav-section">Menu</div>
+    <div class="nav-item" id="nav-populasi" onclick="switchPage('populasi')"><span class="nav-icon">👥</span> Populasi</div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
@@ -505,8 +506,6 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-penyemprotan" onclick="showMenuMaintenance('Penyemprotan','penyemprotan')"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item" id="nav-vigor" onclick="showMenuMaintenance('Kes. Tanaman','vigor')"><span class="nav-icon">🌿</span> Kes. Tanaman <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
-
-    <div class="nav-section">Pemantauan</div>
 
     <div class="nav-section">Pengaturan</div>
     <div class="nav-item soon"><span class="nav-icon">⚙️</span> Standar <span class="soon-tag">soon</span></div>
@@ -2317,8 +2316,297 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
     </div><!-- /view-sanitasi -->
 
-  </main>
+    <!-- ═══════════ VIEW: POPULASI ═══════════ -->
+    <div id="view-populasi" style="display:none">
+      <div class="ph">
+        <div>
+          <div class="ph-title">👥 Monitoring Populasi</div>
+          <div class="ph-sub" id="popSub">Kondisi harian · memuat data…</div>
+        </div>
+        <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+          <button class="fbtn active" id="popFiltSemua"   onclick="setPopFilter('semua',this)">Semua GH</button>
+          <button class="fbtn" id="popFiltTohudan"  onclick="setPopFilter('tohudan',this)">Tohudan</button>
+          <button class="fbtn" id="popFiltSawahan"  onclick="setPopFilter('sawahan',this)">Sawahan</button>
+          <button class="fbtn" id="popFiltColomadu" onclick="setPopFilter('colomadu',this)">Colomadu</button>
+          <button class="fbtn" id="popFiltBergas"   onclick="setPopFilter('bergas',this)">Bergas</button>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
+            <span style="font-size:11px;color:var(--text3)">Periode:</span>
+            <input type="date" id="popDateFrom" onchange="rebuildPopulasi()"
+              style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit">
+            <span style="font-size:11px;color:var(--text3)">—</span>
+            <input type="date" id="popDateTo" onchange="rebuildPopulasi()"
+              style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit">
+            <button class="fbtn" onclick="fetchSO(true)">🔄 Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ph" style="padding-top:0">
+        <!-- Score cards -->
+        <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:10px;margin-bottom:14px" id="popScoreCards">
+          <div class="card" style="padding:14px 18px;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:12px">Memuat…</div>
+        </div>
+
+        <!-- Tabel -->
+        <div class="card" style="margin-bottom:14px;overflow-x:auto">
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">Detail per GH</div>
+          <div id="popTableWrap">
+            <div style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">Memuat data…</div>
+          </div>
+        </div>
+
+        <!-- Trend chart -->
+        <div class="card">
+          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
+          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rata-rata populasi akhir per HST seluruh GH aktif</div>
+          <div style="position:relative;width:100%;height:200px">
+            <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65">Tren populasi.</canvas>
+          </div>
+          <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:16px;height:2px;background:#1a5fa0;display:inline-block"></span>Pop akhir avg</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:16px;height:2px;background:#c87800;display:inline-block;border-top:2px dashed #c87800"></span>Std minimum</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /view-populasi -->
 </div>
+
+<script>
+// ══════════════════════════════════════════════
+// POPULASI — SO DATA & REBUILD
+// ══════════════════════════════════════════════
+const SO_GAS_URL = 'https://script.google.com/macros/s/AKfycbzdKlcjP22y1BEL0-6y7RUtHAwgxkLw5YM_QBASGMq5O3e4oDn7q-sXELDZG0NspNVD/exec';
+let RAW_SO = [];
+let POP_FILTER = 'semua';
+let _popChart = null;
+
+async function fetchSO(manual = false) {
+  try {
+    const resp = await fetch(SO_GAS_URL + '?sheet=so&_t=' + Date.now(), { redirect: 'follow' });
+    const json = await resp.json();
+    if (Array.isArray(json.data)) {
+      RAW_SO = json.data;
+      console.log('[SO] Loaded:', RAW_SO.length, 'rows');
+      rebuildPopulasi();
+    }
+  } catch(e) {
+    console.warn('[SO] Gagal fetch:', e);
+  }
+}
+
+function setPopFilter(val, el) {
+  POP_FILTER = val;
+  document.querySelectorAll('[id^="popFilt"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  rebuildPopulasi();
+}
+
+function popInitDateRange() {
+  const fromEl = document.getElementById('popDateFrom');
+  const toEl   = document.getElementById('popDateTo');
+  if (!fromEl || !toEl || fromEl.value) return;
+  const now = new Date();
+  const y   = now.getFullYear(), m = String(now.getMonth()+1).padStart(2,'0');
+  fromEl.value = `${y}-${m}-01`;
+  toEl.value   = now.toISOString().slice(0,10);
+}
+
+function rebuildPopulasi() {
+  popInitDateRange();
+  const fromV = (document.getElementById('popDateFrom')||{}).value || '';
+  const toV   = (document.getElementById('popDateTo')||{}).value   || '';
+
+  const clOf2 = gh => {
+    const g = String(gh).toUpperCase();
+    if (g.includes('TOHUDAN'))  return 'tohudan';
+    if (g.includes('SAWAHAN'))  return 'sawahan';
+    if (g.includes('COLOMADU')) return 'colomadu';
+    if (g.includes('BERGAS'))   return 'bergas';
+    return 'lainnya';
+  };
+
+  const rawD = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
+
+  const subEl = document.getElementById('popSub');
+  if (subEl) {
+    const now = new Date();
+    const hr = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'][now.getDay()];
+    const tg = now.toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'});
+    subEl.textContent = `Kondisi harian · ${hr}, ${tg} · ${rawD.length} GH tercatat`;
+  }
+
+  // SO lookup — ambil tanggal terbaru per GH+periode
+  const soByGH = {};
+  RAW_SO.forEach(r => {
+    const ghKey = r.gh.trim().toUpperCase();
+    const per   = r.periode.trim();
+    if (!soByGH[ghKey]) soByGH[ghKey] = {};
+    if (!soByGH[ghKey][per] || r.tanggal > soByGH[ghKey][per].tanggal)
+      soByGH[ghKey][per] = { tanggal: r.tanggal, total: 0 };
+  });
+  RAW_SO.forEach(r => {
+    const ghKey = r.gh.trim().toUpperCase();
+    const per   = r.periode.trim();
+    if (soByGH[ghKey]?.[per]?.tanggal === r.tanggal)
+      soByGH[ghKey][per].total += r.populasi;
+  });
+
+  const fmtN = n => Math.round(n).toLocaleString('id-ID');
+  const totalPopAkhir = rawD.reduce((s,r) => s+r.popAkhir, 0);
+  const totalPopAwal  = rawD.reduce((s,r) => s+r.popAwal, 0);
+  const pctSurvival   = totalPopAwal > 0 ? (totalPopAkhir/totalPopAwal*100) : 0;
+
+  const sntD = RAW_SNT.filter(x => {
+    if (fromV && (x.tgl||'') < fromV) return false;
+    if (toV   && (x.tgl||'') > toV)   return false;
+    if (POP_FILTER !== 'semua' && clOf2(x.gh) !== POP_FILTER) return false;
+    return true;
+  });
+  const totalSanitasi = sntD.reduce((s,x) => s+(x.jml||0), 0);
+  const lossPct = totalPopAwal > 0 ? (totalSanitasi/totalPopAwal*100) : 0;
+
+  let totalSO = 0, soCount = 0;
+  rawD.forEach(r => {
+    const d = soByGH[r.gh.trim().toUpperCase()]?.[r.periode.trim()];
+    if (d) { totalSO += d.total; soCount++; }
+  });
+  const devSO = totalSO > 0 ? ((totalPopAkhir-totalSO)/totalSO*100) : null;
+
+  const ghNormal = rawD.filter(r => pctPopVsStd(r) >= 97).length;
+  const ghWarn   = rawD.filter(r => { const p=pctPopVsStd(r); return p>=90&&p<97; }).length;
+  const ghKritis = rawD.filter(r => pctPopVsStd(r) < 90).length;
+  const barW = n => Math.round(n/Math.max(rawD.length,1)*100);
+
+  document.getElementById('popScoreCards').innerHTML = `
+    <div class="card" style="padding:14px 18px;border-left:3px solid #1a5fa0;border-radius:0 8px 8px 0">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Total Populasi vs Awal</div>
+      <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+        <span style="font-size:26px;font-weight:700;color:#1a5fa0">${fmtN(totalPopAkhir)}</span>
+        <span style="font-size:13px;color:var(--text3)">/ ${fmtN(totalPopAwal)}</span>
+        <span style="font-size:12px;font-weight:700;padding:2px 8px;border-radius:5px;background:var(--green-lt);color:var(--green-txt)">${pctSurvival.toFixed(1)}%</span>
+      </div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin:10px 0 8px">
+        <div style="width:${Math.min(pctSurvival,100).toFixed(1)}%;height:100%;background:#1a5fa0;border-radius:2px"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div style="background:var(--surface2);border-radius:6px;padding:7px 10px">
+          <div style="font-size:10px;color:var(--text3)">Pop akhir</div>
+          <div style="font-size:14px;font-weight:700">${fmtN(totalPopAkhir)}</div>
+        </div>
+        <div style="background:var(--surface2);border-radius:6px;padding:7px 10px">
+          <div style="font-size:10px;color:var(--text3)">Pop awal</div>
+          <div style="font-size:14px;font-weight:700">${fmtN(totalPopAwal)}</div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Total Sanitasi</div>
+      <div style="font-size:26px;font-weight:700">${fmtN(totalSanitasi)}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">${fromV?fromV.split('-').reverse().join('/'):'—'} s/d ${toV?toV.split('-').reverse().join('/'):'—'}</div>
+      <div style="margin-top:10px">
+        <div style="font-size:10px;color:var(--text3)">Loss rate</div>
+        <div style="font-size:16px;font-weight:700;color:${lossPct>5?'var(--red-txt)':lossPct>2?'var(--yellow-txt)':'var(--green-txt)'}">${lossPct.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div class="card" style="padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Deviasi vs SO</div>
+      <div style="font-size:26px;font-weight:700;color:${devSO===null?'var(--text3)':Math.abs(devSO)>10?'var(--red-txt)':Math.abs(devSO)>5?'var(--yellow-txt)':'var(--green-txt)'}">${devSO===null?'—':(devSO>=0?'+':'')+devSO.toFixed(1)+'%'}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Pop akhir vs total SO terbaru</div>
+      <div style="margin-top:8px"><span style="font-size:11px;padding:2px 8px;border-radius:5px;background:var(--surface2);color:var(--text3)">${soCount} GH ada data SO</span></div>
+    </div>
+    <div class="card" style="padding:14px 18px">
+      <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Status GH</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${[['Normal',ghNormal,'var(--green-mid)','var(--green-txt)'],['Perhatian',ghWarn,'#c87800','var(--yellow-txt)'],['Kritis',ghKritis,'var(--red)','var(--red-txt)']].map(([lbl,n,bg,col])=>`
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:var(--text3);width:70px">${lbl}</span>
+          <div style="flex:1;height:6px;background:var(--border2);border-radius:3px;overflow:hidden">
+            <div style="width:${barW(n)}%;height:100%;background:${bg};border-radius:3px"></div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:${col};width:20px;text-align:right">${n}</span>
+        </div>`).join('')}
+      </div>
+    </div>`;
+
+  // Tabel
+  const sorted = [...rawD].sort((a,b) => a.hst - b.hst);
+  let tbl = `<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">
+    <colgroup><col style="width:120px"><col style="width:60px"><col style="width:54px">
+    <col style="width:90px"><col style="width:90px"><col style="width:80px">
+    <col style="width:76px"><col style="width:86px"><col style="width:100px"></colgroup>
+    <thead><tr style="background:var(--surface2)">
+      ${['GH','Periode','HST','Pop Awal','Pop Akhir','Sanitasi','Tgl SO','Total SO','Deviasi SO']
+        .map((h,i)=>`<th style="padding:6px 8px;font-size:10px;font-weight:700;color:var(--text3);border-bottom:0.5px solid var(--border);text-align:${i>2?'right':'left'};text-transform:uppercase;letter-spacing:.4px">${h}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+  sorted.forEach(r => {
+    const ghKey = r.gh.trim().toUpperCase();
+    const per   = r.periode.trim();
+    const soD   = soByGH[ghKey]?.[per];
+    const totalSOr = soD ? soD.total : null;
+    const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
+    const san      = r.popAwal - r.popAkhir;
+    const devR     = totalSOr ? ((r.popAkhir-totalSOr)/totalSOr*100) : null;
+    const devCol   = devR===null?'var(--text3)':Math.abs(devR)>10?'var(--red-txt)':Math.abs(devR)>5?'var(--yellow-txt)':'var(--green-txt)';
+    const devBg    = devR===null?'var(--surface2)':Math.abs(devR)>10?'var(--red-lt)':Math.abs(devR)>5?'var(--yellow-lt)':'var(--green-lt)';
+    const dot = {tohudan:'#1a5fa0',sawahan:'#1a7a3a',colomadu:'#a06000',bergas:'#8b1515'}[clOf2(r.gh)]||'#999';
+    tbl += `<tr style="border-bottom:0.5px solid var(--border)">
+      <td style="padding:6px 8px;font-weight:700"><span style="width:7px;height:7px;border-radius:50%;background:${dot};display:inline-block;margin-right:5px;vertical-align:middle"></span>${r.gh}</td>
+      <td style="padding:6px 8px;color:var(--text3)">${r.periode}</td>
+      <td style="padding:6px 8px;text-align:right"><span style="background:var(--hdr);color:var(--hdr-txt);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${r.hst}</span></td>
+      <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace">${fmtN(r.popAwal)}</td>
+      <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700">${fmtN(r.popAkhir)}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--text3)">${san>0?fmtN(san):'—'}</td>
+      <td style="padding:6px 8px;font-size:10px;color:var(--text3)">${tglSO}</td>
+      <td style="padding:6px 8px;text-align:right;font-family:'JetBrains Mono',monospace">${totalSOr!==null?fmtN(totalSOr):'—'}</td>
+      <td style="padding:6px 8px;text-align:right"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:5px;background:${devBg};color:${devCol}">${devR===null?'—':(devR>=0?'+':'')+devR.toFixed(1)+'%'}</span></td>
+    </tr>`;
+  });
+  tbl += '</tbody></table>';
+  document.getElementById('popTableWrap').innerHTML = tbl;
+
+  buildPopTrendChart(rawD);
+}
+
+function buildPopTrendChart(rawD) {
+  const hstMap = {};
+  const histSrc = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : rawD;
+  histSrc.forEach(r => {
+    const h = r.hst;
+    if (h < 1 || h > 65) return;
+    if (!hstMap[h]) hstMap[h] = { sum:0, cnt:0 };
+    hstMap[h].sum += r.popAkhir;
+    hstMap[h].cnt++;
+  });
+  const hsts   = Array.from({length:65},(_,i)=>i+1);
+  const popAvg = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum/hstMap[h].cnt) : null);
+  const avgAwal = rawD.length ? rawD.reduce((s,r)=>s+r.popAwal,0)/rawD.length : 5000;
+  const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
+
+  const canvas = document.getElementById('popTrendCanvas');
+  if (!canvas) return;
+  if (_popChart) { _popChart.destroy(); _popChart = null; }
+
+  _popChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: hsts,
+      datasets: [
+        { label:'Pop akhir avg', data:popAvg, borderColor:'#1a5fa0', backgroundColor:'#1a5fa015', borderWidth:2, pointRadius:0, tension:0.4, fill:true, spanGaps:true },
+        { label:'Std minimum',  data:stdLine, borderColor:'#c87800', borderDash:[4,3], borderWidth:1.5, pointRadius:0, tension:0.3, fill:false }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{
+        x:{ ticks:{ maxTicksLimit:13, font:{size:10}, color:'#888', callback:(v,i)=>'HST '+(i+1) }, grid:{ color:'rgba(128,128,128,.1)' } },
+        y:{ ticks:{ font:{size:10}, color:'#888', callback:v=>v.toLocaleString('id-ID') }, grid:{ color:'rgba(128,128,128,.1)' } }
+      }
+    }
+  });
+}
+</script>
 
 <script>
 // ══════════════════════════════════════════════
@@ -3543,7 +3831,7 @@ function switchPage(page) {
   activePage = page;
 
   // Sembunyikan semua view dulu
-  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline','view-penyemprotan','view-vigor'].forEach(id => {
+  ['view-dashboard','view-gramasi','view-hpt','view-penyiraman','view-semai','view-sanitasi','view-commandcenter','view-timeline','view-montimeline','view-penyemprotan','view-vigor','view-populasi'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
@@ -3577,7 +3865,7 @@ function switchPage(page) {
   }
   if (page === 'penyemprotan') initSemp();
   if (page === 'commandcenter') { initCC(); ensureVigorFetched(); if (!RAW_PLANNING.length) fetchPlanning(); }
-  if (page === 'vigor') { ensureVigorFetched(); setTimeout(rebuildVigor, 300); }
+  if (page === 'populasi') { fetchSO(false); rebuildPopulasi(); }
   if (page === 'timeline') initTimeline();
   if (page === 'montimeline') initMonTimeline();
 
