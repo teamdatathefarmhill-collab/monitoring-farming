@@ -2874,7 +2874,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
             <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65" style="width:100%!important">Tren populasi.</canvas>
           </div>
           <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
-            <span style="display:flex;align-items:center;gap:4px"><span style="width:16px;height:2px;background:#1a5fa0;display:inline-block"></span>Pop akhir avg</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:16px;height:2px;background:#1a5fa0;display:inline-block"></span><span id="popLegendLabel">Rata-rata pop akhir</span></span>
             <span style="display:flex;align-items:center;gap:4px"><span style="width:16px;height:2px;background:#c87800;display:inline-block;border-top:2px dashed #c87800"></span>Std minimum</span>
           </div>
         </div>
@@ -2936,6 +2936,47 @@ async function fetchSO(manual = false) {
     }
   } catch(e) {
     console.warn('[SO] Gagal fetch:', e);
+  }
+}
+
+// ── FETCH POPULASI HISTORY UNTUK LINE CHART ──
+// Dipanggil saat buka halaman Populasi — ambil semua history dari tgl tanam paling awal sampai hari ini
+let _popHistFetching = false;
+async function fetchPopHistoryForChart() {
+  if (_popHistFetching) return;
+  _popHistFetching = true;
+  try {
+    // Cari tgl tanam paling awal dari GH yang lagi running
+    const today = new Date().toISOString().slice(0, 10);
+    const tglList = RAW.map(r => r.tglAwalTanam).filter(t => t && /\d{4}-\d{2}-\d{2}/.test(t)).sort();
+    const fromDate = tglList.length ? tglList[0] : (() => {
+      // Fallback: mundur 70 hari dari hari ini
+      const d = new Date(); d.setDate(d.getDate() - 70);
+      return d.toISOString().slice(0, 10);
+    })();
+    console.log('[POP] fetchPopHistoryForChart from:', fromDate, 'to:', today);
+    const url = GAS_URL + '?sheet=populasi_history&from=' + fromDate + '&to=' + today + '&_t=' + Date.now();
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const json = await resp.json();
+    if (json.error) throw new Error(json.error);
+    RAW_POP_HISTORY = json.rows || [];
+    console.log('[POP] RAW_POP_HISTORY loaded:', RAW_POP_HISTORY.length, 'rows');
+    // Rebuild chart setelah data masuk
+    const clOf2 = gh => {
+      const g = String(gh).toUpperCase();
+      if (g.includes('TOHUDAN'))  return 'tohudan';
+      if (g.includes('SAWAHAN'))  return 'sawahan';
+      if (g.includes('COLOMADU')) return 'colomadu';
+      if (g.includes('BERGAS'))   return 'bergas';
+      return 'lainnya';
+    };
+    const base = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
+    buildPopTrendChart(base);
+  } catch(e) {
+    console.warn('[POP] fetchPopHistoryForChart error:', e.message);
+  } finally {
+    _popHistFetching = false;
   }
 }
 
@@ -3174,56 +3215,86 @@ function rebuildPopulasi() {
 }
 
 function buildPopTrendChart(rawD) {
-  // rawD = semua GH running hari ini, sudah di-filter POP_FILTER dari caller
-  // Tiap row = 1 GH, dengan hst = HST mereka hari ini, popAkhir = kondisi hari ini
-  // Chart: tiap GH jadi titik di posisi HST mereka, garis std minimum ikut
+  // rawD = GH running hari ini, sudah di-filter POP_FILTER
+  // Tiap GH punya: popAwal, popAkhir, hst (posisi hari ini)
+  //
+  // Trail per GH: HST 1 → hst_sekarang
+  //   - HST 1...(hst-1)  : popAwal × popStdFaktor(h)  ← proyeksi standar
+  //   - HST hst_sekarang : popAkhir aktual              ← data nyata hari ini
+  //
+  // Mode SEMUA GH → per HST, rata-rata dari GH yang sudah melewati HST tersebut
+  // Mode 1 GH     → trail satu GH itu saja
+
+  const clOf = gh => {
+    const g = String(gh).toUpperCase();
+    if (g.includes('TOHUDAN'))  return 'tohudan';
+    if (g.includes('SAWAHAN'))  return 'sawahan';
+    if (g.includes('COLOMADU')) return 'colomadu';
+    if (g.includes('BERGAS'))   return 'bergas';
+    return 'lainnya';
+  };
 
   const srcD = TREND_GH_FILTER === 'semua'
     ? rawD
     : rawD.filter(r => r.gh.trim().toUpperCase() === TREND_GH_FILTER.toUpperCase());
   const useD = srcD.length ? srcD : rawD;
 
-  // Rentang HST dari GH yang lagi running
-  const maxHst = useD.length ? Math.max(...useD.map(r => r.hst)) : 65;
+  // Rentang HST: 1 sampai HST tertinggi dari GH dalam filter
+  const maxHst = useD.length ? Math.max(...useD.map(r => r.hst)) : 10;
   const hstRange = Math.max(maxHst, 10);
   const hsts = Array.from({length: hstRange}, (_, i) => i + 1);
 
-  // Tiap GH = 1 titik di HST mereka hari ini
-  // Kalau ada >1 GH di HST yang sama, ambil rata-rata
+  // Bangun hstMap: per HST, kumpulkan nilai dari semua GH yang sudah melewatinya
+  // Nilai tiap GH di HST h:
+  //   - h < hst_gh  → popAwal_gh × stdFaktor(h)   (trail proyeksi)
+  //   - h === hst_gh → popAkhir_gh aktual           (data hari ini)
+  //   - h > hst_gh  → tidak dihitung (GH belum sampai sini)
   const hstMap = {};
   useD.forEach(r => {
-    const h = r.hst;
-    if (h < 1 || h > 65) return;
-    if (!hstMap[h]) hstMap[h] = { sum: 0, cnt: 0, ghs: [] };
-    hstMap[h].sum += r.popAkhir;
-    hstMap[h].cnt++;
-    hstMap[h].ghs.push(r.gh);
+    const currHst = r.hst;
+    const popAwal = r.popAwal;
+    if (!currHst || !popAwal) return;
+    for (let h = 1; h <= currHst; h++) {
+      if (!hstMap[h]) hstMap[h] = { sum: 0, cnt: 0, ghs: [] };
+      const val = (h === currHst) ? r.popAkhir : Math.round(popAwal * popStdFaktor(h));
+      hstMap[h].sum += val;
+      hstMap[h].cnt++;
+      // Hanya catat nama GH di HST terakhir mereka (titik aktual)
+      if (h === currHst) hstMap[h].ghs.push(r.gh);
+    }
   });
-  // Array nilai per HST — null berarti tidak ada GH di HST itu hari ini
-  const popPoints = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum / hstMap[h].cnt) : null);
-  const ghTooltip = hsts.map(h => hstMap[h] ? hstMap[h].ghs.join(', ') : null);
 
-  // Std minimum — baseline dari rata-rata popAwal GH running
+  const popLine  = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum / hstMap[h].cnt) : null);
+  const ghLabels = hsts.map(h => hstMap[h]?.ghs?.length ? hstMap[h].ghs.join(', ') : null);
+
+  // Std minimum — dari rata-rata popAwal semua GH dalam filter
   const avgAwal = useD.length ? useD.reduce((s, r) => s + r.popAwal, 0) / useD.length : 5000;
   const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
 
-  // Update judul & subtitle dinamis
+  // Judul & subtitle
   const titleEl = document.getElementById('popChartTitle');
   const subEl2  = document.getElementById('popChartSub');
   if (titleEl) {
-    const lokasiLabel = POP_FILTER === 'semua' ? 'Semua Lokasi' :
-      POP_FILTER.charAt(0).toUpperCase() + POP_FILTER.slice(1);
-    const ghLabel = TREND_GH_FILTER === 'semua' ? '' : ' · ' + TREND_GH_FILTER;
-    titleEl.textContent = 'Posisi populasi GH running — ' + lokasiLabel + ghLabel;
+    const lok = POP_FILTER === 'semua' ? 'Semua Lokasi'
+      : POP_FILTER.charAt(0).toUpperCase() + POP_FILTER.slice(1);
+    const ghLbl = TREND_GH_FILTER === 'semua' ? '' : ' · ' + TREND_GH_FILTER;
+    titleEl.textContent = 'Tren populasi akhir — ' + lok + ghLbl;
   }
   if (subEl2) {
-    subEl2.textContent = `${useD.length} GH running · posisi HST hari ini vs standar minimum · hover untuk detail`;
+    if (TREND_GH_FILTER === 'semua') {
+      subEl2.textContent = `${useD.length} GH running · rata-rata pop akhir per HST · hover untuk detail`;
+    } else {
+      const ghRow = useD[0];
+      subEl2.textContent = `Trail HST 1–${ghRow ? ghRow.hst : maxHst} · titik akhir = pop akhir aktual`;
+    }
   }
+
+  const legEl = document.getElementById('popLegendLabel');
+  if (legEl) legEl.textContent = TREND_GH_FILTER === 'semua' ? 'Rata-rata pop akhir' : 'Pop akhir ' + TREND_GH_FILTER;
 
   const wrap   = document.getElementById('popChartWrap');
   const canvas = document.getElementById('popTrendCanvas');
   if (!canvas || !wrap) return;
-
   wrap.style.height = '360px';
 
   if (_popChart) { _popChart.destroy(); _popChart = null; }
@@ -3234,15 +3305,16 @@ function buildPopTrendChart(rawD) {
       labels: hsts.map(h => 'HST ' + h),
       datasets: [
         {
-          label: 'Pop akhir GH',
-          data: popPoints,
+          label: TREND_GH_FILTER === 'semua' ? 'Rata-rata pop akhir' : 'Pop akhir ' + TREND_GH_FILTER,
+          data: popLine,
           borderColor: '#1a5fa0',
-          backgroundColor: '#1a5fa018',
+          backgroundColor: '#1a5fa015',
           borderWidth: 2,
-          pointRadius: hsts.map(h => hstMap[h] ? 5 : 0),
-          pointHoverRadius: hsts.map(h => hstMap[h] ? 7 : 0),
+          // Titik hanya muncul di HST terakhir tiap GH (data aktual)
+          pointRadius: hsts.map(h => ghLabels[h-1] ? 4 : 0),
+          pointHoverRadius: hsts.map(h => hstMap[h] ? 6 : 0),
           pointBackgroundColor: hsts.map(h => {
-            if (!hstMap[h]) return 'transparent';
+            if (!hstMap[h] || !ghLabels[h-1]) return 'transparent';
             const avg = Math.round(hstMap[h].sum / hstMap[h].cnt);
             const std = Math.round(avgAwal * popStdFaktor(h));
             const pct = std > 0 ? avg / std * 100 : 100;
@@ -3250,9 +3322,9 @@ function buildPopTrendChart(rawD) {
           }),
           pointBorderColor: '#fff',
           pointBorderWidth: 1.5,
-          tension: 0,
-          fill: false,
-          spanGaps: false,
+          tension: 0.3,
+          fill: true,
+          spanGaps: true,
         },
         {
           label: 'Std minimum',
@@ -3262,7 +3334,7 @@ function buildPopTrendChart(rawD) {
           borderWidth: 1.5,
           pointRadius: 0,
           pointHoverRadius: 4,
-          tension: 0.3,
+          tension: 0,
           fill: false,
         }
       ]
@@ -3282,14 +3354,15 @@ function buildPopTrendChart(rawD) {
             title: items => {
               const i = items[0].dataIndex;
               const h = i + 1;
-              const ghList = ghTooltip[i];
-              return ghList ? 'HST ' + h + ' · ' + ghList : 'HST ' + h;
+              const cnt = hstMap[h] ? hstMap[h].cnt : 0;
+              if (TREND_GH_FILTER !== 'semua') return 'HST ' + h + ' · ' + TREND_GH_FILTER;
+              return cnt ? 'HST ' + h + ' · ' + cnt + ' GH' : 'HST ' + h;
             },
             label: item => {
               const v = item.raw;
               if (v === null || v === undefined) return null;
-              const label = item.dataset.label === 'Std minimum' ? 'Std minimum' : 'Pop akhir';
-              return label + ': ' + Math.round(v).toLocaleString('id-ID');
+              const isStd = item.dataset.label === 'Std minimum';
+              return (isStd ? 'Std minimum' : 'Pop akhir') + ': ' + Math.round(v).toLocaleString('id-ID');
             },
             afterBody: items => {
               const i = items[0].dataIndex;
@@ -3299,8 +3372,11 @@ function buildPopTrendChart(rawD) {
               const std = Math.round(avgAwal * popStdFaktor(h));
               if (!std) return [];
               const pct = (avg / std * 100).toFixed(1);
-              const status = pct >= 97 ? '✓ Normal' : pct >= 90 ? '⚠ Perhatian' : '✗ Kritis';
-              return [pct + '% vs standar — ' + status];
+              const status = +pct >= 97 ? '✓ Normal' : +pct >= 90 ? '⚠ Perhatian' : '✗ Kritis';
+              // Kalau ada GH yang titik aktualnya di HST ini, sebut namanya
+              const ghNow = ghLabels[i];
+              const extra = ghNow ? ['', ghNow + ' — titik hari ini'] : [];
+              return [pct + '% vs standar — ' + status, ...extra];
             }
           }
         }
@@ -4605,7 +4681,7 @@ function switchPage(page) {
   }
   if (page === 'penyemprotan') initSemp();
   if (page === 'commandcenter') { initCC(); ensureVigorFetched(); if (!RAW_PLANNING.length) fetchPlanning(); }
-  if (page === 'populasi') { fetchSO(false); rebuildPopulasi(); }
+  if (page === 'populasi') { fetchSO(false); fetchPopHistoryForChart(); rebuildPopulasi(); }
   if (page === 'timeline') initTimeline();
   if (page === 'montimeline') initMonTimeline();
 
