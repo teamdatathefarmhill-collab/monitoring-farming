@@ -227,13 +227,13 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 @media(max-width:680px){.sidebar{display:none}.stat-grid{grid-template-columns:1fr 1fr}}
 
 /* ── MAINTENANCE MODAL ── */
-#maintModal, #maintModalPenyiraman, #maintModalSemai, #maintModalSanitasi {
+#maintModal, #maintModalPenyiraman, #maintModalSemai, #maintModalSanitasi, #maintModalMenu {
   position:fixed;inset:0;z-index:5000;
   display:none;align-items:center;justify-content:center;
   background:rgba(10,25,15,.55);backdrop-filter:blur(4px);
   animation:fadeInModal .22s ease
 }
-#maintModal.show, #maintModalPenyiraman.show, #maintModalSemai.show, #maintModalSanitasi.show{display:flex}
+#maintModal.show, #maintModalPenyiraman.show, #maintModalSemai.show, #maintModalSanitasi.show, #maintModalMenu.show{display:flex}
 @keyframes fadeInModal{from{opacity:0}to{opacity:1}}
 .maint-box{
   background:var(--surface);border:1.5px solid var(--border2);
@@ -502,8 +502,8 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
-    <div class="nav-item" id="nav-penyemprotan" style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Segera hadir"><span class="nav-icon">🌿</span> Penyemprotan <span style="font-size:9px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;margin-left:4px;color:var(--text4)">soon</span></div>
-    <div class="nav-item" id="nav-vigor" style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Segera hadir"><span class="nav-icon">🌿</span> Kes. Tanaman <span style="font-size:9px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;margin-left:4px;color:var(--text4)">soon</span></div>
+    <div class="nav-item" id="nav-penyemprotan" onclick="showMenuMaintenance('Penyemprotan','penyemprotan')"><span class="nav-icon">🌿</span> Penyemprotan <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
+    <div class="nav-item" id="nav-vigor" onclick="showMenuMaintenance('Kes. Tanaman','vigor')"><span class="nav-icon">🌿</span> Kes. Tanaman <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
     <div class="nav-section">Pemantauan</div>
@@ -5712,6 +5712,29 @@ function checkPnyCode() {
 }
 // ── SEMAI MAINTENANCE MODAL ──
 const SEMAI_ACCESS_CODE = 'timdatafarmhill';
+let _menuMaintenanceTarget = null;
+
+function showMenuMaintenance(name, targetPage) {
+  _menuMaintenanceTarget = targetPage || null;
+  const title = document.getElementById('maintModalMenuTitle');
+  if (title) title.textContent = name + ' — Sedang Dikembangkan';
+  document.getElementById('menuCodeInput').value = '';
+  document.getElementById('menuCodeErr').style.display = 'none';
+  document.getElementById('maintModalMenu').classList.add('show');
+  setTimeout(() => document.getElementById('menuCodeInput').focus(), 200);
+}
+
+function checkMenuCode() {
+  const val = document.getElementById('menuCodeInput').value.trim();
+  if (val === 'timdatafarmhill') {
+    document.getElementById('maintModalMenu').classList.remove('show');
+    if (_menuMaintenanceTarget) switchPage(_menuMaintenanceTarget);
+  } else {
+    document.getElementById('menuCodeErr').style.display = 'block';
+    document.getElementById('menuCodeInput').select();
+  }
+}
+
 function showSemaiMaintenance() {
   document.getElementById('maintModalSemai').classList.add('show');
   document.getElementById('semaiCodeInput').value = '';
@@ -7109,12 +7132,44 @@ function renderSntLastTable(rows) {
   </div>
 </div>
 
+<div id="maintModalMenu">
+  <div class="maint-box">
+    <span class="maint-icon">🔧</span>
+    <div class="maint-title" id="maintModalMenuTitle">Sedang Dikembangkan</div>
+    <div class="maint-sub">
+      Fitur ini sedang dalam pengembangan dan akan segera tersedia.<br>
+      Tim sedang mempersiapkan data dan tampilan agar hasilnya akurat.
+    </div>
+    <div class="maint-badge"><span>⚙️</span> Under Development</div>
+    <br>
+    <div style="margin-bottom:14px">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:7px;text-align:left">Kode akses tim:</div>
+      <div style="display:flex;gap:7px">
+        <input id="menuCodeInput" type="password" placeholder="Masukkan kode akses…"
+          style="flex:1;background:var(--surface2);border:1.5px solid var(--border2);border-radius:8px;
+                 padding:8px 12px;font-size:13px;font-family:inherit;color:var(--text);outline:none"
+          onkeydown="if(event.key==='Enter') checkMenuCode()"
+          oninput="document.getElementById('menuCodeErr').style.display='none'">
+        <button onclick="checkMenuCode()"
+          style="background:var(--hdr);color:var(--hdr-txt);border:none;border-radius:8px;
+                 padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+          Masuk
+        </button>
+      </div>
+      <div id="menuCodeErr" style="display:none;font-size:11px;color:var(--red);margin-top:6px;text-align:left">
+        ❌ Kode akses salah. Coba lagi.
+      </div>
+    </div>
+    <button class="maint-close" onclick="document.getElementById('maintModalMenu').classList.remove('show')">Kembali</button>
+  </div>
+</div>
+
 </body>
 </html>
 
 <script>
 // ── Modal backdrop-click bindings (run after all modal elements are in DOM) ──
-['maintModalPenyiraman','maintModalSemai','maintModal','maintModalSanitasi'].forEach(id => {
+['maintModalPenyiraman','maintModalSemai','maintModal','maintModalSanitasi','maintModalMenu'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   const closeFns = {
@@ -7122,6 +7177,7 @@ function renderSntLastTable(rows) {
     maintModalSemai      : () => { const m = document.getElementById('maintModalSemai');       if(m) m.classList.remove('show'); },
     maintModal           : () => { const m = document.getElementById('maintModal');            if(m) m.classList.remove('show'); },
     maintModalSanitasi   : () => { const m = document.getElementById('maintModalSanitasi');   if(m) m.classList.remove('show'); },
+    maintModalMenu       : () => { const m = document.getElementById('maintModalMenu');        if(m) m.classList.remove('show'); },
   };
   el.addEventListener('click', function(e){ if(e.target === this) closeFns[id](); });
 });
@@ -10152,8 +10208,11 @@ function ccShowGhIssue(ghName) {
   // ── HPT status from new long format (harus sebelum hasKritis/hasIsu) ──
   const hptMaxLvl = hptRows.reduce((m,x)=>Math.max(m,statusLevel(x.status)),0);
   const hptSt = hptMaxLvl>=3 ? 'crit' : hptMaxLvl>=2 ? 'warn' : 'ok';
-  const hptDetailStr = latestHPT
-    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status)).slice(0,2).map(x=>x.hptName+' ('+x.status+')').join(' · ')
+  const topHpt = latestHPT
+    ? hptRows.filter(x=>x.tgl===latestHPT.tgl).sort((a,b)=>statusLevel(b.status)-statusLevel(a.status))[0]
+    : null;
+  const hptDetailStr = topHpt
+    ? topHpt.hptName + ' · ' + topHpt.status
     : 'Belum ada data HPT';
 
   // ── SNT WARNING: sama dengan logika di timeline ──
@@ -10393,31 +10452,8 @@ function ccShowGhIssue(ghName) {
       } else {
         html += `<div style="font-size:11px;color:var(--text3)">Tidak ada data HPT dalam date range ini</div>`;
       }
-
-      // Riwayat terbaru
-      const recent = [...allHptRows].sort((a,b)=>b.tgl.localeCompare(a.tgl)).slice(0,6);
-      html += secLbl('Riwayat pengamatan terbaru');
-      html += recent.map(x => {
-        const col = statusLevel(x.status)>=4?'#A32D2D':statusLevel(x.status)>=3?'var(--red-txt)':statusLevel(x.status)>=2?'var(--yellow-txt)':'var(--green-txt)';
-        const bg  = statusLevel(x.status)>=4?'#fdecea':statusLevel(x.status)>=3?'var(--red-lt)':statusLevel(x.status)>=2?'var(--yellow-lt)':'var(--green-lt)';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
-          <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);width:56px;flex-shrink:0">${fmtD(x.tgl)}</span>
-          <span style="flex:1;color:var(--text)">${x.hptName}</span>
-          <span style="color:var(--text3);font-family:'JetBrains Mono',monospace;width:36px;text-align:right">${x.nilai}</span>
-          <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600;width:58px;text-align:center">${x.status}</span>
-        </div>`;
-      }).join('');
     } else {
-      html += dummyNote()
-        + secLbl('Riwayat serangan (dummy)')
-        + [['DM (Downy Mildew)',0,'Low'],['PM (Powdery Mildew)',0,'Low'],['Thrips',20,'Medium']].map(([n,v,lv]) => {
-            const col = lv==='High'?'var(--red-txt)':lv==='Medium'?'var(--yellow-txt)':'var(--green-txt)';
-            const bg  = lv==='High'?'var(--red-lt)':lv==='Medium'?'var(--yellow-lt)':'var(--green-lt)';
-            return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:0.5px solid var(--border);font-size:11px">
-              <span style="flex:1;color:var(--text)">${n}</span>
-              <span style="font-size:10px;padding:1px 7px;border-radius:4px;background:${bg};color:${col};font-weight:600">${lv}</span>
-            </div>`;
-          }).join('');
+      html += dummyNote();
     }
     return html;
   }
