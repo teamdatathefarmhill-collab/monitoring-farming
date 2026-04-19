@@ -220,7 +220,7 @@ body{
   color:var(--text4);letter-spacing:1.4px;
   text-transform:uppercase;
 }
-html[data-sidebar="rail"] .nav-section{opacity:0;pointer-events:none;height:10px;padding:6px 0}
+/* nav-section rail rule moved below for specificity */
 
 .nav-item{
   display:flex;align-items:center;gap:12px;
@@ -273,10 +273,26 @@ html[data-sidebar="rail"] .nav-section{opacity:0;pointer-events:none;height:10px
 /* Pengaturan item (no id) */
 .nav-item.soon .nav-icon::before{-webkit-mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/></svg>");mask-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='3'/><path d='M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'/></svg>")}
 
-/* Rail mode — hide labels */
-html[data-sidebar="rail"] .nav-item{justify-content:center;padding:9px 0;margin:2px 8px}
-html[data-sidebar="rail"] .nav-item > *:not(.nav-icon){display:none}
+/* Rail mode — hide labels (text nodes + extra spans) */
+html[data-sidebar="rail"] .sidebar{overflow-x:hidden}
+html[data-sidebar="rail"] .nav-item{
+  justify-content:center;
+  padding:10px 0;margin:2px 8px;
+  font-size:0;        /* collapses text nodes "Dashboard", "Populasi", etc. */
+  line-height:0;
+  gap:0;
+  position:relative;
+}
+html[data-sidebar="rail"] .nav-item > span:not(.nav-icon),
+html[data-sidebar="rail"] .nav-item > .nav-badge,
+html[data-sidebar="rail"] .nav-item > .soon-tag{display:none !important}
+html[data-sidebar="rail"] .nav-item > .nav-icon{display:inline-flex;margin:0 auto}
 html[data-sidebar="rail"] .nav-item.active::before{left:-8px}
+html[data-sidebar="rail"] .nav-section{
+  font-size:0;height:8px;padding:4px 0;margin-top:10px;opacity:0;pointer-events:none;
+}
+/* Tooltip on hover in rail mode — reveal label using title attr alternative */
+html[data-sidebar="rail"] .nav-item:hover{background:var(--green-lt);color:var(--green-txt)}
 
 .nav-badge{
   margin-left:auto;
