@@ -2349,7 +2349,11 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
 
         <!-- Tabel -->
         <div class="card" style="margin-bottom:14px;overflow-x:auto">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:12px">Detail per GH</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px">
+            <div style="font-size:12px;font-weight:700;color:var(--text)">Detail per GH</div>
+            <input id="popSrchGH" type="text" placeholder="Cari GH…" oninput="rebuildPopulasi()"
+              style="font-size:11px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit;width:160px">
+          </div>
           <div id="popTableWrap">
             <div style="font-size:12px;color:var(--text3);padding:20px 0;text-align:center">Memuat data…</div>
           </div>
@@ -2358,8 +2362,8 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <!-- Trend chart -->
         <div class="card">
           <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rata-rata populasi akhir per HST seluruh GH aktif</div>
-          <div style="position:relative;width:100%;height:280px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rata-rata populasi akhir per HST · hover untuk detail</div>
+          <div id="popChartWrap" style="position:relative;width:100%;height:320px">
             <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65">Tren populasi.</canvas>
           </div>
           <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
@@ -2435,20 +2439,27 @@ function rebuildPopulasi() {
     subEl.textContent = `Kondisi harian · ${hr}, ${tg} · ${rawD.length} GH tercatat`;
   }
 
-  // SO lookup — ambil tanggal terbaru per GH+Periode (tanpa HST)
+  // SO lookup — normalisasi GH name (uppercase, trim spasi ganda)
+  const normGH = s => String(s).trim().toUpperCase().replace(/\s+/g,' ');
   const soByGH = {};
   RAW_SO.forEach(r => {
-    const ghKey = r.gh.trim().toUpperCase();
-    const per   = String(r.periode).trim();
-    const key   = ghKey + '||' + per;
+    const key = normGH(r.gh) + '||' + String(r.periode).trim();
     if (!soByGH[key] || r.tanggal > soByGH[key].tanggal)
       soByGH[key] = { tanggal: r.tanggal, total: 0 };
   });
   RAW_SO.forEach(r => {
-    const key = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
+    const key = normGH(r.gh) + '||' + String(r.periode).trim();
     if (soByGH[key]?.tanggal === r.tanggal)
       soByGH[key].total += r.populasi;
   });
+
+  // Debug SO keys
+  if (RAW_SO.length) {
+    const sample = [...new Set(RAW_SO.map(r => normGH(r.gh)+'||'+r.periode))].slice(0,3);
+    console.log('[SO] sample keys:', sample);
+    const rawSample = rawD.slice(0,2).map(r => normGH(r.gh)+'||'+r.periode);
+    console.log('[SO] RAW keys:', rawSample, '→ match:', rawSample.map(k => !!soByGH[k]));
+  }
 
   const fmtN = n => Math.round(n).toLocaleString('id-ID');
   const totalPopAkhir = rawD.reduce((s,r) => s+r.popAkhir, 0);
@@ -2523,10 +2534,14 @@ function rebuildPopulasi() {
       </div>
     </div>`;
 
-  // Tabel
-  const sorted = [...rawD].sort((a,b) => a.hst - b.hst);
+  // Tabel — apply search filter juga
+  const srchQ = (document.getElementById('popSrchGH')||{}).value?.trim().toUpperCase() || '';
+  const sorted = [...rawD]
+    .filter(r => !srchQ || normGH(r.gh).includes(srchQ))
+    .sort((a,b) => a.hst - b.hst);
+
   let tbl = `<table style="width:100%;border-collapse:collapse;font-size:11px;table-layout:fixed">
-    <colgroup><col style="width:120px"><col style="width:60px"><col style="width:54px">
+    <colgroup><col style="width:130px"><col style="width:60px"><col style="width:54px">
     <col style="width:90px"><col style="width:90px"><col style="width:80px">
     <col style="width:76px"><col style="width:86px"><col style="width:100px"></colgroup>
     <thead><tr style="background:var(--surface2)">
@@ -2535,11 +2550,11 @@ function rebuildPopulasi() {
     </tr></thead><tbody>`;
 
   sorted.forEach(r => {
-    const key     = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
-    const soD     = soByGH[key];
-    const totalSOr= soD ? soD.total : null;
+    const key    = normGH(r.gh) + '||' + String(r.periode).trim();
+    const soD    = soByGH[key];
+    const totalSOr = soD ? soD.total : null;
     const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
-    const san      = r.popAwal - r.popAkhir;
+    const san      = Math.max(0, r.popAwal - r.popAkhir);
     const devR     = totalSOr ? ((r.popAkhir-totalSOr)/totalSOr*100) : null;
     const devCol   = devR===null?'var(--text3)':Math.abs(devR)>10?'var(--red-txt)':Math.abs(devR)>5?'var(--yellow-txt)':'var(--green-txt)';
     const devBg    = devR===null?'var(--surface2)':Math.abs(devR)>10?'var(--red-lt)':Math.abs(devR)>5?'var(--yellow-lt)':'var(--green-lt)';
@@ -2577,25 +2592,81 @@ function buildPopTrendChart(rawD) {
   const avgAwal = rawD.length ? rawD.reduce((s,r)=>s+r.popAwal,0)/rawD.length : 5000;
   const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
 
+  const wrap = document.getElementById('popChartWrap');
   const canvas = document.getElementById('popTrendCanvas');
-  if (!canvas) return;
+  if (!canvas || !wrap) return;
+
+  // Pastikan wrapper punya height eksplisit
+  wrap.style.height = '320px';
+
   if (_popChart) { _popChart.destroy(); _popChart = null; }
 
   _popChart = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: hsts,
+      labels: hsts.map(h => 'HST ' + h),
       datasets: [
-        { label:'Pop akhir avg', data:popAvg, borderColor:'#1a5fa0', backgroundColor:'#1a5fa015', borderWidth:2, pointRadius:0, tension:0.4, fill:true, spanGaps:true },
-        { label:'Std minimum',  data:stdLine, borderColor:'#c87800', borderDash:[4,3], borderWidth:1.5, pointRadius:0, tension:0.3, fill:false }
+        {
+          label: 'Pop akhir avg',
+          data: popAvg,
+          borderColor: '#1a5fa0',
+          backgroundColor: '#1a5fa015',
+          borderWidth: 2,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          pointHoverBackgroundColor: '#1a5fa0',
+          tension: 0.4,
+          fill: true,
+          spanGaps: true,
+        },
+        {
+          label: 'Std minimum',
+          data: stdLine,
+          borderColor: '#c87800',
+          borderDash: [4,3],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.3,
+          fill: false,
+        }
       ]
     },
     options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false } },
-      scales:{
-        x:{ ticks:{ maxTicksLimit:13, font:{size:10}, color:'#888', callback:(v,i)=>'HST '+(i+1) }, grid:{ color:'rgba(128,128,128,.1)' } },
-        y:{ ticks:{ font:{size:10}, color:'#888', callback:v=>v.toLocaleString('id-ID') }, grid:{ color:'rgba(128,128,128,.1)' } }
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(20,30,20,0.88)',
+          titleColor: '#fff',
+          bodyColor: '#ccc',
+          padding: 10,
+          callbacks: {
+            title: items => 'HST ' + (items[0].dataIndex + 1),
+            label: item => {
+              const v = item.raw;
+              if (v === null || v === undefined) return item.dataset.label + ': —';
+              return item.dataset.label + ': ' + Math.round(v).toLocaleString('id-ID');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 13,
+            font: { size: 10 },
+            color: '#888',
+            callback: (v, i) => 'HST ' + (i + 1)
+          },
+          grid: { color: 'rgba(128,128,128,.1)' }
+        },
+        y: {
+          ticks: { font: { size: 10 }, color: '#888', callback: v => v.toLocaleString('id-ID') },
+          grid: { color: 'rgba(128,128,128,.1)' }
+        }
       }
     }
   });
