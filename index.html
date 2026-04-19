@@ -2830,14 +2830,8 @@ input[type="date"]:focus{border-color:var(--green-mid)}
           <button class="fbtn" id="popFiltColomadu" onclick="setPopFilter('colomadu',this)">Colomadu</button>
           <button class="fbtn" id="popFiltBergas"   onclick="setPopFilter('bergas',this)">Bergas</button>
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px">
-            <span style="font-size:11px;color:var(--text3)">Periode:</span>
-            <input type="date" id="popDateFrom" onchange="rebuildPopulasi()"
-              style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit">
-            <span style="font-size:11px;color:var(--text3)">—</span>
-            <input type="date" id="popDateTo" onchange="rebuildPopulasi()"
-              style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit">
             <button class="fbtn" onclick="fetchSO(true)">🔄 Refresh</button>
-            <button class="fbtn" onclick="lockPopulasi()" style="color:var(--red-txt);border-color:var(--red-lt);background:var(--red-lt)">🔒 Kunci</button>
+            <button class="fbtn" onclick="lockPopulasi()" style="color:var(--red-txt);border-color:var(--red-lt);background:var(--red-lt)">🔧 Kunci</button>
           </div>
         </div>
       </div>
@@ -2861,22 +2855,17 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         </div>
 
         <!-- Trend chart -->
-        <div class="card">
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+        <div class="card" style="margin-top:0">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px">
             <div>
               <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
               <div style="font-size:11px;color:var(--text3)">Rata-rata populasi akhir per HST · hover untuk detail</div>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-              <span style="font-size:11px;color:var(--text3)">Filter GH:</span>
-              <button class="fbtn active" id="trendFiltSemua"   onclick="setTrendGH('semua',this)">Semua</button>
-              <button class="fbtn" id="trendFiltTohudan"  onclick="setTrendGH('tohudan',this)">Tohudan</button>
-              <button class="fbtn" id="trendFiltSawahan"  onclick="setTrendGH('sawahan',this)">Sawahan</button>
-              <button class="fbtn" id="trendFiltColomadu" onclick="setTrendGH('colomadu',this)">Colomadu</button>
-              <button class="fbtn" id="trendFiltBergas"   onclick="setTrendGH('bergas',this)">Bergas</button>
+            <div id="trendGHFilterWrap" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+              <button class="fbtn active" id="trendFiltSemua" onclick="setTrendGH('semua',this)">Semua</button>
             </div>
           </div>
-          <div id="popChartWrap" style="position:relative;width:100%;height:420px">
+          <div id="popChartWrap" style="position:relative;width:100%;height:360px">
             <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65">Tren populasi.</canvas>
           </div>
           <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
@@ -2900,8 +2889,8 @@ let _popChart = null;
 
 function setTrendGH(val, el) {
   TREND_GH_FILTER = val;
-  document.querySelectorAll('[id^="trendFilt"]').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
+  document.querySelectorAll('#trendGHFilterWrap .fbtn').forEach(b => b.classList.remove('active'));
+  if (el) el.classList.add('active');
   const clOf2 = gh => {
     const g = String(gh).toUpperCase();
     if (g.includes('TOHUDAN'))  return 'tohudan';
@@ -2911,8 +2900,17 @@ function setTrendGH(val, el) {
     return 'lainnya';
   };
   const base = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
-  const filtered = val === 'semua' ? base : base.filter(r => clOf2(r.gh) === val);
-  buildPopTrendChart(filtered);
+  // val bisa 'semua' (group) atau nama GH spesifik
+  let filtered;
+  if (val === 'semua') {
+    filtered = base;
+  } else if (['tohudan','sawahan','colomadu','bergas'].includes(val)) {
+    filtered = base.filter(r => clOf2(r.gh) === val);
+  } else {
+    // nama GH spesifik
+    filtered = base.filter(r => r.gh.trim().toUpperCase() === val.toUpperCase());
+  }
+  buildPopTrendChart(filtered.length ? filtered : base);
 }
 
 function parsePeriodeSO(val) {
@@ -2964,9 +2962,8 @@ function popInitDateRange() {
 }
 
 function rebuildPopulasi() {
-  popInitDateRange();
-  const fromV = (document.getElementById('popDateFrom')||{}).value || '';
-  const toV   = (document.getElementById('popDateTo')||{}).value   || '';
+  const fromV = '';
+  const toV   = '';
 
   const clOf2 = gh => {
     const g = String(gh).toUpperCase();
@@ -2978,6 +2975,14 @@ function rebuildPopulasi() {
   };
 
   const rawD = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
+
+  // Build filter GH individual untuk chart
+  const trendWrap = document.getElementById('trendGHFilterWrap');
+  if (trendWrap) {
+    const ghNames = [...new Set(rawD.map(r => r.gh.trim()))].sort();
+    trendWrap.innerHTML = `<button class="fbtn ${TREND_GH_FILTER==='semua'?'active':''}" id="trendFiltSemua" onclick="setTrendGH('semua',this)">Semua</button>` +
+      ghNames.map(gh => `<button class="fbtn ${TREND_GH_FILTER===gh?'active':''}" onclick="setTrendGH(${JSON.stringify(gh)},this)">${gh}</button>`).join('');
+  }
 
   const subEl = document.getElementById('popSub');
   if (subEl) {
@@ -3129,7 +3134,22 @@ function rebuildPopulasi() {
   sorted.forEach(r => {
     const soD    = getSO(r.gh, r.periode);
     const totalSOr = soD ? soD.total : null;
-    const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
+    const tglSO   = (() => {
+      if (!soD) return '—';
+      const raw = soD.tanggal;
+      if (!raw) return '—';
+      // Coba parse sebagai Date dulu (handle "Sun Apr 12 2026 00:00:00 GMT+0700 (...)" dll)
+      const d = new Date(raw);
+      if (!isNaN(d)) {
+        const dd = String(d.getDate()).padStart(2,'0');
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const yy = d.getFullYear();
+        return `${dd}/${mm}/${yy}`;
+      }
+      // Fallback: kalau sudah format yyyy-MM-dd
+      if (/^\d{4}-\d{2}-\d{2}/.test(String(raw))) return String(raw).slice(0,10).split('-').reverse().join('/');
+      return String(raw);
+    })();
     const san      = Math.max(0, r.popAwal - r.popAkhir);
     const devR     = totalSOr ? ((r.popAkhir-totalSOr)/totalSOr*100) : null;
     const devCol   = devR===null?'var(--text3)':Math.abs(devR)>10?'var(--red-txt)':Math.abs(devR)>5?'var(--yellow-txt)':'var(--green-txt)';
@@ -3184,7 +3204,7 @@ function buildPopTrendChart(rawD) {
   const canvas = document.getElementById('popTrendCanvas');
   if (!canvas || !wrap) return;
 
-  wrap.style.height = '420px';
+  wrap.style.height = '360px';
 
   if (_popChart) { _popChart.destroy(); _popChart = null; }
 
