@@ -10428,24 +10428,26 @@ function ccShowGhIssue(ghName) {
         }
         if (statusLevel(x.status) > byHpt[x.hptName].maxSt) byHpt[x.hptName].maxSt = statusLevel(x.status);
       });
-      const ranked = Object.entries(byHpt).sort((a,b)=>b[1].maxSt-a[1].maxSt||b[1].nilai-a[1].nilai);
-      const maxVal = ranked.reduce((m,[,v])=>Math.max(m,v.nilai),1);
+      const ranked = Object.entries(byHpt).sort((a,b) => b[1].nilai - a[1].nilai);
+      const maxVal = ranked.reduce((m,[,v]) => Math.max(m, v.nilai), 1);
 
       html += secLbl('Pengamatan terbaru per hama');
       if (ranked.length) {
         html += ranked.map(([name,v]) => {
+          const hasVal = v.nilai > 0;
           const col = v.maxSt>=4?'#A32D2D':v.maxSt>=3?'var(--red)':v.maxSt>=2?'#c87800':'var(--green)';
-          const stLbl = statusLabel(v.maxSt);
-          const w = Math.round(v.nilai/maxVal*100);
+          const barCol = hasVal ? col : 'var(--border2)';
+          const w = hasVal ? Math.max(2, Math.round(v.nilai/maxVal*100)) : 2;
+          const stLbl = hasVal ? statusLabel(v.maxSt) : '';
           return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-            <div style="font-size:11px;color:var(--text);width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+            <div style="font-size:11px;color:${hasVal?'var(--text)':'var(--text4)'};width:130px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
             <div style="flex:1;height:13px;background:var(--surface2);border-radius:3px;overflow:hidden">
-              <div style="width:${w}%;height:100%;background:${col};border-radius:3px;display:flex;align-items:center;padding-left:4px">
-                <span style="font-size:9px;color:#fff;font-weight:700">${w>20?v.nilai.toFixed(1):''}</span>
+              <div style="width:${w}%;height:100%;background:${barCol};border-radius:3px;display:flex;align-items:center;padding-left:4px">
+                <span style="font-size:9px;color:#fff;font-weight:700">${hasVal&&w>20?v.nilai.toFixed(1):''}</span>
               </div>
             </div>
             <div style="width:60px;flex-shrink:0;text-align:right">
-              <span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${col+'22'};color:${col};font-weight:600">${stLbl}</span>
+              ${hasVal?`<span style="font-size:10px;padding:1px 6px;border-radius:4px;background:${col+'22'};color:${col};font-weight:600">${stLbl}</span>`:''}
             </div>
           </div>`;
         }).join('');
