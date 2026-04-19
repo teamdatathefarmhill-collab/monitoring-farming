@@ -502,8 +502,8 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
     <div class="nav-item" id="nav-penyiraman" onclick="switchPage('penyiraman')"><span class="nav-icon">💧</span> Penyiraman</div>
-    <div class="nav-item" id="nav-penyemprotan" onclick="switchPage('penyemprotan')"><span class="nav-icon">🌿</span> Penyemprotan</div>
-    <div class="nav-item" id="nav-vigor" onclick="switchPage('vigor')"><span class="nav-icon">🌿</span> Kes. Tanaman</div>
+    <div class="nav-item" id="nav-penyemprotan" style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Segera hadir"><span class="nav-icon">🌿</span> Penyemprotan <span style="font-size:9px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;margin-left:4px;color:var(--text4)">soon</span></div>
+    <div class="nav-item" id="nav-vigor" style="opacity:.45;cursor:not-allowed;pointer-events:none" title="Segera hadir"><span class="nav-icon">🌿</span> Kes. Tanaman <span style="font-size:9px;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;padding:1px 5px;margin-left:4px;color:var(--text4)">soon</span></div>
     <div class="nav-item" id="nav-semai" onclick="showSemaiMaintenance()"><span class="nav-icon">🌱</span> Semai <span class="soon-tag" style="color:#c87800;font-style:normal;font-weight:700">🔧</span></div>
 
     <div class="nav-section">Pemantauan</div>
@@ -4765,6 +4765,7 @@ function renderHptTrendChart(rows) {
       pointBackgroundColor: s.color, tension:.35, fill:false,
     }));
     _hptChart.update('none');
+    const legEl = document.getElementById('hptTrendLegend');
     if (legEl) legEl.innerHTML = visible.map(s =>
       `<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3)">
         <span style="width:14px;height:3px;background:${s.color};border-radius:2px;display:inline-block"></span>${s.label}
