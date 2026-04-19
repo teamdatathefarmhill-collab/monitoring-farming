@@ -2861,8 +2861,12 @@ input[type="date"]:focus{border-color:var(--green-mid)}
               <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
               <div style="font-size:11px;color:var(--text3)">Rata-rata populasi akhir per HST · hover untuk detail</div>
             </div>
-            <div id="trendGHFilterWrap" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-              <button class="fbtn active" id="trendFiltSemua" onclick="setTrendGH('semua',this)">Semua</button>
+            <div id="trendGHFilterWrap">
+              <select id="trendGHSelect" onchange="setTrendGH(this.value)"
+                style="font-size:11px;padding:5px 10px;border-radius:7px;border:1px solid var(--border2);
+                       background:var(--surface2);color:var(--text);font-family:inherit;cursor:pointer;outline:none">
+                <option value="semua">Semua GH</option>
+              </select>
             </div>
           </div>
           <div id="popChartWrap" style="position:relative;width:100%;height:360px">
@@ -2887,10 +2891,10 @@ let POP_FILTER = 'semua';
 let TREND_GH_FILTER = 'semua';
 let _popChart = null;
 
-function setTrendGH(val, el) {
+function setTrendGH(val) {
   TREND_GH_FILTER = val;
-  document.querySelectorAll('#trendGHFilterWrap .fbtn').forEach(b => b.classList.remove('active'));
-  if (el) el.classList.add('active');
+  const sel = document.getElementById('trendGHSelect');
+  if (sel) sel.value = val;
   const clOf2 = gh => {
     const g = String(gh).toUpperCase();
     if (g.includes('TOHUDAN'))  return 'tohudan';
@@ -2900,14 +2904,10 @@ function setTrendGH(val, el) {
     return 'lainnya';
   };
   const base = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
-  // val bisa 'semua' (group) atau nama GH spesifik
   let filtered;
   if (val === 'semua') {
     filtered = base;
-  } else if (['tohudan','sawahan','colomadu','bergas'].includes(val)) {
-    filtered = base.filter(r => clOf2(r.gh) === val);
   } else {
-    // nama GH spesifik
     filtered = base.filter(r => r.gh.trim().toUpperCase() === val.toUpperCase());
   }
   buildPopTrendChart(filtered.length ? filtered : base);
@@ -2976,12 +2976,17 @@ function rebuildPopulasi() {
 
   const rawD = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
 
-  // Build filter GH individual untuk chart
-  const trendWrap = document.getElementById('trendGHFilterWrap');
-  if (trendWrap) {
-    const ghNames = [...new Set(rawD.map(r => r.gh.trim()))].sort();
-    trendWrap.innerHTML = `<button class="fbtn ${TREND_GH_FILTER==='semua'?'active':''}" id="trendFiltSemua" onclick="setTrendGH('semua',this)">Semua</button>` +
-      ghNames.map(gh => `<button class="fbtn ${TREND_GH_FILTER===gh?'active':''}" onclick="setTrendGH(${JSON.stringify(gh)},this)">${gh}</button>`).join('');
+  // Reset trend GH filter setiap kali main filter berubah, rebuild dropdown
+  TREND_GH_FILTER = 'semua';
+  const trendSel = document.getElementById('trendGHSelect');
+  if (trendSel) {
+    const ghNames = [...new Set(rawD.map(r => r.gh.trim()))].sort((a,b) => {
+      // Sort natural: TOHUDAN 1 < TOHUDAN 2 < TOHUDAN 10
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    trendSel.innerHTML = '<option value="semua">Semua GH</option>' +
+      ghNames.map(gh => `<option value="${gh}">${gh}</option>`).join('');
+    trendSel.value = 'semua';
   }
 
   const subEl = document.getElementById('popSub');
@@ -3174,20 +3179,15 @@ function rebuildPopulasi() {
 }
 
 function buildPopTrendChart(rawD) {
-  // Apply trend GH filter
-  const clOf2t = gh => {
-    const g = String(gh).toUpperCase();
-    if (g.includes('TOHUDAN'))  return 'tohudan';
-    if (g.includes('SAWAHAN'))  return 'sawahan';
-    if (g.includes('COLOMADU')) return 'colomadu';
-    if (g.includes('BERGAS'))   return 'bergas';
-    return 'lainnya';
-  };
-  const filteredD = TREND_GH_FILTER === 'semua' ? rawD : rawD.filter(r => clOf2t(r.gh) === TREND_GH_FILTER);
-  const srcD = filteredD.length ? filteredD : rawD;
+  // rawD sudah di-filter berdasarkan POP_FILTER dari caller
+  // TREND_GH_FILTER bisa 'semua' atau nama GH spesifik
+  const srcD = TREND_GH_FILTER === 'semua'
+    ? rawD
+    : rawD.filter(r => r.gh.trim().toUpperCase() === TREND_GH_FILTER.toUpperCase());
+  const useD = srcD.length ? srcD : rawD;
 
   const hstMap = {};
-  const histSrc = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : srcD;
+  const histSrc = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : useD;
   histSrc.forEach(r => {
     const h = r.hst;
     if (h < 1 || h > 65) return;
@@ -3197,7 +3197,7 @@ function buildPopTrendChart(rawD) {
   });
   const hsts   = Array.from({length:65},(_,i)=>i+1);
   const popAvg = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum/hstMap[h].cnt) : null);
-  const avgAwal = srcD.length ? srcD.reduce((s,r)=>s+r.popAwal,0)/srcD.length : 5000;
+  const avgAwal = useD.length ? useD.reduce((s,r)=>s+r.popAwal,0)/useD.length : 5000;
   const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
 
   const wrap = document.getElementById('popChartWrap');
