@@ -632,6 +632,13 @@ input[type="date"]:focus{border-color:var(--green-mid)}
 }
 #maintModal.show, #maintModalPenyiraman.show, #maintModalSemai.show, #maintModalSanitasi.show, #maintModalMenu.show{display:flex}
 @keyframes fadeInModal{from{opacity:0}to{opacity:1}}
+@keyframes pinShake{
+  0%,100%{transform:translateX(0)}
+  20%{transform:translateX(-6px)}
+  40%{transform:translateX(6px)}
+  60%{transform:translateX(-4px)}
+  80%{transform:translateX(4px)}
+}
 .maint-box{
   background:var(--surface);
   border:1px solid var(--border);
@@ -991,7 +998,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
     <div class="nav-item" id="nav-commandcenter" onclick="switchPage('commandcenter')"><span class="nav-icon">🎯</span> Command Center</div>
 
     <div class="nav-section">Menu</div>
-    <div class="nav-item" id="nav-populasi" onclick="switchPage('populasi')"><span class="nav-icon">👥</span> Populasi</div>
+    <div class="nav-item" id="nav-populasi" onclick="switchPage('populasi')"><span class="nav-icon">👥</span> Populasi <span style="font-size:9px;opacity:.6">🔒</span></div>
     <div class="nav-item" id="nav-gramasi" onclick="switchPage('gramasi')"><span class="nav-icon">⚖️</span> Gramasi</div>
     <div class="nav-item" id="nav-sanitasi" onclick="switchPage('sanitasi')"><span class="nav-icon">🧹</span> Sanitasi</div>
     <div class="nav-item" id="nav-hpt" onclick="switchPage('hpt')"><span class="nav-icon">🐛</span> HPT</div>
@@ -2830,6 +2837,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
             <input type="date" id="popDateTo" onchange="rebuildPopulasi()"
               style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--surface2);color:var(--text);font-family:inherit">
             <button class="fbtn" onclick="fetchSO(true)">🔄 Refresh</button>
+            <button class="fbtn" onclick="lockPopulasi()" style="color:var(--red-txt);border-color:var(--red-lt);background:var(--red-lt)">🔒 Kunci</button>
           </div>
         </div>
       </div>
@@ -2854,9 +2862,21 @@ input[type="date"]:focus{border-color:var(--green-mid)}
 
         <!-- Trend chart -->
         <div class="card">
-          <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
-          <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rata-rata populasi akhir per HST · hover untuk detail</div>
-          <div id="popChartWrap" style="position:relative;width:100%;height:320px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px">
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
+              <div style="font-size:11px;color:var(--text3)">Rata-rata populasi akhir per HST · hover untuk detail</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+              <span style="font-size:11px;color:var(--text3)">Filter GH:</span>
+              <button class="fbtn active" id="trendFiltSemua"   onclick="setTrendGH('semua',this)">Semua</button>
+              <button class="fbtn" id="trendFiltTohudan"  onclick="setTrendGH('tohudan',this)">Tohudan</button>
+              <button class="fbtn" id="trendFiltSawahan"  onclick="setTrendGH('sawahan',this)">Sawahan</button>
+              <button class="fbtn" id="trendFiltColomadu" onclick="setTrendGH('colomadu',this)">Colomadu</button>
+              <button class="fbtn" id="trendFiltBergas"   onclick="setTrendGH('bergas',this)">Bergas</button>
+            </div>
+          </div>
+          <div id="popChartWrap" style="position:relative;width:100%;height:420px">
             <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65">Tren populasi.</canvas>
           </div>
           <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
@@ -2875,7 +2895,25 @@ input[type="date"]:focus{border-color:var(--green-mid)}
 const SO_GAS_URL = 'https://script.google.com/macros/s/AKfycbzdKlcjP22y1BEL0-6y7RUtHAwgxkLw5YM_QBASGMq5O3e4oDn7q-sXELDZG0NspNVD/exec';
 let RAW_SO = [];
 let POP_FILTER = 'semua';
+let TREND_GH_FILTER = 'semua';
 let _popChart = null;
+
+function setTrendGH(val, el) {
+  TREND_GH_FILTER = val;
+  document.querySelectorAll('[id^="trendFilt"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  const clOf2 = gh => {
+    const g = String(gh).toUpperCase();
+    if (g.includes('TOHUDAN'))  return 'tohudan';
+    if (g.includes('SAWAHAN'))  return 'sawahan';
+    if (g.includes('COLOMADU')) return 'colomadu';
+    if (g.includes('BERGAS'))   return 'bergas';
+    return 'lainnya';
+  };
+  const base = POP_FILTER === 'semua' ? RAW : RAW.filter(r => clOf2(r.gh) === POP_FILTER);
+  const filtered = val === 'semua' ? base : base.filter(r => clOf2(r.gh) === val);
+  buildPopTrendChart(filtered);
+}
 
 function parsePeriodeSO(val) {
   if (!val) return '';
@@ -2958,16 +2996,42 @@ function rebuildPopulasi() {
     return !isNaN(n) ? n.toFixed(1) : s;
   };
   const soByGH = {};
+  // Index 1: by GH+Periode (exact match)
+  const soByGHPeriode = {};
+  // Index 2: by GH only — ambil tanggal SO terbaru
+  const soByGHOnly = {};
+
   RAW_SO.forEach(r => {
     const key = normGH(r.gh) + '||' + normPer(r.periode);
-    if (!soByGH[key] || r.tanggal > soByGH[key].tanggal)
-      soByGH[key] = { tanggal: r.tanggal, total: 0 };
+    if (!soByGHPeriode[key] || r.tanggal > soByGHPeriode[key].tanggal)
+      soByGHPeriode[key] = { tanggal: r.tanggal, total: 0 };
+    // Fallback index: GH only
+    const ghKey = normGH(r.gh);
+    if (!soByGHOnly[ghKey] || r.tanggal > soByGHOnly[ghKey].tanggal)
+      soByGHOnly[ghKey] = { tanggal: r.tanggal, total: 0, periode: normPer(r.periode) };
   });
   RAW_SO.forEach(r => {
     const key = normGH(r.gh) + '||' + normPer(r.periode);
-    if (soByGH[key]?.tanggal === r.tanggal)
-      soByGH[key].total += r.populasi;
+    if (soByGHPeriode[key]?.tanggal === r.tanggal)
+      soByGHPeriode[key].total += r.populasi;
+    const ghKey = normGH(r.gh);
+    if (soByGHOnly[ghKey]?.tanggal === r.tanggal)
+      soByGHOnly[ghKey].total += r.populasi;
   });
+
+  // Helper: cari SO — exact match dulu, fallback ke GH-only
+  const getSO = (gh, periode) => {
+    const key = normGH(gh) + '||' + normPer(periode);
+    if (soByGHPeriode[key]) return soByGHPeriode[key];
+    // Fallback: kalau periode di RAW kosong atau tidak cocok, pakai data SO terbaru per GH
+    const ghKey = normGH(gh);
+    const fb = soByGHOnly[ghKey];
+    if (fb) return fb;
+    return null;
+  };
+
+  // Biarkan soByGH tetap kompatibel untuk kode lama di bawah
+  Object.assign(soByGH, soByGHPeriode);
 
   if (RAW_SO.length && rawD.length) {
     const sampleSOKey  = normGH(RAW_SO[0].gh) + '||' + normPer(RAW_SO[0].periode);
@@ -2986,8 +3050,7 @@ function rebuildPopulasi() {
 
   let totalSO = 0, soCount = 0;
   rawD.forEach(r => {
-    const key = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
-    const d   = soByGH[key];
+    const d = getSO(r.gh, r.periode);
     if (d) { totalSO += d.total; soCount++; }
   });
   const devSO = totalSO > 0 ? ((totalPopAkhir-totalSO)/totalSO*100) : null;
@@ -3064,8 +3127,7 @@ function rebuildPopulasi() {
     </tr></thead><tbody>`;
 
   sorted.forEach(r => {
-    const key    = normGH(r.gh) + '||' + normPer(r.periode);
-    const soD    = soByGH[key];
+    const soD    = getSO(r.gh, r.periode);
     const totalSOr = soD ? soD.total : null;
     const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
     const san      = Math.max(0, r.popAwal - r.popAkhir);
@@ -3092,8 +3154,20 @@ function rebuildPopulasi() {
 }
 
 function buildPopTrendChart(rawD) {
+  // Apply trend GH filter
+  const clOf2t = gh => {
+    const g = String(gh).toUpperCase();
+    if (g.includes('TOHUDAN'))  return 'tohudan';
+    if (g.includes('SAWAHAN'))  return 'sawahan';
+    if (g.includes('COLOMADU')) return 'colomadu';
+    if (g.includes('BERGAS'))   return 'bergas';
+    return 'lainnya';
+  };
+  const filteredD = TREND_GH_FILTER === 'semua' ? rawD : rawD.filter(r => clOf2t(r.gh) === TREND_GH_FILTER);
+  const srcD = filteredD.length ? filteredD : rawD;
+
   const hstMap = {};
-  const histSrc = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : rawD;
+  const histSrc = RAW_POP_HISTORY.length ? RAW_POP_HISTORY : srcD;
   histSrc.forEach(r => {
     const h = r.hst;
     if (h < 1 || h > 65) return;
@@ -3103,15 +3177,14 @@ function buildPopTrendChart(rawD) {
   });
   const hsts   = Array.from({length:65},(_,i)=>i+1);
   const popAvg = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum/hstMap[h].cnt) : null);
-  const avgAwal = rawD.length ? rawD.reduce((s,r)=>s+r.popAwal,0)/rawD.length : 5000;
+  const avgAwal = srcD.length ? srcD.reduce((s,r)=>s+r.popAwal,0)/srcD.length : 5000;
   const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
 
   const wrap = document.getElementById('popChartWrap');
   const canvas = document.getElementById('popTrendCanvas');
   if (!canvas || !wrap) return;
 
-  // Pastikan wrapper punya height eksplisit
-  wrap.style.height = '320px';
+  wrap.style.height = '420px';
 
   if (_popChart) { _popChart.destroy(); _popChart = null; }
 
@@ -4406,7 +4479,30 @@ function rebuild() {
 }
 
 // ── TAB SWITCHER ──
+// ══════════════════════════════════════════════
+// PIN LOCK — Populasi pakai maintModalMenu (sama kayak Penyemprotan & Kes. Tanaman)
+window._popUnlocked = false;
+
+function showPopLock() {
+  showMenuMaintenance('Populasi', 'populasi');
+}
+
+function closePopLock() {
+  document.getElementById('maintModalMenu').classList.remove('show');
+  switchPage('dashboard');
+}
+
+function lockPopulasi() {
+  window._popUnlocked = false;
+  switchPage('dashboard');
+}
+
 function switchPage(page) {
+  // PIN lock untuk halaman Populasi
+  if (page === 'populasi' && !window._popUnlocked) {
+    showPopLock();
+    return;
+  }
   activePage = page;
 
   // Sembunyikan semua view dulu
@@ -6595,6 +6691,7 @@ function checkMenuCode() {
   const val = document.getElementById('menuCodeInput').value.trim();
   if (val === 'timdatafarmhill') {
     document.getElementById('maintModalMenu').classList.remove('show');
+    if (_menuMaintenanceTarget === 'populasi') window._popUnlocked = true;
     if (_menuMaintenanceTarget) switchPage(_menuMaintenanceTarget);
   } else {
     document.getElementById('menuCodeErr').style.display = 'block';
@@ -6687,6 +6784,8 @@ function checkSntCode() {
     document.getElementById('sntCodeInput').select();
   }
 }
+
+// ── POPULASI LOCK — sudah didefinisikan di atas ──
 
 // ══════════════════════════════════════════════
 //  SANITASI MODULE  v2
@@ -7963,7 +8062,7 @@ function renderSntLastTable(rows) {
   </div>
 </div>
 
-<!-- ══ MAINTENANCE MODAL ══ -->
+
 <div id="maintModal">
   <div class="maint-box">
     <span class="maint-icon">🔧</span>
