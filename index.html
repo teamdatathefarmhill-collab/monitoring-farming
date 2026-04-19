@@ -9560,7 +9560,9 @@ function ccBuildPhaseTimeline() {
         const ghKeyP  = p.gh.trim().toUpperCase();
         const rawRowP = RAW.find(x => x.gh.trim().toUpperCase() === ghKeyP);
         const notMapped  = !rawRowP;
-        const diffDays   = p.tglTanamDate ? Math.floor((today - p.tglTanamDate) / 864e5) : null;
+        const tglTanamD2 = p.tglTanamDate ? new Date(p.tglTanamDate) : null;
+        if (tglTanamD2) tglTanamD2.setHours(0,0,0,0);
+        const diffDays   = tglTanamD2 ? Math.floor((today - tglTanamD2) / 864e5) : null;
         const isUrgent   = notMapped && diffDays !== null && diffDays >= 2;
 
         const bg  = isUrgent ? 'var(--red)' : '#1a5fa0';
@@ -9961,6 +9963,7 @@ function ccShowPlanningDetail(ghName) {
   const tglSemai  = sample.tglSemai;
   const tglTanam  = sample.tglTanam;
   const tglTanamD = tglTanam ? new Date(tglTanam) : null;
+  if (tglTanamD) tglTanamD.setHours(0,0,0,0);
   const diffDays  = tglTanamD ? Math.floor((today - tglTanamD) / 864e5) : null;
   const isUrgent  = diffDays !== null && diffDays >= 2;
 
