@@ -3216,14 +3216,17 @@ function rebuildPopulasi() {
 
 function buildPopTrendChart(rawD) {
   // rawD = GH running hari ini, sudah di-filter POP_FILTER
-  // Tiap GH punya: popAwal, popAkhir, hst (posisi hari ini)
   //
-  // Trail per GH: HST 1 → hst_sekarang
-  //   - HST 1...(hst-1)  : popAwal × popStdFaktor(h)  ← proyeksi standar
-  //   - HST hst_sekarang : popAkhir aktual              ← data nyata hari ini
+  // Sumber data: RAW_POP_HISTORY (per varian per tanggal per GH per HST)
+  // Cara aggregate yang BENAR:
+  //   - Per GH per HST: sum popAkhir semua varian di tanggal terbaru untuk HST itu
+  //   - Hasil: total populasi GH di HST tersebut
+  //   - Default (semua GH): rata-rata total-per-GH di tiap HST
+  //   - Filter 1 GH: trail total populasi GH itu dari HST 1 → HST sekarang
   //
-  // Mode SEMUA GH → per HST, rata-rata dari GH yang sudah melewati HST tersebut
-  // Mode 1 GH     → trail satu GH itu saja
+  // Fallback (kalau RAW_POP_HISTORY kosong): pakai RAW (satu row per GH, data hari ini)
+  //   - Trail HST 1...(hst-1): popAwal × stdFaktor(h)
+  //   - HST sekarang: popAkhir dari RAW
 
   const clOf = gh => {
     const g = String(gh).toUpperCase();
@@ -3234,44 +3237,85 @@ function buildPopTrendChart(rawD) {
     return 'lainnya';
   };
 
+  // GH yang relevan dari RAW (untuk maxHst, avgAwal, dropdown)
   const srcD = TREND_GH_FILTER === 'semua'
     ? rawD
     : rawD.filter(r => r.gh.trim().toUpperCase() === TREND_GH_FILTER.toUpperCase());
   const useD = srcD.length ? srcD : rawD;
 
-  // Rentang HST: 1 sampai HST tertinggi dari GH dalam filter
-  const maxHst = useD.length ? Math.max(...useD.map(r => r.hst)) : 10;
+  const maxHst   = useD.length ? Math.max(...useD.map(r => r.hst)) : 10;
   const hstRange = Math.max(maxHst, 10);
-  const hsts = Array.from({length: hstRange}, (_, i) => i + 1);
+  const hsts     = Array.from({length: hstRange}, (_, i) => i + 1);
+  const avgAwal  = useD.length ? useD.reduce((s, r) => s + r.popAwal, 0) / useD.length : 5000;
 
-  // Bangun hstMap: per HST, kumpulkan nilai dari semua GH yang sudah melewatinya
-  // Nilai tiap GH di HST h:
-  //   - h < hst_gh  → popAwal_gh × stdFaktor(h)   (trail proyeksi)
-  //   - h === hst_gh → popAkhir_gh aktual           (data hari ini)
-  //   - h > hst_gh  → tidak dihitung (GH belum sampai sini)
-  const hstMap = {};
-  useD.forEach(r => {
-    const currHst = r.hst;
-    const popAwal = r.popAwal;
-    if (!currHst || !popAwal) return;
-    for (let h = 1; h <= currHst; h++) {
-      if (!hstMap[h]) hstMap[h] = { sum: 0, cnt: 0, ghs: [] };
-      const val = (h === currHst) ? r.popAkhir : Math.round(popAwal * popStdFaktor(h));
-      hstMap[h].sum += val;
-      hstMap[h].cnt++;
-      // Hanya catat nama GH di HST terakhir mereka (titik aktual)
-      if (h === currHst) hstMap[h].ghs.push(r.gh);
+  // ── AGGREGATE RAW_POP_HISTORY ──
+  // Struktur history: per varian per tanggal → harus sum per GH per HST
+  // Ambil tanggal terbaru per GH per HST, lalu sum popAkhir semua variannya
+
+  // hstGHMap[gh][hst] = { maxTgl, sum }
+  const hstGHMap = {};
+
+  let hist = RAW_POP_HISTORY;
+  if (POP_FILTER !== 'semua') hist = hist.filter(r => clOf(r.gh) === POP_FILTER);
+  if (TREND_GH_FILTER !== 'semua') hist = hist.filter(r => r.gh.trim().toUpperCase() === TREND_GH_FILTER.toUpperCase());
+
+  hist.forEach(r => {
+    const gh  = String(r.gh  || '').trim();
+    const hst = +r.hst;
+    const tgl = String(r.tgl || r.tanggal || '').trim();
+    const pop = +r.popAkhir || 0;
+    if (!gh || !hst || hst < 1 || hst > 65) return;
+
+    if (!hstGHMap[gh]) hstGHMap[gh] = {};
+    if (!hstGHMap[gh][hst]) hstGHMap[gh][hst] = { maxTgl: '', sum: 0 };
+
+    // Kalau tanggal lebih baru dari yang ada, reset dan mulai lagi
+    if (tgl > hstGHMap[gh][hst].maxTgl) {
+      hstGHMap[gh][hst] = { maxTgl: tgl, sum: pop };
+    } else if (tgl === hstGHMap[gh][hst].maxTgl) {
+      // Tanggal sama = tambah varian lain
+      hstGHMap[gh][hst].sum += pop;
     }
+    // tgl lebih lama → skip
   });
+
+  // Sekarang hstGHMap[gh][hst].sum = total populasi GH di HST tersebut (tanggal terbaru)
+
+  // Build hstMap untuk chart: per HST, rata-rata total-per-GH
+  const hstMap = {};
+  const ghsInMap = Object.keys(hstGHMap);
+
+  if (ghsInMap.length) {
+    ghsInMap.forEach(gh => {
+      Object.entries(hstGHMap[gh]).forEach(([hStr, val]) => {
+        const h = +hStr;
+        if (!hstMap[h]) hstMap[h] = { sum: 0, cnt: 0, ghs: [] };
+        hstMap[h].sum += val.sum;
+        hstMap[h].cnt++;
+        hstMap[h].ghs.push(gh);
+      });
+    });
+  } else {
+    // ── FALLBACK: RAW saja (tidak ada history) ──
+    useD.forEach(r => {
+      const currHst = r.hst;
+      const popAwal = r.popAwal;
+      if (!currHst || !popAwal) return;
+      for (let h = 1; h <= currHst; h++) {
+        if (!hstMap[h]) hstMap[h] = { sum: 0, cnt: 0, ghs: [] };
+        const val = (h === currHst) ? r.popAkhir : Math.round(popAwal * popStdFaktor(h));
+        hstMap[h].sum += val;
+        hstMap[h].cnt++;
+        if (h === currHst) hstMap[h].ghs.push(r.gh);
+      }
+    });
+  }
 
   const popLine  = hsts.map(h => hstMap[h] ? Math.round(hstMap[h].sum / hstMap[h].cnt) : null);
   const ghLabels = hsts.map(h => hstMap[h]?.ghs?.length ? hstMap[h].ghs.join(', ') : null);
+  const stdLine  = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
 
-  // Std minimum — dari rata-rata popAwal semua GH dalam filter
-  const avgAwal = useD.length ? useD.reduce((s, r) => s + r.popAwal, 0) / useD.length : 5000;
-  const stdLine = hsts.map(h => Math.round(avgAwal * popStdFaktor(h)));
-
-  // Judul & subtitle
+  // ── JUDUL & SUBTITLE ──
   const titleEl = document.getElementById('popChartTitle');
   const subEl2  = document.getElementById('popChartSub');
   if (titleEl) {
@@ -3281,11 +3325,12 @@ function buildPopTrendChart(rawD) {
     titleEl.textContent = 'Tren populasi akhir — ' + lok + ghLbl;
   }
   if (subEl2) {
+    const src = ghsInMap.length ? 'history' : 'data hari ini';
     if (TREND_GH_FILTER === 'semua') {
-      subEl2.textContent = `${useD.length} GH running · rata-rata pop akhir per HST · hover untuk detail`;
+      subEl2.textContent = `${useD.length} GH running · rata-rata total pop per HST (${src}) · hover untuk detail`;
     } else {
       const ghRow = useD[0];
-      subEl2.textContent = `Trail HST 1–${ghRow ? ghRow.hst : maxHst} · titik akhir = pop akhir aktual`;
+      subEl2.textContent = `Trail HST 1–${ghRow ? ghRow.hst : maxHst} · total pop semua varian (${src})`;
     }
   }
 
@@ -3310,11 +3355,10 @@ function buildPopTrendChart(rawD) {
           borderColor: '#1a5fa0',
           backgroundColor: '#1a5fa015',
           borderWidth: 2,
-          // Titik hanya muncul di HST terakhir tiap GH (data aktual)
-          pointRadius: hsts.map(h => ghLabels[h-1] ? 4 : 0),
+          pointRadius: hsts.map((h, i) => ghLabels[i] ? 4 : 0),
           pointHoverRadius: hsts.map(h => hstMap[h] ? 6 : 0),
           pointBackgroundColor: hsts.map(h => {
-            if (!hstMap[h] || !ghLabels[h-1]) return 'transparent';
+            if (!hstMap[h]) return 'transparent';
             const avg = Math.round(hstMap[h].sum / hstMap[h].cnt);
             const std = Math.round(avgAwal * popStdFaktor(h));
             const pct = std > 0 ? avg / std * 100 : 100;
@@ -3354,8 +3398,8 @@ function buildPopTrendChart(rawD) {
             title: items => {
               const i = items[0].dataIndex;
               const h = i + 1;
-              const cnt = hstMap[h] ? hstMap[h].cnt : 0;
               if (TREND_GH_FILTER !== 'semua') return 'HST ' + h + ' · ' + TREND_GH_FILTER;
+              const cnt = hstMap[h] ? hstMap[h].cnt : 0;
               return cnt ? 'HST ' + h + ' · ' + cnt + ' GH' : 'HST ' + h;
             },
             label: item => {
@@ -3373,10 +3417,10 @@ function buildPopTrendChart(rawD) {
               if (!std) return [];
               const pct = (avg / std * 100).toFixed(1);
               const status = +pct >= 97 ? '✓ Normal' : +pct >= 90 ? '⚠ Perhatian' : '✗ Kritis';
-              // Kalau ada GH yang titik aktualnya di HST ini, sebut namanya
+              const lines = [pct + '% vs standar — ' + status];
               const ghNow = ghLabels[i];
-              const extra = ghNow ? ['', ghNow + ' — titik hari ini'] : [];
-              return [pct + '% vs standar — ' + status, ...extra];
+              if (ghNow) lines.push(ghNow + ' — titik hari ini');
+              return lines;
             }
           }
         }
