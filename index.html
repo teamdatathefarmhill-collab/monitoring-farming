@@ -2359,7 +2359,7 @@ tr.rw:hover td{background:rgba(160,96,0,.085)!important}
         <div class="card">
           <div style="font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px">Tren populasi akhir — HST 1–65</div>
           <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Rata-rata populasi akhir per HST seluruh GH aktif</div>
-          <div style="position:relative;width:100%;height:200px">
+          <div style="position:relative;width:100%;height:280px">
             <canvas id="popTrendCanvas" role="img" aria-label="Line chart tren populasi akhir HST 1-65">Tren populasi.</canvas>
           </div>
           <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--text3);flex-wrap:wrap">
@@ -2435,20 +2435,19 @@ function rebuildPopulasi() {
     subEl.textContent = `Kondisi harian · ${hr}, ${tg} · ${rawD.length} GH tercatat`;
   }
 
-  // SO lookup — ambil tanggal terbaru per GH+periode
+  // SO lookup — ambil tanggal terbaru per GH+Periode (tanpa HST)
   const soByGH = {};
   RAW_SO.forEach(r => {
     const ghKey = r.gh.trim().toUpperCase();
-    const per   = r.periode.trim();
-    if (!soByGH[ghKey]) soByGH[ghKey] = {};
-    if (!soByGH[ghKey][per] || r.tanggal > soByGH[ghKey][per].tanggal)
-      soByGH[ghKey][per] = { tanggal: r.tanggal, total: 0 };
+    const per   = String(r.periode).trim();
+    const key   = ghKey + '||' + per;
+    if (!soByGH[key] || r.tanggal > soByGH[key].tanggal)
+      soByGH[key] = { tanggal: r.tanggal, total: 0 };
   });
   RAW_SO.forEach(r => {
-    const ghKey = r.gh.trim().toUpperCase();
-    const per   = r.periode.trim();
-    if (soByGH[ghKey]?.[per]?.tanggal === r.tanggal)
-      soByGH[ghKey][per].total += r.populasi;
+    const key = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
+    if (soByGH[key]?.tanggal === r.tanggal)
+      soByGH[key].total += r.populasi;
   });
 
   const fmtN = n => Math.round(n).toLocaleString('id-ID');
@@ -2456,18 +2455,14 @@ function rebuildPopulasi() {
   const totalPopAwal  = rawD.reduce((s,r) => s+r.popAwal, 0);
   const pctSurvival   = totalPopAwal > 0 ? (totalPopAkhir/totalPopAwal*100) : 0;
 
-  const sntD = RAW_SNT.filter(x => {
-    if (fromV && (x.tgl||'') < fromV) return false;
-    if (toV   && (x.tgl||'') > toV)   return false;
-    if (POP_FILTER !== 'semua' && clOf2(x.gh) !== POP_FILTER) return false;
-    return true;
-  });
-  const totalSanitasi = sntD.reduce((s,x) => s+(x.jml||0), 0);
+  // Sanitasi = sum (popAwal - popAkhir) per GH
+  const totalSanitasi = rawD.reduce((s,r) => s + Math.max(0, r.popAwal - r.popAkhir), 0);
   const lossPct = totalPopAwal > 0 ? (totalSanitasi/totalPopAwal*100) : 0;
 
   let totalSO = 0, soCount = 0;
   rawD.forEach(r => {
-    const d = soByGH[r.gh.trim().toUpperCase()]?.[r.periode.trim()];
+    const key = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
+    const d   = soByGH[key];
     if (d) { totalSO += d.total; soCount++; }
   });
   const devSO = totalSO > 0 ? ((totalPopAkhir-totalSO)/totalSO*100) : null;
@@ -2540,10 +2535,9 @@ function rebuildPopulasi() {
     </tr></thead><tbody>`;
 
   sorted.forEach(r => {
-    const ghKey = r.gh.trim().toUpperCase();
-    const per   = r.periode.trim();
-    const soD   = soByGH[ghKey]?.[per];
-    const totalSOr = soD ? soD.total : null;
+    const key     = r.gh.trim().toUpperCase() + '||' + String(r.periode).trim();
+    const soD     = soByGH[key];
+    const totalSOr= soD ? soD.total : null;
     const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
     const san      = r.popAwal - r.popAkhir;
     const devR     = totalSOr ? ((r.popAkhir-totalSOr)/totalSOr*100) : null;
