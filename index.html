@@ -2384,13 +2384,30 @@ let RAW_SO = [];
 let POP_FILTER = 'semua';
 let _popChart = null;
 
+function parsePeriodeSO(val) {
+  if (!val) return '';
+  const s = String(val).trim();
+  // Kalau sudah format "26.1" atau "25.5" langsung return
+  if (/^\d+\.\d+$/.test(s)) return s;
+  // Kalau angka desimal seperti 26.1 tapi dalam bentuk number
+  const n = parseFloat(s);
+  if (!isNaN(n)) return n.toFixed(1);
+  // Kalau Date string — tidak relevan, return empty
+  return '';
+}
+
 async function fetchSO(manual = false) {
   try {
     const resp = await fetch(SO_GAS_URL + '?sheet=so&_t=' + Date.now(), { redirect: 'follow' });
     const json = await resp.json();
     if (Array.isArray(json.data)) {
-      RAW_SO = json.data;
-      console.log('[SO] Loaded:', RAW_SO.length, 'rows');
+      RAW_SO = json.data.map(r => ({
+        ...r,
+        // Periode dari GAS bisa berupa Date object atau angka, konversi ke string "xx.x"
+        periode: parsePeriodeSO(r.periode),
+        gh: String(r.gh || '').trim(),
+      }));
+      console.log('[SO] Loaded:', RAW_SO.length, 'rows, sample periode:', RAW_SO[0]?.periode);
       rebuildPopulasi();
     }
   } catch(e) {
@@ -2439,26 +2456,30 @@ function rebuildPopulasi() {
     subEl.textContent = `Kondisi harian · ${hr}, ${tg} · ${rawD.length} GH tercatat`;
   }
 
-  // SO lookup — normalisasi GH name (uppercase, trim spasi ganda)
+  // SO lookup — normalisasi GH name dan periode
   const normGH = s => String(s).trim().toUpperCase().replace(/\s+/g,' ');
+  const normPer = p => {
+    const s = String(p).trim();
+    if (/^\d+\.\d+$/.test(s)) return s;
+    const n = parseFloat(s);
+    return !isNaN(n) ? n.toFixed(1) : s;
+  };
   const soByGH = {};
   RAW_SO.forEach(r => {
-    const key = normGH(r.gh) + '||' + String(r.periode).trim();
+    const key = normGH(r.gh) + '||' + normPer(r.periode);
     if (!soByGH[key] || r.tanggal > soByGH[key].tanggal)
       soByGH[key] = { tanggal: r.tanggal, total: 0 };
   });
   RAW_SO.forEach(r => {
-    const key = normGH(r.gh) + '||' + String(r.periode).trim();
+    const key = normGH(r.gh) + '||' + normPer(r.periode);
     if (soByGH[key]?.tanggal === r.tanggal)
       soByGH[key].total += r.populasi;
   });
 
-  // Debug SO keys
-  if (RAW_SO.length) {
-    const sample = [...new Set(RAW_SO.map(r => normGH(r.gh)+'||'+r.periode))].slice(0,3);
-    console.log('[SO] sample keys:', sample);
-    const rawSample = rawD.slice(0,2).map(r => normGH(r.gh)+'||'+r.periode);
-    console.log('[SO] RAW keys:', rawSample, '→ match:', rawSample.map(k => !!soByGH[k]));
+  if (RAW_SO.length && rawD.length) {
+    const sampleSOKey  = normGH(RAW_SO[0].gh) + '||' + normPer(RAW_SO[0].periode);
+    const sampleRAWKey = normGH(rawD[0].gh)   + '||' + normPer(rawD[0].periode);
+    console.log('[SO] SO key sample:', sampleSOKey, '| RAW key sample:', sampleRAWKey, '| match:', !!soByGH[sampleRAWKey]);
   }
 
   const fmtN = n => Math.round(n).toLocaleString('id-ID');
@@ -2550,7 +2571,7 @@ function rebuildPopulasi() {
     </tr></thead><tbody>`;
 
   sorted.forEach(r => {
-    const key    = normGH(r.gh) + '||' + String(r.periode).trim();
+    const key    = normGH(r.gh) + '||' + normPer(r.periode);
     const soD    = soByGH[key];
     const totalSOr = soD ? soD.total : null;
     const tglSO   = soD ? soD.tanggal.split('-').reverse().join('/') : '—';
