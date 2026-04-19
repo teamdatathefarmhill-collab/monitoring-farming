@@ -2992,9 +2992,10 @@ function semaiCell(r) {
 // ── POP AKHIR CELL — % vs standar HST dari sheet Standar ──
 // pctPopVsStd = (popAkhir/popAwal) / stdFaktor(HST) × 100
 function popAkhirCell(r) {
-  const pct = pctPopVsStd(r);
-  const std = popStdFaktor(r.hst);
-  const stdPop = r.popAwal ? Math.round(r.popAwal * std) : 0;  // angka standar minimum
+  const pct    = pctPopVsStd(r);                                    // untuk kategori Good/Ok/Poor/Bad
+  const pctDisplay = r.popAwal > 0 ? (r.popAkhir / r.popAwal * 100) : pct; // untuk tampilan %
+  const std    = popStdFaktor(r.hst);
+  const stdPop = r.popAwal ? Math.round(r.popAwal * std) : 0;
 
   let col, bg, border, label;
   if (pct >= 100)      { col = 'var(--green-txt)'; bg = 'var(--green-lt)'; border = '#b8dfc4'; label = 'Good'; }
@@ -3002,11 +3003,11 @@ function popAkhirCell(r) {
   else if (pct >= 90)  { col = 'var(--yellow-txt)';bg = 'var(--yellow-lt)';border = '#f5d08a'; label = 'Poor'; }
   else                 { col = 'var(--red-txt)';   bg = 'var(--red-lt)';   border = '#f0b0b0'; label = 'Bad'; }
 
-  const tooltip = `Std HST-${r.hst}: min ${(std*100).toFixed(0)}% dari pop awal = ${fmt(stdPop)} | Aktual: ${fmt(r.popAkhir)} / ${fmt(stdPop)} = ${pct.toFixed(2)}%`;
+  const tooltip = `Pop akhir / pop awal: ${fmt(r.popAkhir)} / ${fmt(r.popAwal)} = ${pctDisplay.toFixed(1)}% | Std HST-${r.hst}: min ${(std*100).toFixed(0)}% dari pop awal = ${fmt(stdPop)}`;
   return `<td class="r" style="padding:6px 10px">
     <div style="display:inline-flex;flex-direction:column;align-items:flex-end;background:${bg};border:1px solid ${border};border-radius:6px;padding:3px 8px;cursor:help" title="${tooltip}">
       <span style="font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:700;color:${col}">${fmt(r.popAkhir)}</span>
-      <span style="font-size:10px;font-weight:600;color:${col};opacity:.85">${pct.toFixed(1)}% · ${label}</span>
+      <span style="font-size:10px;font-weight:600;color:${col};opacity:.85">${pctDisplay.toFixed(1)}% · ${label}</span>
     </div>
   </td>`;
 }
