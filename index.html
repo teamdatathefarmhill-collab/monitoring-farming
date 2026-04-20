@@ -1658,7 +1658,15 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         <div class="card" id="grCardOntrack" style="padding:14px 18px;border-top:3px solid var(--green-mid);cursor:pointer" onclick="setFilter('ontrack',document.getElementById('grBtnAll'))">
           <div style="font-size:26px;font-weight:700;color:var(--green-mid)" id="scGrOntrack">—</div>
           <div style="font-size:11px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≥ -5%</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≥ 0%</div>
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Total varian</span>
+            <span style="font-size:12px;font-weight:700;color:var(--green-mid)" id="scGrOntrackVar">—</span>
+          </div>
+          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrOntrackAvg">—</span>
+          </div>
           <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrOntrackGH"></div>
         </div>
 
@@ -1666,7 +1674,15 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         <div class="card" id="grCardBawah" style="padding:14px 18px;border-top:3px solid var(--yellow);cursor:pointer" onclick="setFilter('bawah',document.getElementById('grBtnAll'))">
           <div style="font-size:26px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
           <div style="font-size:11px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi -5% s/d -20%</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt;0% s/d −20%</div>
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Total varian</span>
+            <span style="font-size:12px;font-weight:700;color:var(--yellow)" id="scGrBawahVar">—</span>
+          </div>
+          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrBawahAvg">—</span>
+          </div>
           <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrBawahGH"></div>
         </div>
 
@@ -1674,7 +1690,15 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         <div class="card" id="grCardKritis" style="padding:14px 18px;border-top:3px solid var(--red);cursor:pointer" onclick="setFilter('kritis',document.getElementById('grBtnAll'))">
           <div style="font-size:26px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
           <div style="font-size:11px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≤ -20%</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt; −20%</div>
+          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Total varian</span>
+            <span style="font-size:12px;font-weight:700;color:var(--red)" id="scGrKritisVar">—</span>
+          </div>
+          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+            <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrKritisAvg">—</span>
+          </div>
           <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrKritisGH"></div>
         </div>
 
@@ -4262,7 +4286,15 @@ function renderGramasi(d) {
   // ── KPI CARDS ──
   // Est. Akhir: hitung per row dari RAW_VARIAN (punya info varian+musim), avg-kan
   const varWithEst = RAW_VARIAN.filter(r => r.targetGramasi > 0 && r.avgGramasi > 0);
-  const estValues  = varWithEst.map(r => estGramasiAkhir(r)).filter(v => v > 0);
+  // Fallback: kalau estGramasiAkhir return 0 (varian tidak ada di STANDAR_GR_MAP),
+  // pakai ratio (avgGramasi / targetGramasi) * targetGramasi sebagai proxy
+  const estValues = varWithEst.map(r => {
+    const est = estGramasiAkhir(r);
+    if (est > 0) return est;
+    // Fallback: proyeksi linear sederhana
+    const ratio = r.avgGramasi / r.targetGramasi;
+    return Math.round(ratio * r.targetGramasi);
+  }).filter(v => v > 0);
   const avgEst     = estValues.length ? Math.round(estValues.reduce((s,v) => s+v, 0) / estValues.length) : 0;
 
   // Target standar rata-rata dari varian aktif
@@ -4349,6 +4381,46 @@ function renderGramasi(d) {
   if (elOn) elOn.textContent = ghOntrack.length;
   if (elBw) elBw.textContent = ghBawah.length;
   if (elKr) elKr.textContent = ghKritis.length;
+
+  // Helper: hitung total varian + avg est akhir per kategori GH
+  function calcVarianStats(ghList) {
+    const rawRow0 = gh => RAW.find(r => r.gh === gh);
+    let totalVarian = 0;
+    let estSum = 0, estCnt = 0;
+    ghList.forEach(gh => {
+      const rawRow = rawRow0(gh);
+      const periode = rawRow ? rawRow.periode : '';
+      const varRows = RAW_VARIAN.filter(r =>
+        r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0 &&
+        (!periode || r.periode === periode)
+      );
+      totalVarian += varRows.length;
+      varRows.forEach(r => {
+        const est = estGramasiAkhir(r);
+        if (est > 0) { estSum += est; estCnt++; }
+        else if (r.avgGramasi > 0 && r.targetGramasi > 0) {
+          // fallback: ratio sederhana
+          estSum += Math.round((r.avgGramasi / r.targetGramasi) * r.targetGramasi);
+          estCnt++;
+        }
+      });
+    });
+    const avgEst = estCnt > 0 ? Math.round(estSum / estCnt) : 0;
+    return { totalVarian, avgEst };
+  }
+
+  const statsOn = calcVarianStats(ghOntrack);
+  const statsBw = calcVarianStats(ghBawah);
+  const statsKr = calcVarianStats(ghKritis);
+
+  const setEl = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setEl('scGrOntrackVar', statsOn.totalVarian > 0 ? statsOn.totalVarian + ' varian' : '—');
+  setEl('scGrOntrackAvg', statsOn.avgEst > 0 ? statsOn.avgEst + ' g' : '—');
+  setEl('scGrBawahVar',   statsBw.totalVarian > 0 ? statsBw.totalVarian + ' varian' : '—');
+  setEl('scGrBawahAvg',   statsBw.avgEst > 0 ? statsBw.avgEst + ' g' : '—');
+  setEl('scGrKritisVar',  statsKr.totalVarian > 0 ? statsKr.totalVarian + ' varian' : '—');
+  setEl('scGrKritisAvg',  statsKr.avgEst > 0 ? statsKr.avgEst + ' g' : '—');
+
   renderGhPills(ghOntrack, 'ontrack', 'scGrOntrackGH');
   renderGhVarianDetail(ghBawah,  'bawah',  'scGrBawahGH');
   renderGhVarianDetail(ghKritis, 'kritis', 'scGrKritisGH');
@@ -4369,22 +4441,32 @@ function renderGramasi(d) {
 
 // ── GH Gramasi Status dari RAW_VARIAN (single source of truth) ──
 // Return: 'ontrack' | 'bawah' | 'kritis' | null (tidak ada data)
-// Threshold: ontrack >= 0%, bawah < 0% s/d -20%, kritis < -20%
-// PENTING: hanya pakai RAW_VARIAN (avgGramasi > 0 + targetGramasi > 0).
-// GH yang variannya tidak muncul di tabel per-varian tidak boleh masuk scorecard.
+// Threshold: ontrack >= 0%, bawah < 0% s/d >= -20%, kritis < -20%
+// GH yang punya target tapi avgGramasi = 0 (belum input) → kritis
+// GH yang sama sekali tidak punya entry di RAW_VARIAN → null (tidak masuk scorecard)
 function ghGrStatus(gh) {
   const rawRow = RAW.find(r => r.gh === gh);
   const periode = rawRow ? rawRow.periode : '';
-  const varRows = RAW_VARIAN.filter(r =>
+
+  // Semua varian untuk GH ini yang punya target (terlepas avgGramasi = 0 atau tidak)
+  const allVarRows = RAW_VARIAN.filter(r =>
     r.gh === gh &&
-    r.avgGramasi > 0 &&
     r.targetGramasi > 0 &&
+    r.avgGramasi !== -1 &&
     (!periode || r.periode === periode)
   );
-  // Tidak ada varian dengan data valid → tidak diklasifikasi (tidak masuk scorecard)
-  if (!varRows.length) return null;
-  // Worst-case varian (konservatif — GH diklasifikasi berdasarkan varian terburuk)
-  const worstDev = Math.min(...varRows.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
+  // Tidak ada varian terdaftar sama sekali → tidak masuk scorecard
+  if (!allVarRows.length) return null;
+
+  // Ada varian tapi avgGramasi = 0 (belum input) → kritis
+  if (allVarRows.some(r => r.avgGramasi === 0)) return 'kritis';
+
+  // Hitung deviasi dari varian yang sudah ada data
+  const varWithData = allVarRows.filter(r => r.avgGramasi > 0);
+  if (!varWithData.length) return 'kritis';
+
+  // Worst-case varian (konservatif)
+  const worstDev = Math.min(...varWithData.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
   if (worstDev >= 0)   return 'ontrack';  // deviasi >= 0%
   if (worstDev >= -20) return 'bawah';    // deviasi < 0% s/d >= -20%
   return 'kritis';                        // deviasi < -20%
