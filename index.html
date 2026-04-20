@@ -1864,8 +1864,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
               <canvas id="grTrendChart" role="img" aria-label="Grafik kenaikan gramasi dengan korelasi cuaca harian">Grafik kenaikan gramasi per HST dengan ikon cuaca harian.</canvas>
               <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data</div>
             </div>
-            <!-- Ikon cuaca per titik — diisi JS -->
-            <div id="grCuacaIconRow" style="display:flex;justify-content:space-around;padding:4px 46px 0;margin-top:2px"></div>
+            <!-- Ikon cuaca dirender langsung di canvas via afterDraw plugin -->
             <!-- Insight korelasi -->
             <div id="grCuacaInsight" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)"></div>
           </div>
@@ -1938,18 +1937,18 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         <div style="overflow-x:auto">
           <table style="width:100%;border-collapse:collapse" id="hptPenyakitTbl">
             <thead><tr style="background:var(--hdr)">
-              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700">GH</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">HST</th>
-              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">PM Intensitas</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
-              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">PM Insidensi</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
-              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">DM Intensitas</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
-              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">DM Insidensi</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
-              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700">GSB</th>
-              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700">Skor</th>
+              <th style="padding:7px 10px;text-align:left;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">GH</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">HST</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">PM Intensitas</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">PM Insidensi</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">DM Intensitas</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">DM Insidensi</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">Skor</th>
+              <th style="padding:7px 8px;text-align:right;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">GSB</th>
+              <th style="padding:7px 8px;text-align:center;font-size:10px;color:var(--hdr-txt);font-weight:700;position:static;background:var(--hdr);border-bottom:none;text-transform:none;letter-spacing:0">Skor</th>
             </tr></thead>
             <tbody id="hptPenyakitBody"><tr><td colspan="12" class="es">Memuat…</td></tr></tbody>
           </table>
@@ -5294,13 +5293,42 @@ function buildGrHistChart(source) {
     };
   });
 
+  // Plugin: gambar ikon cuaca di bawah X-axis setiap titik data
+  const cuacaIconPlugin = {
+    id: 'cuacaIcons',
+    afterDraw(chart) {
+      if (!RAW_CUACA.length) return;
+      const ctx2 = chart.ctx;
+      const xScale = chart.scales.x;
+      if (!xScale) return;
+      // Ambil semua titik HST unik dari dataset pertama
+      const ds = chart.data.datasets[0];
+      if (!ds || !ds.data) return;
+      const pts = ds.data.filter(p => p && p.x != null);
+      ctx2.save();
+      ctx2.font = '13px serif';
+      ctx2.textAlign = 'center';
+      ctx2.textBaseline = 'top';
+      const yBase = chart.chartArea.bottom + 6;
+      pts.forEach(p => {
+        const info = getCuacaForHST(p.x, ghVal, varianVal);
+        if (!info) return;
+        const xPx = xScale.getPixelForValue(p.x);
+        ctx2.fillText(info.icon, xPx, yBase);
+      });
+      ctx2.restore();
+    }
+  };
+
   if (grTrendChartInst) { grTrendChartInst.destroy(); grTrendChartInst = null; }
   grTrendChartInst = new Chart(canvas, {
     type: 'line',
     data: { datasets },
+    plugins: [cuacaIconPlugin],
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      layout: { padding: { bottom: 28 } },
       plugins: {
         legend: { display: true, position: 'top', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } },
         tooltip: {
@@ -5308,15 +5336,15 @@ function buildGrHistChart(source) {
             title: ctx => {
               const hst = ctx[0].parsed.x;
               const cuacaInfo = getCuacaForHST ? getCuacaForHST(hst, ghVal, varianVal) : null;
-              return `HST ${hst}` + (cuacaInfo ? ` · ${cuacaInfo.icon} ${cuacaInfo.cuaca}` : '');
+              return 'HST ' + hst + (cuacaInfo ? ' · ' + cuacaInfo.icon + ' ' + cuacaInfo.cuaca : '');
             },
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g`
+            label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y?.toLocaleString('id-ID') || '—') + ' g'
           }
         }
       },
       scales: {
         x: { type: 'linear', grid: { color: 'rgba(0,0,0,.04)' },
-             ticks: { font: { size: 10 }, color: '#7a957a', stepSize: 1, callback: v => Number.isInteger(v) ? `HST ${v}` : '' } },
+             ticks: { font: { size: 10 }, color: '#7a957a', stepSize: 1, callback: v => Number.isInteger(v) ? 'HST ' + v : '' } },
         y: { grid: { color: 'rgba(0,0,0,.04)' }, beginAtZero: false,
              ticks: { font: { size: 10 }, color: '#7a957a', callback: v => v.toLocaleString('id-ID') + ' g' } }
       }
@@ -5356,27 +5384,12 @@ function getCuacaForHST(hst, gh, varian) {
 }
 
 function renderCuacaOverlay(source, gh, varian) {
-  const iconRow = document.getElementById('grCuacaIconRow');
   const insightEl = document.getElementById('grCuacaInsight');
-  if (!iconRow) return;
 
   if (!RAW_CUACA.length || !source.length) {
-    iconRow.innerHTML = '';
     if (insightEl) insightEl.innerHTML = '';
     return;
   }
-
-  // Kumpulkan semua HST unik dari source (sorted)
-  const hstList = [...new Set(source.map(r => r.hst))].sort((a,b)=>a-b);
-
-  // Render ikon per HST
-  iconRow.innerHTML = hstList.map(hst => {
-    const info = getCuacaForHST(hst, gh, varian);
-    if (!info) return `<div style="flex:1;text-align:center"><span style="font-size:10px;color:var(--text4)">·</span></div>`;
-    return `<div style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px">
-      <span style="font-size:13px;line-height:1">${info.icon}</span>
-    </div>`;
-  }).join('');
 
   // Hitung insight korelasi
   const cerahGr = [], berawanGr = [];
