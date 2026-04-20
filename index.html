@@ -1660,6 +1660,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
           <div style="font-size:11px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≥ 0%</div>
           <div style="margin-top:6px;font-size:11px;color:var(--text3)">Total varian: <b id="scGrOntrackVar" style="color:var(--green-txt)">—</b></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text3)">Avg est. akhir: <b id="scGrOntrackEst" style="color:var(--green-txt)">—</b></div>
           <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:3px" id="scGrOntrackGH"></div>
         </div>
 
@@ -1669,6 +1670,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
           <div style="font-size:11px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt;0% s/d −20%</div>
           <div style="margin-top:6px;font-size:11px;color:var(--text3)">Total varian: <b id="scGrBawahVar" style="color:var(--yellow-txt)">—</b></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text3)">Avg est. akhir: <b id="scGrBawahEst" style="color:var(--yellow-txt)">—</b></div>
           <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrBawahGH"></div>
         </div>
 
@@ -1678,6 +1680,7 @@ input[type="date"]:focus{border-color:var(--green-mid)}
           <div style="font-size:11px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
           <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt; −20%</div>
           <div style="margin-top:6px;font-size:11px;color:var(--text3)">Total varian: <b id="scGrKritisVar" style="color:var(--red-txt)">—</b></div>
+          <div style="margin-top:4px;font-size:11px;color:var(--text3)">Avg est. akhir: <b id="scGrKritisEst" style="color:var(--red-txt)">—</b></div>
           <div style="margin-top:8px;max-height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:2px" id="scGrKritisGH"></div>
         </div>
 
@@ -4360,21 +4363,52 @@ function renderGramasi(d) {
       const rawRow = RAW.find(r => r.gh === gh);
       const periode = rawRow ? rawRow.periode : '';
       total += RAW_VARIAN.filter(r =>
-        r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0 &&
+        r.gh === gh && r.targetGramasi > 0 &&
         (!periode || r.periode === periode)
       ).length;
     });
     return total;
   }
+
+  // Hitung avg est gramasi akhir per kategori — pakai fungsi estGramasiAkhir() yang sama
+  function avgEstForGHs(ghList) {
+    const vals = [];
+    ghList.forEach(gh => {
+      const rawRow = RAW.find(r => r.gh === gh);
+      const periode = rawRow ? rawRow.periode : '';
+      const rows = RAW_VARIAN.filter(r =>
+        r.gh === gh && r.avgGramasi > 0 && r.targetGramasi > 0 &&
+        (!periode || r.periode === periode)
+      );
+      rows.forEach(r => {
+        const est = estGramasiAkhir(r);
+        if (est > 0) vals.push(est);
+      });
+    });
+    if (!vals.length) return null;
+    return Math.round(vals.reduce((s,v) => s+v, 0) / vals.length);
+  }
+
   const varOntrack = countVarianForGHs(ghOntrack);
   const varBawah   = countVarianForGHs(ghBawah);
   const varKritis  = countVarianForGHs(ghKritis);
+  const estOntrack = avgEstForGHs(ghOntrack);
+  const estBawah   = avgEstForGHs(ghBawah);
+  const estKritis  = avgEstForGHs(ghKritis);
+
   const elOnVar = document.getElementById('scGrOntrackVar');
   const elBwVar = document.getElementById('scGrBawahVar');
   const elKrVar = document.getElementById('scGrKritisVar');
   if (elOnVar) elOnVar.textContent = varOntrack + ' varian';
   if (elBwVar) elBwVar.textContent = varBawah   + ' varian';
   if (elKrVar) elKrVar.textContent = varKritis  + ' varian';
+
+  const elOnEst = document.getElementById('scGrOntrackEst');
+  const elBwEst = document.getElementById('scGrBawahEst');
+  const elKrEst = document.getElementById('scGrKritisEst');
+  if (elOnEst) elOnEst.textContent = estOntrack ? estOntrack + ' g' : '—';
+  if (elBwEst) elBwEst.textContent = estBawah   ? estBawah   + ' g' : '—';
+  if (elKrEst) elKrEst.textContent = estKritis  ? estKritis  + ' g' : '—';
 
   renderGhPills(ghOntrack, 'ontrack', 'scGrOntrackGH');
   renderGhVarianDetail(ghBawah,  'bawah',  'scGrBawahGH');
@@ -4400,15 +4434,21 @@ function ghGrStatus(gh) {
   // Cari periode aktif GH ini dari RAW
   const rawRow = RAW.find(r => r.gh === gh);
   const periode = rawRow ? rawRow.periode : '';
-  const varRows = RAW_VARIAN.filter(r =>
+
+  // Semua varian yang punya target (avgGramasi boleh 0)
+  const allVarRows = RAW_VARIAN.filter(r =>
     r.gh === gh &&
-    r.avgGramasi > 0 &&
     r.targetGramasi > 0 &&
     (!periode || r.periode === periode)
   );
-  if (!varRows.length) return null;
-  // Worst-case varian (konservatif)
-  const worstDev = Math.min(...varRows.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
+  if (!allVarRows.length) return null;
+
+  // Varian dengan avgGramasi = 0 → deviasi -100% (kritis otomatis)
+  const hasNoData = allVarRows.some(r => !r.avgGramasi || r.avgGramasi <= 0);
+  if (hasNoData) return 'kritis';
+
+  // Worst-case varian dari yang ada datanya
+  const worstDev = Math.min(...allVarRows.map(r => (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100));
   if (worstDev >= 0)   return 'ontrack';
   if (worstDev > -20)  return 'bawah';
   return 'kritis';
