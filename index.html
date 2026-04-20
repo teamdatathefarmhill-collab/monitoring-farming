@@ -4449,8 +4449,20 @@ function renderGramasi(d) {
     setEl('scGrOntrackBestGH', ghShort(onBestGH[0]));
     setEl('scGrOntrackBestGHDev', 'avg +' + (onBestGH[1].sum/onBestGH[1].cnt).toFixed(1) + '%');
   }
-  // Varian top 3 perform (deviasi tertinggi)
-  const onTop3 = [...onVarAll].sort((a,b)=>b.dev-a.dev).slice(0,3);
+  // Helper: deduplicate per nama varian — ambil yang paling parah (dev terendah) atau terbaik (dev tertinggi)
+  function dedupeByVarian(varList, order) {
+    // order: 'worst' = ambil dev terendah per varian, 'best' = ambil dev tertinggi
+    const map = {};
+    varList.forEach(v => {
+      if (!map[v.varian]) { map[v.varian] = v; return; }
+      if (order === 'worst' && v.dev < map[v.varian].dev) map[v.varian] = v;
+      if (order === 'best'  && v.dev > map[v.varian].dev) map[v.varian] = v;
+    });
+    return Object.values(map);
+  }
+
+  // Varian top 3 perform (deviasi tertinggi, unique per nama varian)
+  const onTop3 = dedupeByVarian(onVarAll, 'best').sort((a,b)=>b.dev-a.dev).slice(0,3);
   renderVarianHighlight(onTop3, 'scGrOntrackVar', 'var(--green-lt)', '#b8dfc4', 'var(--green-txt)', 'var(--green-mid)');
 
   // ── DI BAWAH STANDAR: avg est, GH paling banyak varian drop, varian paling drop ──
@@ -4465,8 +4477,8 @@ function renderGramasi(d) {
     setEl('scGrBawahWorstGH', ghShort(bwWorstGH[0]));
     setEl('scGrBawahWorstGHInfo', bwWorstGH[1] + ' varian drop');
   }
-  // Semua varian yang drop, sorted worst first
-  const bwDropVars = [...bwVarAll].filter(v=>v.dev<0).sort((a,b)=>a.dev-b.dev);
+  // Varian drop: unique per nama varian, ambil yang paling parah, sorted worst first
+  const bwDropVars = dedupeByVarian(bwVarAll.filter(v=>v.dev<0), 'worst').sort((a,b)=>a.dev-b.dev);
   renderVarianHighlight(bwDropVars, 'scGrBawahVar', 'var(--yellow-lt)', '#f5d08a', 'var(--yellow-txt)', 'var(--yellow)');
 
   // ── KRITIS: avg est, GH paling kritis (avg deviasi terburuk), top 3 varian ──
@@ -4481,8 +4493,8 @@ function renderGramasi(d) {
     setEl('scGrKritisWorstGH', ghShort(krWorstGH[0]));
     setEl('scGrKritisWorstGHDev', 'avg ' + (krWorstGH[1].sum/krWorstGH[1].cnt).toFixed(1) + '%');
   }
-  // Top 3 varian paling kritis
-  const krTop3 = [...krVarAll].sort((a,b)=>a.dev-b.dev).slice(0,3);
+  // Top 3 varian paling kritis: unique per nama varian, ambil yang paling parah
+  const krTop3 = dedupeByVarian(krVarAll, 'worst').sort((a,b)=>a.dev-b.dev).slice(0,3);
   renderVarianHighlight(krTop3, 'scGrKritisVar', 'var(--red-lt)', '#f0b0b0', 'var(--red-txt)', 'var(--red)');
 
   renderGhExpand(ghOntrack, 'scGrOntrackGH');
