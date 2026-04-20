@@ -5260,6 +5260,8 @@ function buildGrHistTabel(source) {
 }
 
 function buildGrHistChart(source) {
+  const ghVal     = document.getElementById('grHistGH')?.value     || '';
+  const varianVal = document.getElementById('grHistVarian')?.value || '';
   const canvas = document.getElementById('grTrendChart');
   const empty  = document.getElementById('grTrendEmpty');
   if (!canvas) return;
