@@ -1808,82 +1808,69 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         </div>
       </div>
 
-      <!-- CLIMATE STRIP + TREND GRAMASI -->
-      <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:18px">
-
-        <!-- Log Cuaca dari Google Sheets -->
+      <!-- CUACA + RIWAYAT GRAMASI — digabung satu card -->
+      <div style="margin-bottom:18px">
         <div class="card" style="margin-bottom:0">
-          <div class="card-hd">
+          <div class="card-hd" style="flex-wrap:wrap;gap:8px">
             <div>
-              <div class="card-title">🌤️ Log Cuaca Harian</div>
-              <div class="card-sub" id="cuacaSub">Skor cuaca per hari · Cerah=100 · Cerah Berawan=80 · Berawan=50 · Mendung=25</div>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px">
-              <span id="cuacaLastUpdate" style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">—</span>
-              <button onclick="fetchCuaca(true)" style="background:var(--surface2);border:1.5px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">🔄</button>
-            </div>
-          </div>
-          <!-- Summary strip -->
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border)" id="cuacaSummaryRow">
-            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">☀️</span>
-              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#d4820a" id="cuacaCerahCount">—</div></div>
-            </div>
-            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">⛅</span>
-              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah Berawan</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)" id="cuacaCBCount">—</div></div>
-            </div>
-            <div style="padding:10px 16px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">🌥️</span>
-              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Berawan</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text2)" id="cuacaBerawanCount">—</div></div>
-            </div>
-            <div style="padding:10px 16px;display:flex;align-items:center;gap:8px">
-              <span style="font-size:18px">☁️</span>
-              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Mendung</div><div style="font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--blue)" id="cuacaMendungCount">—</div></div>
-            </div>
-          </div>
-          <!-- Chart -->
-          <div style="padding:16px 20px;height:200px;position:relative">
-            <canvas id="cuacaChart"></canvas>
-            <div id="cuacaEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Memuat data cuaca…</div>
-          </div>
-        </div>
-
-        <!-- Riwayat Kenaikan Bobot per Varian -->
-        <div class="card" style="margin-bottom:0">
-          <div class="card-hd">
-            <div>
-              <div class="card-title">📋 Riwayat Kenaikan Bobot per Varian</div>
-              <div class="card-sub" id="grTrendSub">Record gramasi tiap pengukuran per GH per varian</div>
+              <div class="card-title">🌤️ Cuaca & Riwayat Kenaikan Gramasi</div>
+              <div class="card-sub" id="grTrendSub">Pilih GH + Varian untuk lihat korelasi cuaca dan kenaikan gramasi</div>
             </div>
             <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
-              <!-- Toggle chart / tabel -->
               <div style="display:flex;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:9px;padding:3px">
                 <button class="fbtn active" id="grTrendBtnAll" onclick="setGrTrendMode('tabel',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Tabel</button>
                 <button class="fbtn" id="grTrendBtnVar" onclick="setGrTrendMode('chart',this)" style="padding:4px 10px;border:none;border-radius:6px;font-size:11px">Kurva</button>
               </div>
-              <!-- Filter GH -->
               <select class="si" id="grHistGH" onchange="onGrHistFilterChange()" style="width:150px;padding-left:10px;background-image:none;font-size:11px">
                 <option value="">Semua GH</option>
               </select>
-              <!-- Filter Varian -->
               <select class="si" id="grHistVarian" onchange="onGrHistFilterChange()" style="width:130px;padding-left:10px;background-image:none;font-size:11px">
                 <option value="">Semua Varian</option>
               </select>
+              <span id="cuacaLastUpdate" style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">—</span>
+              <button onclick="fetchCuaca(true)" title="Refresh data cuaca" style="background:var(--surface2);border:1.5px solid var(--border2);color:var(--text2);padding:4px 10px;border-radius:7px;font-size:11px;cursor:pointer;font-family:inherit;font-weight:600">🔄</button>
             </div>
           </div>
-          <!-- Tabel 2 kolom -->
+
+          <!-- Summary strip cuaca -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--border);border-top:1px solid var(--border)" id="cuacaSummaryRow">
+            <div style="padding:8px 14px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">☀️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah</div><div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#d4820a" id="cuacaCerahCount">—</div></div>
+            </div>
+            <div style="padding:8px 14px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">⛅</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Cerah Berawan</div><div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--green)" id="cuacaCBCount">—</div></div>
+            </div>
+            <div style="padding:8px 14px;border-right:1px solid var(--border);display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">🌥️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Berawan</div><div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text2)" id="cuacaBerawanCount">—</div></div>
+            </div>
+            <div style="padding:8px 14px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">☁️</span>
+              <div><div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3)">Mendung</div><div style="font-size:15px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--blue)" id="cuacaMendungCount">—</div></div>
+            </div>
+          </div>
+
+          <!-- Tabel view -->
           <div id="grHistTabel" style="display:grid;grid-template-columns:1fr 1fr;gap:0;border-top:0.5px solid var(--border)">
             <div id="grHistCol1" style="border-right:0.5px solid var(--border);overflow:auto;max-height:320px"></div>
             <div id="grHistCol2" style="overflow:auto;max-height:320px"></div>
           </div>
-          <!-- Chart view -->
-          <div id="grHistChart" style="display:none;padding:16px 20px;height:280px;position:relative">
-            <canvas id="grTrendChart"></canvas>
-            <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data</div>
-          </div>
-        </div>
 
+          <!-- Kurva view: gramasi line + ikon cuaca di bawah -->
+          <div id="grHistChart" style="display:none;padding:16px 20px 8px">
+            <div style="position:relative;width:100%;height:260px">
+              <canvas id="grTrendChart" role="img" aria-label="Grafik kenaikan gramasi dengan korelasi cuaca harian">Grafik kenaikan gramasi per HST dengan ikon cuaca harian.</canvas>
+              <div id="grTrendEmpty" class="es" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)">Belum ada data</div>
+            </div>
+            <!-- Ikon cuaca per titik — diisi JS -->
+            <div id="grCuacaIconRow" style="display:flex;justify-content:space-around;padding:4px 46px 0;margin-top:2px"></div>
+            <!-- Insight korelasi -->
+            <div id="grCuacaInsight" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)"></div>
+          </div>
+
+        </div>
       </div>
 
       <!-- BAR CHART AVG GRAMASI PER VARIAN -->
@@ -5314,7 +5301,16 @@ function buildGrHistChart(source) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: true, position: 'top', labels: { font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12 } },
-        tooltip: { callbacks: { title: ctx => `HST ${ctx[0].parsed.x}`, label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g` } }
+        tooltip: {
+          callbacks: {
+            title: ctx => {
+              const hst = ctx[0].parsed.x;
+              const cuacaInfo = getCuacaForHST ? getCuacaForHST(hst, ghVal, varianVal) : null;
+              return `HST ${hst}` + (cuacaInfo ? ` · ${cuacaInfo.icon} ${cuacaInfo.cuaca}` : '');
+            },
+            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString('id-ID')} g`
+          }
+        }
       },
       scales: {
         x: { type: 'linear', grid: { color: 'rgba(0,0,0,.04)' },
@@ -5324,6 +5320,91 @@ function buildGrHistChart(source) {
       }
     }
   });
+
+  // ── Inject ikon cuaca + insight korelasi ──
+  renderCuacaOverlay(source, ghVal, varianVal);
+}
+
+// Cocokkan data cuaca dengan titik gramasi berdasarkan tanggal pengukuran
+function getCuacaForHST(hst, gh, varian) {
+  // Cari record gramasi hist yang punya tanggal untuk HST ini
+  const rec = RAW_GRAM_HIST.find(r =>
+    (!gh || r.gh === gh) &&
+    (!varian || r.varian === varian) &&
+    Math.round(r.hst) === Math.round(hst) &&
+    r.tgl
+  );
+  if (!rec || !RAW_CUACA.length) return null;
+  // Cari cuaca dominan di tanggal itu
+  const tglRec = rec.tgl.slice(0,10); // yyyy-mm-dd
+  const cuacaHari = RAW_CUACA.filter(c => {
+    const ts = parseCuacaDate(c.dateStr);
+    if (!ts) return false;
+    const d = new Date(ts);
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), dd = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}` === tglRec;
+  });
+  if (!cuacaHari.length) return null;
+  const freq = {};
+  cuacaHari.forEach(c => { freq[c.cuaca] = (freq[c.cuaca]||0)+1; });
+  const cuaca = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+  const cl = cuaca.toLowerCase();
+  const icon = cl==='cerah'?'☀️':cl.includes('cerah')&&cl.includes('berawan')?'⛅':cl==='berawan'?'🌥️':'☁️';
+  return { cuaca, icon };
+}
+
+function renderCuacaOverlay(source, gh, varian) {
+  const iconRow = document.getElementById('grCuacaIconRow');
+  const insightEl = document.getElementById('grCuacaInsight');
+  if (!iconRow) return;
+
+  if (!RAW_CUACA.length || !source.length) {
+    iconRow.innerHTML = '';
+    if (insightEl) insightEl.innerHTML = '';
+    return;
+  }
+
+  // Kumpulkan semua HST unik dari source (sorted)
+  const hstList = [...new Set(source.map(r => r.hst))].sort((a,b)=>a-b);
+
+  // Render ikon per HST
+  iconRow.innerHTML = hstList.map(hst => {
+    const info = getCuacaForHST(hst, gh, varian);
+    if (!info) return `<div style="flex:1;text-align:center"><span style="font-size:10px;color:var(--text4)">·</span></div>`;
+    return `<div style="flex:1;text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px">
+      <span style="font-size:13px;line-height:1">${info.icon}</span>
+    </div>`;
+  }).join('');
+
+  // Hitung insight korelasi
+  const cerahGr = [], berawanGr = [];
+  source.forEach(r => {
+    const info = getCuacaForHST(r.hst, gh, varian);
+    if (!info) return;
+    const cl = info.cuaca.toLowerCase();
+    const isCerah = cl === 'cerah' || (cl.includes('cerah') && cl.includes('berawan'));
+    if (isCerah) cerahGr.push(r.gramasi || r.avgGramasi || 0);
+    else berawanGr.push(r.gramasi || r.avgGramasi || 0);
+  });
+
+  if (!insightEl) return;
+  if (!cerahGr.length && !berawanGr.length) { insightEl.innerHTML = ''; return; }
+
+  const avgCerah   = cerahGr.length   ? Math.round(cerahGr.reduce((s,v)=>s+v,0)/cerahGr.length)   : null;
+  const avgBerawan = berawanGr.length ? Math.round(berawanGr.reduce((s,v)=>s+v,0)/berawanGr.length) : null;
+  const diff = avgCerah && avgBerawan ? Math.round((avgCerah - avgBerawan) / avgBerawan * 100) : null;
+
+  const card = (lbl, val, note, col) =>
+    `<div style="background:var(--surface2);border-radius:8px;padding:8px 12px">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:3px">${lbl}</div>
+      <div style="font-size:13px;font-weight:700;color:${col}">${val}</div>
+      <div style="font-size:10px;color:var(--text3);margin-top:2px">${note}</div>
+    </div>`;
+
+  insightEl.innerHTML =
+    (avgCerah   ? card('☀️ Hari cerah · avg gramasi',   avgCerah   + ' g', cerahGr.length   + ' titik data', '#d4820a') : '') +
+    (avgBerawan ? card('☁️ Berawan/mendung · avg gramasi', avgBerawan + ' g', berawanGr.length + ' titik data', '#7a957a') : '') +
+    (diff !== null ? card('Dampak cuaca cerah', (diff > 0 ? '+' : '') + diff + '% lebih tinggi', 'vs hari berawan/mendung', diff > 0 ? 'var(--green-mid)' : 'var(--red)') : '');
 }
 
 // ── LOG CUACA ──
@@ -5441,12 +5522,21 @@ function renderCuaca() {
   const upd = document.getElementById('cuacaLastUpdate');
   if (upd) upd.textContent = 'Update: ' + (sorted[sorted.length - 1]?.[0] || '—');
 
-  // Render chart
+  // cuacaChart standalone dihapus — chart cuaca sekarang overlay di grTrendChart
+  // Tetap simpan RAW_CUACA dan update summary counts, tapi tidak render chart terpisah
   const canvas = document.getElementById('cuacaChart');
   const empty  = document.getElementById('cuacaEmpty');
-  if (!canvas) return;
   if (empty) empty.style.display = 'none';
-
+  if (!canvas) {
+    // Refresh overlay jika kurva gramasi sedang aktif
+    const src = RAW_GRAM_HIST || [];
+    const gh  = document.getElementById('grHistGH')?.value || '';
+    const vr  = document.getElementById('grHistVarian')?.value || '';
+    if (document.getElementById('grHistChart')?.style.display !== 'none') {
+      renderCuacaOverlay(src, gh, vr);
+    }
+    return;
+  }
   if (cuacaChartInst) { cuacaChartInst.destroy(); cuacaChartInst = null; }
 
   // Emoji ikon per cuaca dominan untuk label
