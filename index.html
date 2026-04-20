@@ -1655,51 +1655,60 @@ input[type="date"]:focus{border-color:var(--green-mid)}
         </div>
 
         <!-- On Track -->
-        <div class="card" id="grCardOntrack" style="padding:14px 18px;border-top:3px solid var(--green-mid);cursor:pointer" onclick="setFilter('ontrack',document.getElementById('grBtnAll'))">
-          <div style="font-size:26px;font-weight:700;color:var(--green-mid)" id="scGrOntrack">—</div>
-          <div style="font-size:11px;font-weight:700;color:var(--green-txt);margin-top:2px">On Track</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi ≥ 0%</div>
-          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+        <div class="card" id="grCardOntrack" style="padding:14px 16px;border-top:3px solid var(--green-mid)">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">On Track</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--green-lt);color:var(--green-txt);font-weight:700;display:inline-block;margin-bottom:8px">Deviasi ≥ 0%</span>
+          <div style="font-size:26px;font-weight:700;color:var(--green-mid);line-height:1;margin-bottom:8px" id="scGrOntrack">—</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px">
             <span style="font-size:10px;color:var(--text3)">Total varian</span>
             <span style="font-size:12px;font-weight:700;color:var(--green-mid)" id="scGrOntrackVar">—</span>
           </div>
-          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:8px">
             <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
             <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrOntrackAvg">—</span>
           </div>
-          <div style="margin-top:8px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:0" id="scGrOntrackGH"></div>
+          <div style="border-top:0.5px solid var(--border);padding-top:8px">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:5px">Klik GH untuk filter tabel</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px" id="scGrOntrackGH"></div>
+          </div>
         </div>
 
         <!-- Di Bawah Standar -->
-        <div class="card" id="grCardBawah" style="padding:14px 18px;border-top:3px solid var(--yellow);cursor:pointer" onclick="setFilter('bawah',document.getElementById('grBtnAll'))">
-          <div style="font-size:26px;font-weight:700;color:var(--yellow)" id="scGrBawah">—</div>
-          <div style="font-size:11px;font-weight:700;color:var(--yellow-txt);margin-top:2px">Di Bawah Standar</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt;0% s/d −20%</div>
-          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+        <div class="card" id="grCardBawah" style="padding:14px 16px;border-top:3px solid var(--yellow)">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Di Bawah Standar</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--yellow-lt);color:var(--yellow-txt);font-weight:700;display:inline-block;margin-bottom:8px">Deviasi &lt;0% s/d −20%</span>
+          <div style="font-size:26px;font-weight:700;color:var(--yellow);line-height:1;margin-bottom:8px" id="scGrBawah">—</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px">
             <span style="font-size:10px;color:var(--text3)">Total varian</span>
             <span style="font-size:12px;font-weight:700;color:var(--yellow)" id="scGrBawahVar">—</span>
           </div>
-          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:8px">
             <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
             <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrBawahAvg">—</span>
           </div>
-          <div style="margin-top:8px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:0" id="scGrBawahGH"></div>
+          <div style="border-top:0.5px solid var(--border);padding-top:8px">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:5px">Klik GH untuk filter tabel</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px" id="scGrBawahGH"></div>
+          </div>
         </div>
 
         <!-- Kritis -->
-        <div class="card" id="grCardKritis" style="padding:14px 18px;border-top:3px solid var(--red);cursor:pointer" onclick="setFilter('kritis',document.getElementById('grBtnAll'))">
-          <div style="font-size:26px;font-weight:700;color:var(--red)" id="scGrKritis">—</div>
-          <div style="font-size:11px;font-weight:700;color:var(--red-txt);margin-top:2px">Kritis</div>
-          <div style="font-size:10px;color:var(--text3);margin-top:2px">Deviasi &lt; −20%</div>
-          <div style="margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+        <div class="card" id="grCardKritis" style="padding:14px 16px;border-top:3px solid var(--red)">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Kritis</div>
+          <span style="font-size:10px;padding:2px 7px;border-radius:4px;background:var(--red-lt);color:var(--red-txt);font-weight:700;display:inline-block;margin-bottom:8px">Deviasi &lt; −20%</span>
+          <div style="font-size:26px;font-weight:700;color:var(--red);line-height:1;margin-bottom:8px" id="scGrKritis">—</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:4px">
             <span style="font-size:10px;color:var(--text3)">Total varian</span>
             <span style="font-size:12px;font-weight:700;color:var(--red)" id="scGrKritisVar">—</span>
           </div>
-          <div style="margin-top:4px;display:flex;align-items:center;justify-content:space-between;gap:6px;padding:6px 8px;background:var(--surface2);border-radius:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 8px;background:var(--surface2);border-radius:6px;margin-bottom:8px">
             <span style="font-size:10px;color:var(--text3)">Avg est. akhir</span>
             <span style="font-size:12px;font-weight:700;color:var(--text)" id="scGrKritisAvg">—</span>
           </div>
-          <div style="margin-top:8px;max-height:180px;overflow-y:auto;display:flex;flex-direction:column;gap:0" id="scGrKritisGH"></div>
+          <div style="border-top:0.5px solid var(--border);padding-top:8px">
+            <div style="font-size:9px;color:var(--text3);margin-bottom:5px">Klik GH untuk filter tabel</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px" id="scGrKritisGH"></div>
+          </div>
         </div>
 
       </div>
@@ -1739,12 +1748,6 @@ input[type="date"]:focus{border-color:var(--green-mid)}
                 <option value="DRIP">💧 Drip</option>
                 <option value="KOLAM">🏊 Kolam</option>
                 <option value="DUTCH_BUCKET">🪣 Dutch Bucket</option>
-              </select>
-            </div>
-            <!-- Filter GH -->
-            <div id="wrapFilterGH">
-              <select class="si" id="grFilterGH" onchange="rebuildGramasi()" style="width:150px;padding-left:10px;background-image:none">
-                <option value="">Semua GH</option>
               </select>
             </div>
             <!-- Search -->
@@ -4336,70 +4339,26 @@ function renderGramasi(d) {
     return                  { col:'var(--red)', bar:'var(--red)' };
   }
 
-  // Render expandable GH list — dipakai untuk semua 3 kategori
+  // Render GH chips — klik chip untuk filter tabel ke GH tersebut
   function renderGhExpand(ghList, elId) {
     const el = document.getElementById(elId); if (!el) return;
-    if (!ghList.length) { el.innerHTML = ''; return; }
+    if (!ghList.length) { el.innerHTML = '<span style="font-size:11px;color:var(--text4)">—</span>'; return; }
 
-    el.innerHTML = ghList.map((gh, idx) => {
-      const rawRow = RAW.find(r => r.gh === gh);
-      const periode = rawRow ? rawRow.periode : '';
+    const cat = elId.includes('Ontrack') ? 'ontrack' : elId.includes('Bawah') ? 'bawah' : 'kritis';
+    const bg  = cat==='ontrack' ? 'var(--green-lt)'  : cat==='bawah' ? 'var(--yellow-lt)'  : 'var(--red-lt)';
+    const col = cat==='ontrack' ? 'var(--green-txt)' : cat==='bawah' ? 'var(--yellow-txt)' : 'var(--red-txt)';
+    const bc  = cat==='ontrack' ? '#b8dfc4'          : cat==='bawah' ? '#f5d08a'           : '#f0b0b0';
+
+    el.innerHTML = ghList.map(gh => {
       const dot = CC[clOf(gh)] || '#999';
-
-      // Ambil semua varian (termasuk avgGramasi = 0)
-      const varRows = RAW_VARIAN.filter(r =>
-        r.gh === gh && r.targetGramasi > 0 && r.avgGramasi !== -1 &&
-        (!periode || r.periode === periode)
-      ).sort((a,b) => {
-        const da = a.avgGramasi > 0 ? (a.avgGramasi - a.targetGramasi)/a.targetGramasi*100 : -999;
-        const db = b.avgGramasi > 0 ? (b.avgGramasi - b.targetGramasi)/b.targetGramasi*100 : -999;
-        return da - db;
-      });
-
-      // Tidak ada di RAW_VARIAN → cek RAW
-      const noVarData = !varRows.length;
-
-      const maxGr = Math.max(...varRows.filter(r=>r.avgGramasi>0).map(r=>r.avgGramasi), 1);
-
-      const varHtml = noVarData
-        ? `<div style="font-size:11px;color:var(--red);padding:4px 0">Belum ada pengamatan gramasi</div>`
-        : varRows.map(r => {
-            const dev = r.avgGramasi > 0 && r.targetGramasi > 0
-              ? (r.avgGramasi - r.targetGramasi) / r.targetGramasi * 100 : null;
-            const vc  = varColor(dev);
-            const w   = r.avgGramasi > 0 ? Math.max(4, Math.round(r.avgGramasi / maxGr * 100)) : 3;
-            const devStr = dev !== null ? (dev >= 0 ? '+' : '') + dev.toFixed(1) + '%' : '—';
-            const grStr  = r.avgGramasi > 0 ? r.avgGramasi + ' g' : '0 g';
-            return `<div style="display:flex;align-items:center;gap:6px;padding:3px 0">
-              <span style="font-size:11px;color:var(--text2);width:82px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.varian||'—'}</span>
-              <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
-                <div style="width:${w}%;height:100%;background:${vc.bar};border-radius:3px"></div>
-              </div>
-              <span style="font-size:11px;font-weight:700;color:${vc.col};width:46px;text-align:right;flex-shrink:0">${grStr}</span>
-              <span style="font-size:10px;font-weight:700;color:${vc.col};width:44px;text-align:right;flex-shrink:0">${devStr}</span>
-            </div>`;
-          }).join('');
-
-      const rowId = 'ghexp_' + elId + '_' + idx;
-      return `<div style="border:0.5px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:4px">
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--surface2);cursor:pointer"
-             onclick="(function(el){
-               const d=el.nextElementSibling;
-               const a=el.querySelector('.ghexp-arrow');
-               const open=d.style.display==='none'||!d.style.display;
-               d.style.display=open?'block':'none';
-               a.style.transform=open?'rotate(90deg)':'rotate(0deg)';
-             })(this)">
-          <div style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--text)">
-            <span style="width:7px;height:7px;border-radius:50%;background:${dot};flex-shrink:0;display:inline-block"></span>
-            ${ghShort(gh)}
-          </div>
-          <span class="ghexp-arrow" style="font-size:12px;color:var(--text3);transition:transform .15s">›</span>
-        </div>
-        <div style="display:none;padding:8px 10px;border-top:0.5px solid var(--border)">
-          ${varHtml}
-        </div>
-      </div>`;
+      return `<span
+        onclick="grFilterByGH('${gh}')"
+        title="${gh}"
+        style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:6px;background:${bg};color:${col};border:0.5px solid ${bc};cursor:pointer;white-space:nowrap;transition:opacity .15s"
+        onmouseover="this.style.opacity='.7'" onmouseout="this.style.opacity='1'">
+        <span style="width:6px;height:6px;border-radius:50%;background:${dot};display:inline-block;flex-shrink:0"></span>
+        ${ghShort(gh)}
+      </span>`;
     }).join('');
   }
 
@@ -4461,15 +4420,12 @@ function renderGramasi(d) {
   renderGhExpand(ghKritis,  'scGrKritisGH');
 
   // ── POPULATE DROPDOWNS ──
-  const ghSel  = document.getElementById('grFilterGH');
   const varSel = document.getElementById('grFilterVarian');
-  const prevGH = ghSel.value, prevVar = varSel.value;
-  const ghList  = [...new Set(wGr.map(r => r.gh))].sort();
+  const prevVar = varSel ? varSel.value : '';
   const varList = [...new Set(
     (RAW_VARIAN.length ? RAW_VARIAN : wGr).map(r => r.varian).filter(Boolean)
   )].sort();
-  ghSel.innerHTML  = '<option value="">Semua GH</option>'     + ghList.map(g => `<option value="${g}" ${g===prevGH?'selected':''}>${g}</option>`).join('');
-  varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v => `<option value="${v}" ${v===prevVar?'selected':''}>${v}</option>`).join('');
+  if (varSel) varSel.innerHTML = '<option value="">Semua Varian</option>' + varList.map(v => `<option value="${v}" ${v===prevVar?'selected':''}>${v}</option>`).join('');
 
   rebuildGramasi();
 }
@@ -4513,7 +4469,7 @@ function ghGrStatus(gh) {
 
 function rebuildGramasi() {
   const mode    = grViewMode; // 'all' | 'gh'
-  const ghVal   = document.getElementById('grFilterGH')?.value  || '';
+  const ghVal   = grFilteredGH; // dari chip card (dropdown GH dihapus)
   const varVal  = document.getElementById('grFilterVarian')?.value || '';
   const tipeVal = document.getElementById('grFilterTipe')?.value || '';
   const qGr     = (document.getElementById('srchGr')?.value || '').toLowerCase().trim();
@@ -4847,16 +4803,37 @@ function switchPage(page) {
 
 // ── GR VIEW MODE ──
 let grViewMode = 'all'; // 'all' | 'gh' | 'varian'
+let grFilteredGH = ''; // GH yang dipilih dari chip card (menggantikan dropdown)
+
+function grFilterByGH(gh) {
+  // Toggle: klik GH yang sama → reset filter
+  grFilteredGH = grFilteredGH === gh ? '' : gh;
+  // Reset search box supaya tidak conflict
+  const srch = document.getElementById('srchGr');
+  if (srch) srch.value = '';
+  // Highlight chip yang aktif
+  ['scGrOntrackGH','scGrBawahGH','scGrKritisGH'].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.querySelectorAll('span[onclick]').forEach(chip => {
+      const isActive = chip.getAttribute('onclick').includes("'" + grFilteredGH + "'") && grFilteredGH !== '';
+      chip.style.outline = isActive ? '2px solid currentColor' : 'none';
+      chip.style.opacity = (!grFilteredGH || isActive) ? '1' : '0.5';
+    });
+  });
+  rebuildGramasi();
+  // Scroll ke tabel
+  const tbl = document.getElementById('tBodyGr');
+  if (tbl) tbl.closest('.card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 
 function setGrView(mode, el) {
   grViewMode = mode;
+  grFilteredGH = ''; // reset chip filter saat ganti view mode
   document.querySelectorAll('#vmAll,#vmGH').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
 
-  const wGH   = document.getElementById('wrapFilterGH');
   const wVar  = document.getElementById('wrapFilterVarian');
   const wSrch = document.getElementById('wrapSrchGr');
-  const ghSel  = document.getElementById('grFilterGH');
   const varSel = document.getElementById('grFilterVarian');
 
   if (mode === 'gh') {
@@ -4883,7 +4860,7 @@ function renderVarianChart(activeGHs) {
   if (!el) return;
 
   // Filter RAW_VARIAN berdasarkan GH yang sedang aktif di view (respek filter GH)
-  const ghVal = document.getElementById('grFilterGH')?.value || '';
+  const ghVal = grFilteredGH;
   let source = RAW_VARIAN.filter(r => activeGHs.has(r.gh) && r.avgGramasi > 0);
   if (ghVal) source = source.filter(r => r.gh === ghVal);
 
